@@ -3,7 +3,7 @@
 //
 //   node tools/build.mjs [--watch]
 //
-// - copies manifest, src/, icons/
+// - copies manifest, src/, icons/ (and inlines the icon into the indicator)
 // - bundles the speech worker (transformers.js + onnxruntime-web) with esbuild
 // - copies onnxruntime's WASM runtime, so nothing is fetched from a CDN
 // - copies the bundled models listed in models/models.json ("bundled": true)
@@ -43,6 +43,15 @@ export async function build() {
     recursive: true, filter: p => !p.startsWith(join(ROOT, 'src/worker')),
   });
   await cp(join(ROOT, 'icons'), join(OUT, 'icons'), { recursive: true });
+
+  // Inline the icon into the indicator, so the page never has to load a
+  // file from the extension (that would need web_accessible_resources).
+  const icon = (await readFile(join(ROOT, 'icons/icon.svg'), 'utf8')).trim();
+  const indicator = join(OUT, 'src/content/indicator.js');
+  const src = await readFile(indicator, 'utf8');
+  const marker = "  const ICON_SVG = '';";
+  if (!src.includes(marker)) throw new Error('indicator.js: ICON_SVG marker not found');
+  await writeFile(indicator, src.replace(marker, `  const ICON_SVG = ${JSON.stringify(icon)};`));
 
   await esbuild.build({
     entryPoints: [join(ROOT, 'src/worker/asr-worker.js')],

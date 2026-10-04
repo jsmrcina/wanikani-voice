@@ -193,13 +193,23 @@ while holding PTT cancels the recording. The content script matches all of
 
 ### 2.7 Indicator — built, `src/content/indicator.js`
 
-A 40 px mic badge at **top: 72 px, right: 16 px** (to be checked against the
-real header), in a closed shadow root. Red pulsing = listening, spinner =
-processing, amber = error, crossed-out = paused/unsupported. Beside it: an
-`EN` / `かな` mode tag and a status bubble (hint, transcript, or error).
-Click to pause/resume. **Alt+Shift+V** toggles too (manifest `commands`).
-While the recognizer is `fake`, a test-utterance field sits under the badge.
-State is mirrored to `data-state` / `data-mode` on the host element for tests.
+A bordered panel at **top: 72 px, right: 16 px**, which clears the live
+header's statistics. It lives in a closed shadow root. One row holds the
+add-on icon, the status message (hint, transcript or error), the `EN` /
+`かな` mode tag and a round mic button. Reading choices and the test-mode
+field appear below it when they apply.
+- **The panel border shows state:** red when listening, blue when processing,
+  green when filled, amber on an error. The mic button pulses while
+  listening, spins while processing, and is crossed out when paused or
+  unsupported.
+- **Light and dark** follow `prefers-color-scheme`.
+- **The icon** (`icons/icon.svg`, made by `tools/make-icon.py`: a microphone
+  with an overlapping あ outlined from Noto Sans CJK JP Black) is inlined by
+  `tools/build.mjs`, so the page never loads extension files.
+- Click the mic to pause or resume. **Alt+Shift+V** toggles too (manifest
+  `commands`).
+- State is mirrored to `data-state`, `data-mode`, `data-choices` and
+  `data-selected` on the host element, for tests.
 
 ---
 
@@ -232,6 +242,7 @@ tools/fetch-models.mjs         downloads pinned, hash-checked models (models/mod
 tools/eval-asr.mjs             offline accuracy on recordings (S5)
 tools/recorder/                local page for recording evaluation clips
 tools/make-test-audio.py       synthetic TTS fixtures (Piper)
+tools/make-icon.py             generates icons/icon.svg (mic + あ)
 tools/export-dual-ctc.py       exports the hiragana model to ONNX (+ partial int8)
 tools/export-ctc.py            generic CTC export (optimum), for other candidates
 tools/eval-ja-torch.py         S4 comparison of hiragana models in PyTorch
@@ -386,6 +397,20 @@ after normalisation:
   give runs of 120–300 ms; the push-to-talk key's click and other bumps stay
   ≤ 80 ms. Threshold: 100 ms. Thin margin, so see Phase 4 (Silero VAD).
 
+**Addendum (after live testing, 2026-10-04):** 了解 lost its ょ and 西欧 its
+long vowels. Six more raw recordings (せいおう, りょうかい, ちょっと, きって,
+しゅっぱつ, じょうず) showed:
+- **Small っ and ょ themselves are fine:** ちょっと and きって come out exactly.
+- **りょ → よ in every model** (distilhubert よかい, WavLM よーかい,
+  wav2vec2-large るようをかい). The r is very soft in these recordings.
+- **せいおう → せよ,** with せいよう (西洋) among the choices.
+- Totals on 31 readings: distilhubert 12/31 first choice, right reading
+  offered 13/31; WavLM 10/31, so a bigger model doesn't help.
+- A blank penalty (to keep short sounds) hurt as the main decode and showed
+  no gain as an extra alternative, so it was not kept.
+- The fix that targets this is adapting the model to your voice: Phase 4,
+  fine-tuning.
+
 ### Phase 3 — Japanese (built)
 `models/distilhubert-hiragana/` (exported, Git LFS; the vocabulary is in
 `config.json`), `src/worker/ctc.js` (prefix beam search), `recognizeCtc` in
@@ -396,6 +421,20 @@ so typing a correction works normally. Choices clear on grading. Test mode
 accepts `a|b|c` to simulate alternatives.
 
 ### Phase 4 — UX and robustness
+- **Fine-tune the hiragana model on your voice** (requested 2026-10-04).
+  - Record a few hundred readings with `tools/recorder`, e.g. WaniKani
+    readings up to your level, said naturally.
+  - Fine-tune distilhubert-hiragana's kana CTC head (and possibly the top
+    encoder layers) locally. Re-export with
+    `tools/export-dual-ctc.py`.
+  - Measure on a held-out set of your recordings plus the current 31.
+  - **Goal:** your りょ, せいおう and vowels map to the intended kana.
+  - **Trade-off:** it learns your accent as correct. That's fine for a
+    personal tool, since WaniKani tests knowing the reading, not
+    pronunciation.
+  - **Open:** ship it as a personal model (not in the public build), or
+    as an optional "adapt to my voice" step that trains in-browser, which
+    is a much bigger job.
 - Silero VAD (~2 MB ONNX) to tell speech from key clicks, instead of the
   energy threshold's thin margin.
 - Alternatives for English too (Whisper beam / n-best), e.g. eye / I.
@@ -449,7 +488,6 @@ Sign as unlisted on AMO, or list publicly (§6).
 
 ## 7. Open questions
 
-1. **Live check:** load `build/` in your Firefox and try a few reviews in
-   both languages (S1 smoke test plus S3).
-2. **Phase 4 priorities:** Silero VAD, English alternatives, or something
-   you notice in the live check.
+1. **Fine-tuning:** how to ship a voice-adapted model (personal build vs
+   in-browser adaptation), and when to record the training set.
+2. **Phase 4 order:** fine-tuning first, or Silero VAD / English alternatives.

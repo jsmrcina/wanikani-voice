@@ -100,6 +100,9 @@ class Browser:
         if not headed:
             opts.add_argument("-headless")
         opts.set_preference("extensions.webextensions.uuids", json.dumps({ADDON_ID: ADDON_UUID}))
+        if os.environ.get("WKV_THEME"):  # screenshots: force light or dark
+            opts.set_preference("layout.css.prefers-color-scheme.content-override",
+                                0 if os.environ["WKV_THEME"] == "dark" else 1)
         # Nothing but localhost is reachable: a dead proxy for everything else.
         for scheme in ("http", "ssl"):
             opts.set_preference(f"network.proxy.{scheme}", "127.0.0.1")

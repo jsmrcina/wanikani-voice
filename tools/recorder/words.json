@@ -1,61 +1,330 @@
 {
-  "comment": "Words to record for recognizer evaluation. 'say' is shown to the speaker, 'expected' is the normalised answer the extension should produce. English mirrors WaniKani meanings/radical names (incl. numbers, using the 0-10 words / 11+ numerals rule). Japanese are JLPT N5/N4 readings chosen to cover single-mora answers, じん/にん/ひと-style ambiguity, long vowels, small っ, yōon and rendaku. The two 'noise' clips check that silence and filler don't produce an answer.",
+  "comment": "Words to record for recognizer evaluation. 'say' is shown to the speaker, 'expected' is the normalised answer the extension should produce. English mirrors WaniKani meanings/radical names (incl. numbers, using the 0-10 words / 11+ numerals rule). Japanese are JLPT N5/N4 readings chosen to cover single-mora answers, じん/にん/ひと-style ambiguity, long vowels, small っ, yōon and rendaku. The two 'noise' clips check that silence and filler don't produce an answer. Added 2026-10-04 after live testing: words with long vowels, small っ and small ゃゅょ, which the hiragana model tends to drop.",
   "en": [
-    { "slug": "fire", "say": "fire", "expected": "fire" },
-    { "slug": "water", "say": "water", "expected": "water" },
-    { "slug": "person", "say": "person", "expected": "person" },
-    { "slug": "mouth", "say": "mouth", "expected": "mouth" },
-    { "slug": "big", "say": "big", "expected": "big" },
-    { "slug": "small", "say": "small", "expected": "small" },
-    { "slug": "mountain", "say": "mountain", "expected": "mountain" },
-    { "slug": "tree", "say": "tree", "expected": "tree" },
-    { "slug": "rice-field", "say": "rice field", "expected": "rice field" },
-    { "slug": "power", "say": "power", "expected": "power" },
-    { "slug": "inside", "say": "inside", "expected": "inside" },
-    { "slug": "above", "say": "above", "expected": "above" },
-    { "slug": "below", "say": "below", "expected": "below" },
-    { "slug": "sun", "say": "sun", "expected": "sun" },
-    { "slug": "moon", "say": "moon", "expected": "moon" },
-    { "slug": "eye", "say": "eye", "expected": "eye" },
-    { "slug": "hand", "say": "hand", "expected": "hand" },
-    { "slug": "king", "say": "king", "expected": "king" },
-    { "slug": "jewel", "say": "jewel", "expected": "jewel" },
-    { "slug": "ground", "say": "ground", "expected": "ground" },
-    { "slug": "turtle", "say": "turtle", "expected": "turtle" },
-    { "slug": "to-eat", "say": "to eat", "expected": "to eat" },
-    { "slug": "one-person", "say": "one person", "expected": "one person" },
-    { "slug": "four", "say": "four", "expected": "four" },
-    { "slug": "twenty-one", "say": "twenty one", "expected": "21" }
+    {
+      "slug": "fire",
+      "say": "fire",
+      "expected": "fire"
+    },
+    {
+      "slug": "water",
+      "say": "water",
+      "expected": "water"
+    },
+    {
+      "slug": "person",
+      "say": "person",
+      "expected": "person"
+    },
+    {
+      "slug": "mouth",
+      "say": "mouth",
+      "expected": "mouth"
+    },
+    {
+      "slug": "big",
+      "say": "big",
+      "expected": "big"
+    },
+    {
+      "slug": "small",
+      "say": "small",
+      "expected": "small"
+    },
+    {
+      "slug": "mountain",
+      "say": "mountain",
+      "expected": "mountain"
+    },
+    {
+      "slug": "tree",
+      "say": "tree",
+      "expected": "tree"
+    },
+    {
+      "slug": "rice-field",
+      "say": "rice field",
+      "expected": "rice field"
+    },
+    {
+      "slug": "power",
+      "say": "power",
+      "expected": "power"
+    },
+    {
+      "slug": "inside",
+      "say": "inside",
+      "expected": "inside"
+    },
+    {
+      "slug": "above",
+      "say": "above",
+      "expected": "above"
+    },
+    {
+      "slug": "below",
+      "say": "below",
+      "expected": "below"
+    },
+    {
+      "slug": "sun",
+      "say": "sun",
+      "expected": "sun"
+    },
+    {
+      "slug": "moon",
+      "say": "moon",
+      "expected": "moon"
+    },
+    {
+      "slug": "eye",
+      "say": "eye",
+      "expected": "eye"
+    },
+    {
+      "slug": "hand",
+      "say": "hand",
+      "expected": "hand"
+    },
+    {
+      "slug": "king",
+      "say": "king",
+      "expected": "king"
+    },
+    {
+      "slug": "jewel",
+      "say": "jewel",
+      "expected": "jewel"
+    },
+    {
+      "slug": "ground",
+      "say": "ground",
+      "expected": "ground"
+    },
+    {
+      "slug": "turtle",
+      "say": "turtle",
+      "expected": "turtle"
+    },
+    {
+      "slug": "to-eat",
+      "say": "to eat",
+      "expected": "to eat"
+    },
+    {
+      "slug": "one-person",
+      "say": "one person",
+      "expected": "one person"
+    },
+    {
+      "slug": "four",
+      "say": "four",
+      "expected": "four"
+    },
+    {
+      "slug": "twenty-one",
+      "say": "twenty one",
+      "expected": "21"
+    }
   ],
   "ja": [
-    { "slug": "jin", "say": "じん", "hint": "人 (on'yomi)", "expected": "じん" },
-    { "slug": "nin", "say": "にん", "hint": "人 (on'yomi)", "expected": "にん" },
-    { "slug": "hito", "say": "ひと", "hint": "人", "expected": "ひと" },
-    { "slug": "ki", "say": "き", "hint": "木", "expected": "き" },
-    { "slug": "ka", "say": "か", "hint": "火", "expected": "か" },
-    { "slug": "mizu", "say": "みず", "hint": "水", "expected": "みず" },
-    { "slug": "yama", "say": "やま", "hint": "山", "expected": "やま" },
-    { "slug": "kuchi", "say": "くち", "hint": "口", "expected": "くち" },
-    { "slug": "me", "say": "め", "hint": "目", "expected": "め" },
-    { "slug": "te", "say": "て", "hint": "手", "expected": "て" },
-    { "slug": "ookii", "say": "おおきい", "hint": "大きい", "expected": "おおきい" },
-    { "slug": "chiisai", "say": "ちいさい", "hint": "小さい", "expected": "ちいさい" },
-    { "slug": "otona", "say": "おとな", "hint": "大人", "expected": "おとな" },
-    { "slug": "gakkou", "say": "がっこう", "hint": "学校", "expected": "がっこう" },
-    { "slug": "sensei", "say": "せんせい", "hint": "先生", "expected": "せんせい" },
-    { "slug": "tomodachi", "say": "ともだち", "hint": "友達", "expected": "ともだち" },
-    { "slug": "densha", "say": "でんしゃ", "hint": "電車", "expected": "でんしゃ" },
-    { "slug": "shukudai", "say": "しゅくだい", "hint": "宿題", "expected": "しゅくだい" },
-    { "slug": "ryokou", "say": "りょこう", "hint": "旅行", "expected": "りょこう" },
-    { "slug": "byouin", "say": "びょういん", "hint": "病院", "expected": "びょういん" },
-    { "slug": "kyou", "say": "きょう", "hint": "今日", "expected": "きょう" },
-    { "slug": "juu", "say": "じゅう", "hint": "十", "expected": "じゅう" },
-    { "slug": "hyaku", "say": "ひゃく", "hint": "百", "expected": "ひゃく" },
-    { "slug": "sanbyaku", "say": "さんびゃく", "hint": "三百", "expected": "さんびゃく" },
-    { "slug": "ippun", "say": "いっぷん", "hint": "一分", "expected": "いっぷん" }
+    {
+      "slug": "jin",
+      "say": "じん",
+      "hint": "人 (on'yomi)",
+      "expected": "じん"
+    },
+    {
+      "slug": "nin",
+      "say": "にん",
+      "hint": "人 (on'yomi)",
+      "expected": "にん"
+    },
+    {
+      "slug": "hito",
+      "say": "ひと",
+      "hint": "人",
+      "expected": "ひと"
+    },
+    {
+      "slug": "ki",
+      "say": "き",
+      "hint": "木",
+      "expected": "き"
+    },
+    {
+      "slug": "ka",
+      "say": "か",
+      "hint": "火",
+      "expected": "か"
+    },
+    {
+      "slug": "mizu",
+      "say": "みず",
+      "hint": "水",
+      "expected": "みず"
+    },
+    {
+      "slug": "yama",
+      "say": "やま",
+      "hint": "山",
+      "expected": "やま"
+    },
+    {
+      "slug": "kuchi",
+      "say": "くち",
+      "hint": "口",
+      "expected": "くち"
+    },
+    {
+      "slug": "me",
+      "say": "め",
+      "hint": "目",
+      "expected": "め"
+    },
+    {
+      "slug": "te",
+      "say": "て",
+      "hint": "手",
+      "expected": "て"
+    },
+    {
+      "slug": "ookii",
+      "say": "おおきい",
+      "hint": "大きい",
+      "expected": "おおきい"
+    },
+    {
+      "slug": "chiisai",
+      "say": "ちいさい",
+      "hint": "小さい",
+      "expected": "ちいさい"
+    },
+    {
+      "slug": "otona",
+      "say": "おとな",
+      "hint": "大人",
+      "expected": "おとな"
+    },
+    {
+      "slug": "gakkou",
+      "say": "がっこう",
+      "hint": "学校",
+      "expected": "がっこう"
+    },
+    {
+      "slug": "sensei",
+      "say": "せんせい",
+      "hint": "先生",
+      "expected": "せんせい"
+    },
+    {
+      "slug": "tomodachi",
+      "say": "ともだち",
+      "hint": "友達",
+      "expected": "ともだち"
+    },
+    {
+      "slug": "densha",
+      "say": "でんしゃ",
+      "hint": "電車",
+      "expected": "でんしゃ"
+    },
+    {
+      "slug": "shukudai",
+      "say": "しゅくだい",
+      "hint": "宿題",
+      "expected": "しゅくだい"
+    },
+    {
+      "slug": "ryokou",
+      "say": "りょこう",
+      "hint": "旅行",
+      "expected": "りょこう"
+    },
+    {
+      "slug": "byouin",
+      "say": "びょういん",
+      "hint": "病院",
+      "expected": "びょういん"
+    },
+    {
+      "slug": "kyou",
+      "say": "きょう",
+      "hint": "今日",
+      "expected": "きょう"
+    },
+    {
+      "slug": "juu",
+      "say": "じゅう",
+      "hint": "十",
+      "expected": "じゅう"
+    },
+    {
+      "slug": "hyaku",
+      "say": "ひゃく",
+      "hint": "百",
+      "expected": "ひゃく"
+    },
+    {
+      "slug": "sanbyaku",
+      "say": "さんびゃく",
+      "hint": "三百",
+      "expected": "さんびゃく"
+    },
+    {
+      "slug": "ippun",
+      "say": "いっぷん",
+      "hint": "一分",
+      "expected": "いっぷん"
+    },
+    {
+      "slug": "seiou",
+      "say": "せいおう",
+      "hint": "西欧",
+      "expected": "せいおう"
+    },
+    {
+      "slug": "ryoukai",
+      "say": "りょうかい",
+      "hint": "了解",
+      "expected": "りょうかい"
+    },
+    {
+      "slug": "chotto",
+      "say": "ちょっと",
+      "hint": "ちょっと",
+      "expected": "ちょっと"
+    },
+    {
+      "slug": "kitte",
+      "say": "きって",
+      "hint": "切手",
+      "expected": "きって"
+    },
+    {
+      "slug": "shuppatsu",
+      "say": "しゅっぱつ",
+      "hint": "出発",
+      "expected": "しゅっぱつ"
+    },
+    {
+      "slug": "jouzu",
+      "say": "じょうず",
+      "hint": "上手",
+      "expected": "じょうず"
+    }
   ],
   "noise": [
-    { "slug": "silence", "say": "(stay silent for a second or two)", "expected": null },
-    { "slug": "um", "say": "(say \"um…\" or cough)", "expected": null }
+    {
+      "slug": "silence",
+      "say": "(stay silent for a second or two)",
+      "expected": null
+    },
+    {
+      "slug": "um",
+      "say": "(say \"um…\" or cough)",
+      "expected": null
+    }
   ]
 }
