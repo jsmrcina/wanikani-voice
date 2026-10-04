@@ -66,6 +66,7 @@
     [data-state="error"] .badge { color: var(--warn); border-color: var(--warn); }
     [data-state="error"] .bubble { border-color: var(--warn); }
     [data-state="off"] .mode, [data-state="unsupported"] .mode { display: none; }
+    [data-state="manual"] .badge { color: var(--muted); }
     @keyframes pulse { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(1.35); } }
     @keyframes spin { to { transform: rotate(360deg); } }
     @media (prefers-reduced-motion: reduce) {
@@ -81,8 +82,16 @@
     listening: 'Listening…',
     processing: 'Processing…',
     filled: 'Answer filled in',
+    manual: 'Voice answers not available for this question type yet',
     error: 'Error',
   };
+
+  // Parses the constant markup above into nodes (no innerHTML assignment:
+  // add-on reviewers flag it even for static strings).
+  function parse(html) {
+    const doc = new DOMParser().parseFromString(`<body>${html}</body>`, 'text/html');
+    return [...doc.body.childNodes].map(n => document.importNode(n, true));
+  }
 
   function create({ onToggle, onFakeUtterance }) {
     // An extension reload leaves the previous instance's badge orphaned in
@@ -92,8 +101,9 @@
     }
     const host = document.createElement('wkv-indicator');
     const root = host.attachShadow({ mode: 'closed' });
-    root.innerHTML = `
-      <style>${CSS}</style>
+    const style = document.createElement('style');
+    style.textContent = CSS;
+    root.append(style, ...parse(`
       <div class="wrap" data-state="off">
         <div class="row">
           <div class="bubble" role="status" aria-live="polite"></div>
@@ -102,9 +112,9 @@
         </div>
         <div class="dev">
           <input type="text" placeholder="Type a test answer here" lang="ja" autocomplete="off" spellcheck="false">
-          <small>Test mode: no microphone is used yet. This text stands in for your voice.</small>
+          <small>Test mode: no microphone is used. This text stands in for your voice.</small>
         </div>
-      </div>`;
+      </div>`));
     const wrap = root.querySelector('.wrap');
     const badge = root.querySelector('.badge');
     const mode = root.querySelector('.mode');
@@ -131,7 +141,7 @@
       host.dataset.state = state;
       host.dataset.mode = m || '';
       mode.textContent = m === 'ja-kana' ? 'かな' : m === 'en' ? 'EN' : '';
-      badge.innerHTML = state === 'off' || state === 'unsupported' ? MIC_OFF : MIC;
+      badge.replaceChildren(...parse(['off', 'unsupported', 'manual'].includes(state) ? MIC_OFF : MIC));
       badge.title = LABELS[state] || state;
       badge.setAttribute('aria-label', badge.title);
       bubble.textContent = message ?? '';

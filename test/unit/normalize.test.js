@@ -31,6 +31,9 @@
     ['one two', 'en', 'one two'],
     ['Day 4', 'en', 'day four'],
     ['someone', 'en', 'someone'],
+    ['Um.', 'en', null],
+    ['Um, huh.', 'en', null],
+    ['umbrella', 'en', 'umbrella'],
     ['no one', 'en', 'no one'],
     // Japanese: kana only, katakana folded to hiragana, kanji rejected
     ['じん', 'ja-kana', 'じん'],

@@ -42,8 +42,10 @@
 
     <fieldset>
       <legend>Speech recognition</legend>
-      <label><input type="radio" name="recognizer" value="fake" checked> Test mode: type text into the indicator instead of speaking</label>
-      <p class="help">On-device speech models arrive in a later version. Nothing you say or type ever leaves this computer.</p>
+      <label><input type="radio" name="recognizer" value="local"> On-device (Whisper base.en for English)</label>
+      <label><input type="radio" name="recognizer" value="fake"> Test mode: type text into the indicator instead of speaking</label>
+      <p class="help">Recognition runs inside Firefox on this computer. Your voice is never sent anywhere.
+        Japanese readings come in a later version.</p>
     </fieldset>
   </main>
   <script src="../shared/settings.js"></script>

@@ -2,14 +2,16 @@
   "manifest_version": 3,
   "name": "Voice Answers for WaniKani",
   "short_name": "WK Voice",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Answer WaniKani reviews by voice. Speech recognition runs entirely on your device.",
   "browser_specific_settings": {
     "gecko": {
       "id": "wanikani-voice@jsmrcina",
       "strict_min_version": "140.0",
       "data_collection_permissions": {
-        "required": ["none"]
+        "required": [
+          "none"
+        ]
       }
     }
   },
@@ -17,8 +19,12 @@
     "48": "icons/icon.svg",
     "96": "icons/icon.svg"
   },
-  "permissions": ["storage"],
-  "host_permissions": ["https://www.wanikani.com/*"],
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://www.wanikani.com/*"
+  ],
   "background": {
     "scripts": [
       "src/shared/settings.js",
@@ -28,12 +34,15 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://www.wanikani.com/*"],
+      "matches": [
+        "https://www.wanikani.com/*"
+      ],
       "js": [
         "src/shared/settings.js",
         "src/content/page-reader.js",
         "src/content/answer-io.js",
         "src/content/indicator.js",
+        "src/content/audio.js",
         "src/content/main.js"
       ],
       "run_at": "document_idle"
@@ -50,11 +59,13 @@
   },
   "commands": {
     "toggle-enabled": {
-      "suggested_key": { "default": "Alt+Shift+V" },
+      "suggested_key": {
+        "default": "Alt+Shift+V"
+      },
       "description": "Pause or resume voice answers"
     }
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'self'"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; connect-src 'self'"
   }
 }

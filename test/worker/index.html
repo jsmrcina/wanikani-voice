@@ -1,0 +1,17 @@
+<!doctype html>
+<!-- Runs the built speech worker (build/dist/asr-worker.js) in a plain page
+     so load errors and timings are visible to tests. -->
+<html lang="en"><head><meta charset="utf-8"><title>Worker Harness</title></head>
+<body><pre id="log"></pre>
+<script>
+  const log = [];
+  const out = document.getElementById('log');
+  const record = x => { log.push(x); out.textContent = JSON.stringify(log); };
+  window.startWorker = () => {
+    const w = new Worker('/build/dist/asr-worker.js', { type: 'module' });
+    w.onerror = e => record({ type: 'onerror', message: e.message, file: e.filename, line: e.lineno });
+    w.onmessage = ({ data }) => { if (data.type !== 'progress') record(data); };
+    window.worker = w;
+    return true;
+  };
+</script></body></html>

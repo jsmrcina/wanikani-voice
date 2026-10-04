@@ -18,6 +18,8 @@
     seventy: 70, eighty: 80, ninety: 90,
   };
   const SCALES = { hundred: 100, thousand: 1e3, million: 1e6, billion: 1e9 };
+  const FILLERS = new Set(['um', 'umm', 'uh', 'uhh', 'uhm', 'hm', 'hmm', 'mm', 'mhm',
+    'er', 'erm', 'ah', 'eh', 'huh']);
   const DIGIT_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six',
     'seven', 'eight', 'nine', 'ten'];
 
@@ -115,6 +117,8 @@
       .replace(/\s+/g, ' ')
       .trim();
     if (!s) return { ok: false, reason: "Didn't catch that" };
+    // Hesitations aren't answers ("um", "uh, hmm").
+    if (s.split(' ').every(w => FILLERS.has(w))) return { ok: false, reason: "Didn't catch that" };
     return { ok: true, text: normalizeNumbers(s.split(' ')).join(' ') };
   }
 

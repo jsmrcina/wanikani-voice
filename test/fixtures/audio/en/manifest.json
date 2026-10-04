@@ -1,0 +1,692 @@
+[
+ {
+  "file": "en_US-lessac-medium/fire.wav",
+  "said": "Fire",
+  "expected": "fire"
+ },
+ {
+  "file": "en_US-lessac-medium/water.wav",
+  "said": "Water",
+  "expected": "water"
+ },
+ {
+  "file": "en_US-lessac-medium/person.wav",
+  "said": "Person",
+  "expected": "person"
+ },
+ {
+  "file": "en_US-lessac-medium/mouth.wav",
+  "said": "Mouth",
+  "expected": "mouth"
+ },
+ {
+  "file": "en_US-lessac-medium/big.wav",
+  "said": "Big",
+  "expected": "big"
+ },
+ {
+  "file": "en_US-lessac-medium/small.wav",
+  "said": "Small",
+  "expected": "small"
+ },
+ {
+  "file": "en_US-lessac-medium/mountain.wav",
+  "said": "Mountain",
+  "expected": "mountain"
+ },
+ {
+  "file": "en_US-lessac-medium/tree.wav",
+  "said": "Tree",
+  "expected": "tree"
+ },
+ {
+  "file": "en_US-lessac-medium/rice-field.wav",
+  "said": "Rice field",
+  "expected": "rice field"
+ },
+ {
+  "file": "en_US-lessac-medium/power.wav",
+  "said": "Power",
+  "expected": "power"
+ },
+ {
+  "file": "en_US-lessac-medium/middle.wav",
+  "said": "Middle",
+  "expected": "middle"
+ },
+ {
+  "file": "en_US-lessac-medium/inside.wav",
+  "said": "Inside",
+  "expected": "inside"
+ },
+ {
+  "file": "en_US-lessac-medium/above.wav",
+  "said": "Above",
+  "expected": "above"
+ },
+ {
+  "file": "en_US-lessac-medium/below.wav",
+  "said": "Below",
+  "expected": "below"
+ },
+ {
+  "file": "en_US-lessac-medium/sun.wav",
+  "said": "Sun",
+  "expected": "sun"
+ },
+ {
+  "file": "en_US-lessac-medium/moon.wav",
+  "said": "Moon",
+  "expected": "moon"
+ },
+ {
+  "file": "en_US-lessac-medium/eye.wav",
+  "said": "Eye",
+  "expected": "eye"
+ },
+ {
+  "file": "en_US-lessac-medium/hand.wav",
+  "said": "Hand",
+  "expected": "hand"
+ },
+ {
+  "file": "en_US-lessac-medium/foot.wav",
+  "said": "Foot",
+  "expected": "foot"
+ },
+ {
+  "file": "en_US-lessac-medium/king.wav",
+  "said": "King",
+  "expected": "king"
+ },
+ {
+  "file": "en_US-lessac-medium/jewel.wav",
+  "said": "Jewel",
+  "expected": "jewel"
+ },
+ {
+  "file": "en_US-lessac-medium/stop.wav",
+  "said": "Stop",
+  "expected": "stop"
+ },
+ {
+  "file": "en_US-lessac-medium/correct.wav",
+  "said": "Correct",
+  "expected": "correct"
+ },
+ {
+  "file": "en_US-lessac-medium/white.wav",
+  "said": "White",
+  "expected": "white"
+ },
+ {
+  "file": "en_US-lessac-medium/craft.wav",
+  "said": "Craft",
+  "expected": "craft"
+ },
+ {
+  "file": "en_US-lessac-medium/spoon.wav",
+  "said": "Spoon",
+  "expected": "spoon"
+ },
+ {
+  "file": "en_US-lessac-medium/barb.wav",
+  "said": "Barb",
+  "expected": "barb"
+ },
+ {
+  "file": "en_US-lessac-medium/lid.wav",
+  "said": "Lid",
+  "expected": "lid"
+ },
+ {
+  "file": "en_US-lessac-medium/ground.wav",
+  "said": "Ground",
+  "expected": "ground"
+ },
+ {
+  "file": "en_US-lessac-medium/drop.wav",
+  "said": "Drop",
+  "expected": "drop"
+ },
+ {
+  "file": "en_US-lessac-medium/fins.wav",
+  "said": "Fins",
+  "expected": "fins"
+ },
+ {
+  "file": "en_US-lessac-medium/stick.wav",
+  "said": "Stick",
+  "expected": "stick"
+ },
+ {
+  "file": "en_US-lessac-medium/turtle.wav",
+  "said": "Turtle",
+  "expected": "turtle"
+ },
+ {
+  "file": "en_US-lessac-medium/pirate.wav",
+  "said": "Pirate",
+  "expected": "pirate"
+ },
+ {
+  "file": "en_US-lessac-medium/to-eat.wav",
+  "said": "To eat",
+  "expected": "to eat"
+ },
+ {
+  "file": "en_US-lessac-medium/one-person.wav",
+  "said": "One person",
+  "expected": "one person"
+ },
+ {
+  "file": "en_US-lessac-medium/four.wav",
+  "said": "Four",
+  "expected": "four"
+ },
+ {
+  "file": "en_US-lessac-medium/ten.wav",
+  "said": "Ten",
+  "expected": "ten"
+ },
+ {
+  "file": "en_US-lessac-medium/twenty-one.wav",
+  "said": "Twenty one",
+  "expected": "21"
+ },
+ {
+  "file": "en_US-lessac-medium/ten-thousand.wav",
+  "said": "Ten thousand",
+  "expected": "10000"
+ },
+ {
+  "file": "en_US-lessac-medium/hundred.wav",
+  "said": "Hundred",
+  "expected": "100"
+ },
+ {
+  "file": "en_US-lessac-medium/three-people.wav",
+  "said": "Three people",
+  "expected": "three people"
+ },
+ {
+  "file": "en_US-lessac-medium/grown-up.wav",
+  "said": "Grown up",
+  "expected": "grown up"
+ },
+ {
+  "file": "en_US-lessac-medium/big-brother.wav",
+  "said": "Big brother",
+  "expected": "big brother"
+ },
+ {
+  "file": "en_US-lessac-medium/outside.wav",
+  "said": "Outside",
+  "expected": "outside"
+ },
+ {
+  "file": "en_US-lessac-medium/before.wav",
+  "said": "Before",
+  "expected": "before"
+ },
+ {
+  "file": "en_US-ryan-medium/fire.wav",
+  "said": "Fire",
+  "expected": "fire"
+ },
+ {
+  "file": "en_US-ryan-medium/water.wav",
+  "said": "Water",
+  "expected": "water"
+ },
+ {
+  "file": "en_US-ryan-medium/person.wav",
+  "said": "Person",
+  "expected": "person"
+ },
+ {
+  "file": "en_US-ryan-medium/mouth.wav",
+  "said": "Mouth",
+  "expected": "mouth"
+ },
+ {
+  "file": "en_US-ryan-medium/big.wav",
+  "said": "Big",
+  "expected": "big"
+ },
+ {
+  "file": "en_US-ryan-medium/small.wav",
+  "said": "Small",
+  "expected": "small"
+ },
+ {
+  "file": "en_US-ryan-medium/mountain.wav",
+  "said": "Mountain",
+  "expected": "mountain"
+ },
+ {
+  "file": "en_US-ryan-medium/tree.wav",
+  "said": "Tree",
+  "expected": "tree"
+ },
+ {
+  "file": "en_US-ryan-medium/rice-field.wav",
+  "said": "Rice field",
+  "expected": "rice field"
+ },
+ {
+  "file": "en_US-ryan-medium/power.wav",
+  "said": "Power",
+  "expected": "power"
+ },
+ {
+  "file": "en_US-ryan-medium/middle.wav",
+  "said": "Middle",
+  "expected": "middle"
+ },
+ {
+  "file": "en_US-ryan-medium/inside.wav",
+  "said": "Inside",
+  "expected": "inside"
+ },
+ {
+  "file": "en_US-ryan-medium/above.wav",
+  "said": "Above",
+  "expected": "above"
+ },
+ {
+  "file": "en_US-ryan-medium/below.wav",
+  "said": "Below",
+  "expected": "below"
+ },
+ {
+  "file": "en_US-ryan-medium/sun.wav",
+  "said": "Sun",
+  "expected": "sun"
+ },
+ {
+  "file": "en_US-ryan-medium/moon.wav",
+  "said": "Moon",
+  "expected": "moon"
+ },
+ {
+  "file": "en_US-ryan-medium/eye.wav",
+  "said": "Eye",
+  "expected": "eye"
+ },
+ {
+  "file": "en_US-ryan-medium/hand.wav",
+  "said": "Hand",
+  "expected": "hand"
+ },
+ {
+  "file": "en_US-ryan-medium/foot.wav",
+  "said": "Foot",
+  "expected": "foot"
+ },
+ {
+  "file": "en_US-ryan-medium/king.wav",
+  "said": "King",
+  "expected": "king"
+ },
+ {
+  "file": "en_US-ryan-medium/jewel.wav",
+  "said": "Jewel",
+  "expected": "jewel"
+ },
+ {
+  "file": "en_US-ryan-medium/stop.wav",
+  "said": "Stop",
+  "expected": "stop"
+ },
+ {
+  "file": "en_US-ryan-medium/correct.wav",
+  "said": "Correct",
+  "expected": "correct"
+ },
+ {
+  "file": "en_US-ryan-medium/white.wav",
+  "said": "White",
+  "expected": "white"
+ },
+ {
+  "file": "en_US-ryan-medium/craft.wav",
+  "said": "Craft",
+  "expected": "craft"
+ },
+ {
+  "file": "en_US-ryan-medium/spoon.wav",
+  "said": "Spoon",
+  "expected": "spoon"
+ },
+ {
+  "file": "en_US-ryan-medium/barb.wav",
+  "said": "Barb",
+  "expected": "barb"
+ },
+ {
+  "file": "en_US-ryan-medium/lid.wav",
+  "said": "Lid",
+  "expected": "lid"
+ },
+ {
+  "file": "en_US-ryan-medium/ground.wav",
+  "said": "Ground",
+  "expected": "ground"
+ },
+ {
+  "file": "en_US-ryan-medium/drop.wav",
+  "said": "Drop",
+  "expected": "drop"
+ },
+ {
+  "file": "en_US-ryan-medium/fins.wav",
+  "said": "Fins",
+  "expected": "fins"
+ },
+ {
+  "file": "en_US-ryan-medium/stick.wav",
+  "said": "Stick",
+  "expected": "stick"
+ },
+ {
+  "file": "en_US-ryan-medium/turtle.wav",
+  "said": "Turtle",
+  "expected": "turtle"
+ },
+ {
+  "file": "en_US-ryan-medium/pirate.wav",
+  "said": "Pirate",
+  "expected": "pirate"
+ },
+ {
+  "file": "en_US-ryan-medium/to-eat.wav",
+  "said": "To eat",
+  "expected": "to eat"
+ },
+ {
+  "file": "en_US-ryan-medium/one-person.wav",
+  "said": "One person",
+  "expected": "one person"
+ },
+ {
+  "file": "en_US-ryan-medium/four.wav",
+  "said": "Four",
+  "expected": "four"
+ },
+ {
+  "file": "en_US-ryan-medium/ten.wav",
+  "said": "Ten",
+  "expected": "ten"
+ },
+ {
+  "file": "en_US-ryan-medium/twenty-one.wav",
+  "said": "Twenty one",
+  "expected": "21"
+ },
+ {
+  "file": "en_US-ryan-medium/ten-thousand.wav",
+  "said": "Ten thousand",
+  "expected": "10000"
+ },
+ {
+  "file": "en_US-ryan-medium/hundred.wav",
+  "said": "Hundred",
+  "expected": "100"
+ },
+ {
+  "file": "en_US-ryan-medium/three-people.wav",
+  "said": "Three people",
+  "expected": "three people"
+ },
+ {
+  "file": "en_US-ryan-medium/grown-up.wav",
+  "said": "Grown up",
+  "expected": "grown up"
+ },
+ {
+  "file": "en_US-ryan-medium/big-brother.wav",
+  "said": "Big brother",
+  "expected": "big brother"
+ },
+ {
+  "file": "en_US-ryan-medium/outside.wav",
+  "said": "Outside",
+  "expected": "outside"
+ },
+ {
+  "file": "en_US-ryan-medium/before.wav",
+  "said": "Before",
+  "expected": "before"
+ },
+ {
+  "file": "en_GB-alba-medium/fire.wav",
+  "said": "Fire",
+  "expected": "fire"
+ },
+ {
+  "file": "en_GB-alba-medium/water.wav",
+  "said": "Water",
+  "expected": "water"
+ },
+ {
+  "file": "en_GB-alba-medium/person.wav",
+  "said": "Person",
+  "expected": "person"
+ },
+ {
+  "file": "en_GB-alba-medium/mouth.wav",
+  "said": "Mouth",
+  "expected": "mouth"
+ },
+ {
+  "file": "en_GB-alba-medium/big.wav",
+  "said": "Big",
+  "expected": "big"
+ },
+ {
+  "file": "en_GB-alba-medium/small.wav",
+  "said": "Small",
+  "expected": "small"
+ },
+ {
+  "file": "en_GB-alba-medium/mountain.wav",
+  "said": "Mountain",
+  "expected": "mountain"
+ },
+ {
+  "file": "en_GB-alba-medium/tree.wav",
+  "said": "Tree",
+  "expected": "tree"
+ },
+ {
+  "file": "en_GB-alba-medium/rice-field.wav",
+  "said": "Rice field",
+  "expected": "rice field"
+ },
+ {
+  "file": "en_GB-alba-medium/power.wav",
+  "said": "Power",
+  "expected": "power"
+ },
+ {
+  "file": "en_GB-alba-medium/middle.wav",
+  "said": "Middle",
+  "expected": "middle"
+ },
+ {
+  "file": "en_GB-alba-medium/inside.wav",
+  "said": "Inside",
+  "expected": "inside"
+ },
+ {
+  "file": "en_GB-alba-medium/above.wav",
+  "said": "Above",
+  "expected": "above"
+ },
+ {
+  "file": "en_GB-alba-medium/below.wav",
+  "said": "Below",
+  "expected": "below"
+ },
+ {
+  "file": "en_GB-alba-medium/sun.wav",
+  "said": "Sun",
+  "expected": "sun"
+ },
+ {
+  "file": "en_GB-alba-medium/moon.wav",
+  "said": "Moon",
+  "expected": "moon"
+ },
+ {
+  "file": "en_GB-alba-medium/eye.wav",
+  "said": "Eye",
+  "expected": "eye"
+ },
+ {
+  "file": "en_GB-alba-medium/hand.wav",
+  "said": "Hand",
+  "expected": "hand"
+ },
+ {
+  "file": "en_GB-alba-medium/foot.wav",
+  "said": "Foot",
+  "expected": "foot"
+ },
+ {
+  "file": "en_GB-alba-medium/king.wav",
+  "said": "King",
+  "expected": "king"
+ },
+ {
+  "file": "en_GB-alba-medium/jewel.wav",
+  "said": "Jewel",
+  "expected": "jewel"
+ },
+ {
+  "file": "en_GB-alba-medium/stop.wav",
+  "said": "Stop",
+  "expected": "stop"
+ },
+ {
+  "file": "en_GB-alba-medium/correct.wav",
+  "said": "Correct",
+  "expected": "correct"
+ },
+ {
+  "file": "en_GB-alba-medium/white.wav",
+  "said": "White",
+  "expected": "white"
+ },
+ {
+  "file": "en_GB-alba-medium/craft.wav",
+  "said": "Craft",
+  "expected": "craft"
+ },
+ {
+  "file": "en_GB-alba-medium/spoon.wav",
+  "said": "Spoon",
+  "expected": "spoon"
+ },
+ {
+  "file": "en_GB-alba-medium/barb.wav",
+  "said": "Barb",
+  "expected": "barb"
+ },
+ {
+  "file": "en_GB-alba-medium/lid.wav",
+  "said": "Lid",
+  "expected": "lid"
+ },
+ {
+  "file": "en_GB-alba-medium/ground.wav",
+  "said": "Ground",
+  "expected": "ground"
+ },
+ {
+  "file": "en_GB-alba-medium/drop.wav",
+  "said": "Drop",
+  "expected": "drop"
+ },
+ {
+  "file": "en_GB-alba-medium/fins.wav",
+  "said": "Fins",
+  "expected": "fins"
+ },
+ {
+  "file": "en_GB-alba-medium/stick.wav",
+  "said": "Stick",
+  "expected": "stick"
+ },
+ {
+  "file": "en_GB-alba-medium/turtle.wav",
+  "said": "Turtle",
+  "expected": "turtle"
+ },
+ {
+  "file": "en_GB-alba-medium/pirate.wav",
+  "said": "Pirate",
+  "expected": "pirate"
+ },
+ {
+  "file": "en_GB-alba-medium/to-eat.wav",
+  "said": "To eat",
+  "expected": "to eat"
+ },
+ {
+  "file": "en_GB-alba-medium/one-person.wav",
+  "said": "One person",
+  "expected": "one person"
+ },
+ {
+  "file": "en_GB-alba-medium/four.wav",
+  "said": "Four",
+  "expected": "four"
+ },
+ {
+  "file": "en_GB-alba-medium/ten.wav",
+  "said": "Ten",
+  "expected": "ten"
+ },
+ {
+  "file": "en_GB-alba-medium/twenty-one.wav",
+  "said": "Twenty one",
+  "expected": "21"
+ },
+ {
+  "file": "en_GB-alba-medium/ten-thousand.wav",
+  "said": "Ten thousand",
+  "expected": "10000"
+ },
+ {
+  "file": "en_GB-alba-medium/hundred.wav",
+  "said": "Hundred",
+  "expected": "100"
+ },
+ {
+  "file": "en_GB-alba-medium/three-people.wav",
+  "said": "Three people",
+  "expected": "three people"
+ },
+ {
+  "file": "en_GB-alba-medium/grown-up.wav",
+  "said": "Grown up",
+  "expected": "grown up"
+ },
+ {
+  "file": "en_GB-alba-medium/big-brother.wav",
+  "said": "Big brother",
+  "expected": "big brother"
+ },
+ {
+  "file": "en_GB-alba-medium/outside.wav",
+  "said": "Outside",
+  "expected": "outside"
+ },
+ {
+  "file": "en_GB-alba-medium/before.wav",
+  "said": "Before",
+  "expected": "before"
+ }
+]

@@ -16,8 +16,9 @@
     // After an answer is graded, move to the next question automatically.
     autoAdvance: false,
     autoAdvanceDelayMs: 1500,
-    // Phase 1 has no speech model: 'fake' takes text typed into the indicator.
-    recognizer: 'fake',
+    // 'local': the bundled on-device speech model.
+    // 'fake': test mode; text typed into the indicator stands in for speech.
+    recognizer: 'local',
   });
 
   async function load() {

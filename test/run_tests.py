@@ -1,8 +1,12 @@
 """Runs all tests: static policy checks, unit tests and end-to-end tests in a
-real (headless) Firefox with the extension installed against test/mock.
+real (headless) Firefox with the built extension (build/, from `npm run build`)
+installed against test/mock.
 
 Needs: Python with `selenium`, and `geckodriver` on PATH or in $GECKODRIVER.
     python3 test/run_tests.py [-k name-substring] [--headed]
+
+All traffic except localhost goes to a dead proxy, so anything that tried to
+reach the network (a CDN, a model host) would fail the tests.
 """
 import argparse
 import http.server
@@ -55,16 +59,24 @@ def start_server():
 
 # ---- extension test build -----------------------------------------------------
 
+BUILD = ROOT / "build"
+
+
 def build_test_extension() -> Path:
-    """Copy of the extension that also runs on http://localhost, with the
-    indicator's shadow root open so the test can type into its test field."""
+    """Copy of build/ that also runs on http://localhost, with the indicator's
+    shadow root open so the test can type into its test field. The models are
+    symlinked to save copying ~80 MB; scripts can't be (Firefox refuses to
+    import an ES module through a symlink in an extension)."""
+    if not (BUILD / "manifest.json").exists():
+        raise SystemExit("build/ is missing: run `npm run build` first")
     out = Path(tempfile.mkdtemp(prefix="wkv-ext-"))
-    for name in ("manifest.json", "src", "icons"):
-        src = ROOT / name
-        if src.is_dir():
-            shutil.copytree(src, out / name)
+    for item in BUILD.iterdir():
+        if item.name == "models":
+            (out / item.name).symlink_to(item)
+        elif item.is_dir():
+            shutil.copytree(item, out / item.name)
         else:
-            shutil.copy(src, out / name)
+            shutil.copy(item, out / item.name)
     manifest = json.loads((out / "manifest.json").read_text())
     manifest["host_permissions"].append("http://localhost/*")
     manifest["content_scripts"][0]["matches"].append("http://localhost/*")
@@ -88,9 +100,20 @@ class Browser:
         if not headed:
             opts.add_argument("-headless")
         opts.set_preference("extensions.webextensions.uuids", json.dumps({ADDON_ID: ADDON_UUID}))
+        # Nothing but localhost is reachable: a dead proxy for everything else.
+        for scheme in ("http", "ssl"):
+            opts.set_preference(f"network.proxy.{scheme}", "127.0.0.1")
+            opts.set_preference(f"network.proxy.{scheme}_port", 9)
+        opts.set_preference("network.proxy.type", 1)
+        opts.set_preference("network.proxy.no_proxies_on", "localhost, 127.0.0.1")
+        opts.set_preference("network.proxy.allow_hijacking_localhost", False)
+        # Spike S2: unload idle extension background pages after 8 s (default
+        # 30 s), to check that an open review session keeps ours alive.
+        opts.set_preference("extensions.background.idle.timeout", 8000)
         service = Service(executable_path=os.environ.get("GECKODRIVER") or shutil.which("geckodriver"))
         self.d = webdriver.Firefox(options=opts, service=service)
-        self.d.install_addon(str(ext_dir), temporary=True)
+        # Install by path (no zip upload): the build is ~100 MB.
+        self.d.execute("INSTALL_ADDON", {"path": str(ext_dir), "temporary": True})
 
     def quit(self):
         self.d.quit()
@@ -108,23 +131,51 @@ class Browser:
             time.sleep(0.05)
         raise AssertionError(f"timed out waiting for {what} (last: {last!r})")
 
+    def bridge(self, type_, **payload):
+        """Round trip to test/hooks/settings-bridge.js in the current page."""
+        return self.d.execute_async_script("""
+            const [type, payload, done] = arguments;
+            const id = Math.random();
+            window.addEventListener('message', function on(e) {
+              if (e.data?.type === type + '-result' && e.data.id === id) {
+                window.removeEventListener('message', on); done(e.data.result);
+              }
+            });
+            window.postMessage({ type, id, ...payload }, '*');""", type_, payload)
+
     def settings(self, replace=None):
         """Reads (and optionally replaces) the extension's stored settings."""
         if not self.d.current_url.startswith(self.base):
             self.d.get(self.base + "/elsewhere")
-        return self.d.execute_async_script("""
-            const [replace, done] = arguments;
-            const id = Math.random();
-            window.addEventListener('message', function on(e) {
-              if (e.data?.type === 'wkv-test:settings-result' && e.data.id === id) {
-                window.removeEventListener('message', on); done(e.data.stored);
-              }
-            });
-            window.postMessage({ type: 'wkv-test:settings', id, replace }, '*');""", replace)
+        return self.bridge("wkv-test:settings", replace=replace)
 
     def set_options(self, **settings):
+        """Replaces all settings. Tests use the typed test mode unless they ask
+        for the real recognizer."""
         self.d.get(self.base + "/elsewhere")
-        self.settings(replace=settings)
+        self.settings(replace={"recognizer": "fake", **settings})
+
+    def diag(self):
+        return self.bridge("wkv-test:diag")
+
+    def play(self, clip):
+        """Plays a WAV (path under test/fixtures/audio) into the fake mic; returns seconds."""
+        return self.bridge("wkv-test:say", url=f"{self.base}/test/fixtures/audio/{clip}")
+
+    def speak(self, clip, key=Keys.SHIFT):
+        """Push-to-talk with real audio: hold the key while the clip plays."""
+        self.d.find_element(By.ID, "user-response").click()
+        ActionChains(self.d).key_down(key).perform()
+        seconds = self.play(clip)
+        time.sleep(seconds + 0.2)
+        ActionChains(self.d).key_up(key).perform()
+
+    def message(self):
+        return self.host().get_attribute("data-message")
+
+    def wait_model_ready(self, timeout=60):
+        self.wait(lambda: self.state() == "ready" and self.message().startswith("Hold"), timeout,
+                  "speech model loaded")
 
     def open_review(self):
         self.d.get(self.base + "/subjects/review/")
@@ -326,6 +377,69 @@ def test_reload_replaces_orphaned_badge(b):
     assert len(b.d.find_elements(By.CSS_SELECTOR, "wkv-indicator")) == 1
 
 
+SPEECH_PREFIX = "real-raw/en/"
+
+
+def test_speech_push_to_talk(b):
+    b.set_options(recognizer="local")
+    b.open_review()
+    b.wait_model_ready()
+    # The first press opens the microphone; with the fake mic there's no
+    # permission prompt, so it records straight away.
+    b.speak(SPEECH_PREFIX + "fire.wav")
+    b.wait_state("filled", timeout=20)
+    assert b.input_value() == "fire", b.input_value()
+    assert b.mock_log() == [], "fill-only must not submit"
+
+
+def test_speech_numbers_and_phrases(b):
+    b.set_options(recognizer="local", submitMode="auto-submit", autoAdvance=True, autoAdvanceDelayMs=200)
+    b.open_review()
+    b.wait_model_ready()
+    b.speak(SPEECH_PREFIX + "twenty-one.wav")  # radical question; wrong but must pass through as said
+    b.wait(lambda: b.mock_log(), timeout=20, what="first answer")
+    b.wait(lambda: b.state() == "manual", timeout=5, what="reading question has no model yet")
+    assert b.mode() == "ja-kana"
+    assert b.mock_log()[-1]["answer"] == "21", b.mock_log()
+
+
+def test_speech_silence_not_sent(b):
+    b.set_options(recognizer="local")
+    b.open_review()
+    b.wait_model_ready()
+    b.speak("real-raw/noise/silence.wav")
+    b.wait_state("error", timeout=10)
+    assert "hear" in b.message(), b.message()
+    assert b.input_value() == ""
+
+
+def test_speech_hands_free(b):
+    b.set_options(recognizer="local", inputMode="voice-activity", submitMode="auto-submit")
+    b.open_review()
+    # No interaction yet: Firefox keeps audio suspended, and the badge asks for a click.
+    b.wait(lambda: b.state() == "error" and "Click the page" in b.message(), 20, "asks for a click")
+    b.d.find_element(By.TAG_NAME, "body").click()
+    b.wait(lambda: b.state() == "listening" and b.message() == "Listening…", 60, "mic open")
+    b.play(SPEECH_PREFIX + "water.wav")  # no key: the speech detector ends it
+    b.wait(lambda: b.mock_log(), timeout=30, what="hands-free answer")
+    assert b.mock_log()[-1]["answer"] == "water", b.mock_log()
+
+
+def test_background_survives_idle(b):
+    """Spike S2: with the idle timeout at 8 s, the background (and the loaded
+    model) must outlive a longer pause while a review tab is open."""
+    b.set_options(recognizer="local")
+    b.open_review()
+    b.wait_model_ready()
+    before = b.diag()
+    time.sleep(20)
+    after = b.diag()
+    assert before["startedAt"] == after["startedAt"], (before, after)
+    assert after["workerAlive"] and after["models"]["whisper-base.en"]["status"] == "ready", after
+    b.speak(SPEECH_PREFIX + "fire.wav")
+    b.wait_state("filled", timeout=20)
+
+
 def test_custom_ptt_key(b):
     b.set_options(pttKey="KeyJ", submitMode="auto-submit")
     b.open_review()
@@ -339,7 +453,9 @@ TESTS = [test_unit, test_inactive_off_review_page, test_defaults_fill_only_push_
          test_kanji_rejected_for_reading, test_hands_free, test_pause_toggle,
          test_options_page_saves,
          test_shift_chords_and_taps_ignored, test_custom_ptt_key,
-         test_reload_replaces_orphaned_badge]
+         test_reload_replaces_orphaned_badge, test_speech_push_to_talk,
+         test_speech_numbers_and_phrases, test_speech_silence_not_sent,
+         test_speech_hands_free, test_background_survives_idle]
 
 
 def main():

@@ -3,9 +3,10 @@
 A Firefox extension that lets you answer WaniKani reviews by voice. Speech
 recognition runs entirely on-device.
 
-Status (2026-10-04): **Phase 1 done.** The extension skeleton works end-to-end
-against a mock review page, with typed text standing in for speech. Not yet
-verified on the live WaniKani page (see S1). Phase 2 (real speech) is next.
+Status (2026-10-04): **Phase 2 done, pending a live check on WaniKani.**
+English answers are recognised on-device (Whisper base.en in a worker) from
+push-to-talk or hands-free speech, end to end in Firefox against the mock
+review page. Japanese readings fall back to typing until Phase 3.
 
 ---
 
@@ -53,7 +54,7 @@ selects the model.
 
 | Mode | Model (initial pick) | Why |
 |---|---|---|
-| **English** (meaning, radical name) | Whisper `base.en` (or `small.en`) via **transformers.js** + ONNX Runtime Web | Robust on short English words. Moonshine-tiny is a faster fallback |
+| **English** (meaning, radical name) | **Whisper `base.en`, 8-bit (77 MB)** via transformers.js 4.3 + onnxruntime-web (WASM) — **chosen in S5** | Best accuracy on real recordings; bigger variants were no better (S5) |
 | **Japanese reading** | A **hiragana-output CTC model** (wav2vec2-XLSR fine-tuned to emit hiragana, e.g. `vumichien/wav2vec2-large-xlsr-japanese-hiragana`) exported to ONNX | Emits kana directly. No kanji to convert, no language model "fixing" what you said |
 
 **Why not Whisper for Japanese:** it writes kanji (人), and converting back is
@@ -86,16 +87,33 @@ wanikani.com tab                                 extension background
 └────────────────────────────────────┘        └──────────────────────────────┘
 ```
 
-- **Built (Phase 1):** the message is `{type:'wkv:transcribe', mode,
-  fakeUtterance}`. The fake recognizer echoes the typed text, then the
-  background normalises it. Phase 2 swaps `fakeUtterance` for 16 kHz PCM.
-  The shape stays the same: a mode and speech, nothing from the page.
-- **Mic capture** goes in the content script, so the permission belongs to
-  `wanikani.com` and Firefox can remember it.
-- **Inference** goes in a Worker owned by the background page. Firefox MV3
-  backgrounds are non-persistent event pages and could drop a 100+ MB model.
-  **S2** decides between keeping it alive during a review tab, MV2
-  `persistent: true`, or a hidden extension iframe.
+- **Built:** the request is `{type:'wkv:transcribe', mode, audio}`: 16 kHz
+  mono PCM and a mode, nothing from the page (`fakeUtterance` replaces
+  `audio` in test mode).
+- **Mic capture** (`src/content/audio.js`) runs in the content script, so the
+  permission belongs to `wanikani.com`. It asks for **raw** audio (no
+  browser noise suppression, auto-gain or echo cancellation). It captures at
+  the device rate through a ScriptProcessorNode, because Firefox can't connect
+  a MediaStream to an AudioContext at a different rate, and an AudioWorklet
+  would need a URL the page CSP allows. It then box-filter resamples to
+  16 kHz. The mic opens on first use and stays open while enabled, with a
+  300 ms pre-roll so the first syllable isn't lost. It's released when
+  paused, when the tab is hidden, or on leaving the page.
+- **Speech detection** is energy-based with an adaptive noise floor. It ends
+  hands-free utterances after 800 ms of quiet. A clip with no detected speech
+  is never sent to Whisper, because Whisper "hears" something like "you" in
+  silence.
+- **Inference** runs in a module Worker owned by the background page
+  (`src/worker/`, bundled by esbuild into `build/dist/asr-worker.js`).
+  Remote models are off, and onnxruntime's WASM runtime is the bundled copy
+  in `vendor/ort/`, not the CDN transformers.js defaults to. Single-threaded,
+  because extension pages aren't cross-origin isolated. Model load takes
+  about 0.6 s, and decoding a short answer about 0.3 s (Node; similar in
+  Firefox).
+- **Fixed decoder prompt** (`src/worker/recognize.js`): a constant list of
+  dictionary-style words that don't appear in the evaluation set. It's the
+  same for every question, so F4 holds. It moved real-recording accuracy
+  from 21/25 to 22/25 (raw) and from 18/25 to 20/25 (gated).
 
 ### 2.3 Enforcing "don't read the question" (F4) — built
 
@@ -180,7 +198,10 @@ State is mirrored to `data-state` / `data-mode` on the host element for tests.
 
 ```
 manifest.json                  MV3, Firefox ≥140
-src/background/background.js   transcribe (fake recognizer for now), commands
+src/background/background.js   speech worker lifecycle, transcribe, model status, commands
+src/worker/asr-worker.js       transformers.js worker (bundled into build/dist/)
+src/worker/recognize.js        Whisper decoding with the fixed prompt (shared with eval)
+src/content/audio.js           mic capture, resampling, speech detection
 src/content/page-reader.js     ONLY reader of the page: question type
 src/content/answer-io.js       fill / submit / graded?
 src/content/indicator.js       badge + test-utterance field
@@ -196,15 +217,29 @@ test/hooks/settings-bridge.js  test-build-only settings access
 test/options/index.html        options page harness (in-memory storage)
 test/run_tests.py              runs everything (Selenium + geckodriver, headless Firefox)
 tools/inspect-wanikani.js      console recorder for the live page structure (S1)
+tools/build.mjs                assembles build/ (the loadable extension)
+tools/fetch-models.mjs         downloads pinned, hash-checked models (models/models.json)
+tools/eval-asr.mjs             offline accuracy on recordings (S5)
+tools/recorder/                local page for recording evaluation clips
+tools/make-test-audio.py       synthetic TTS fixtures (Piper)
+models/                        bundled model (Git LFS) + models.json manifest
+test/fixtures/audio/           WAV fixtures (Git LFS): en/ synthetic, real/ gated, real-raw/ raw
+test/worker/index.html         runs the built worker in a plain page (debugging)
 ```
 
-Phase 1 is **plain JavaScript with no build step**. Node 26 / npm 12 were
-installed on 2026-10-04. Phase 2 brings in
-npm for transformers.js and onnxruntime-web, and moves to TypeScript, a
-bundler, `web-ext` and Vitest.
+Sources are plain JavaScript. Only the worker is bundled (esbuild), because it
+imports transformers.js. I didn't move to TypeScript or Vitest after all: the
+code stays small, and tests run in real Firefox. Node 26 / npm 12 and git-lfs
+were installed on 2026-10-04. Model files and WAVs are in Git LFS
+(`.gitattributes`).
 
-Tests: `python3 test/run_tests.py`. Current result: policy ok, 36 unit cases,
-10 end-to-end scenarios: defaults (fill-only + PTT, no auto-advance), wrong
+
+Tests: `npm run build && python3 test/run_tests.py`. Current result: policy
+ok, 39 unit cases, 16 end-to-end scenarios. They include real speech through
+the extension (push-to-talk, hands-free with autoplay unblock, numbers,
+silence rejected) and the S2 idle-survival check. All non-localhost traffic
+goes to a dead proxy, so any network dependency would fail them. The rest
+cover: defaults (fill-only + PTT, no auto-advance), wrong
 answer passed through uncorrected, auto-submit + auto-advance through
 EN/JA/number questions, kanji rejected for readings, hands-free, pause
 toggle, options page, Shift chords/taps ignored, custom PTT key, inactive
@@ -216,9 +251,9 @@ off the review page.
 
 | Phase | Status |
 |---|---|
-| 0 — Spikes S1–S5 | S1 **done** except the live smoke test (§4 S1 findings). S2–S5 open |
+| 0 — Spikes S1–S5 | S1 done except the live smoke test. **S2 and S5 done** (findings below). S3 needs the live test. S4 is Phase 3 |
 | **1 — Skeleton with fake ASR** | **Done 2026-10-04** |
-| 2 — Audio + English | Next |
+| **2 — Audio + English** | **Done 2026-10-04**, pending a live check on WaniKani |
 | 3 — Japanese | |
 | 4 — UX and robustness | Partly pulled into Phase 1 (options, hotkeys, pause, tab-hidden handling) |
 | 5 — Privacy audit + packaging | |
@@ -253,11 +288,57 @@ off the review page.
   default, so nothing is submitted without you), and seeing a wrong-type
   warning.
 
-### Phase 2 — Audio + English
-Node toolchain. Mic capture (getUserMedia → AudioWorklet → 16 kHz mono). PTT
-uses the existing key handling. Hands-free uses VAD (Silero VAD ONNX, or
-energy-based first). Worker + EN model. Replace `fakeUtterance` with audio,
-keeping the "fake" recognizer as a test mode.
+### S2 findings: keeping the model loaded (2026-10-04)
+- **Firefox unloads an idle MV3 background page even while a content-script
+  port is open**, and the loaded model goes with it. Seen with
+  `extensions.background.idle.timeout` lowered for testing; the default is
+  30 s.
+- Fix: the review tab sends a heartbeat over its port every 5 s, and each
+  message resets the idle timer. `test_background_survives_idle` checks that
+  the same background instance and a ready model survive 20 s idle with an
+  8 s timeout.
+- No WebGPU in Firefox 157 on this Linux machine (`navigator.gpu` absent), so
+  inference is WASM, which is fast enough for base.en.
+- Firefox won't import an ES module through a symlink inside an extension
+  (fetches through one work). The test build therefore copies scripts and
+  symlinks only the models.
+- Autoplay: without a click or key press on the page, an AudioContext stays
+  suspended and `resume()` never settles. Hands-free mode therefore shows
+  "Click the page or press Shift to start listening" and resumes on the next
+  gesture. Push-to-talk is unaffected, since the key press is the gesture.
+
+### S5 findings: English model choice (2026-10-04)
+Recorded with `tools/recorder` (25 WaniKani-style meanings plus two noise
+checks), scored by `tools/eval-asr.mjs` with the extension's own speech gate,
+decoding and normalisation:
+
+| Model (8-bit) | Size | Gated mic | **Raw mic** | Decode (Node) |
+|---|---|---|---|---|
+| **whisper-base.en** + fixed prompt | 77 MB | 20/25 | **22/25**, 2/2 noise | ~300 ms |
+| whisper-base.en, no prompt | 77 MB | 18/25 | 21/25 | ~290 ms |
+| whisper-small.en | 249 MB | 17/25 | 21/25 | ~560 ms |
+| distil-small.en | 172 MB | 17/25 | 21/25 | ~490 ms |
+| moonshine-base | 63 MB | 8/25 | 10/25 | ~60 ms |
+
+- **The microphone path mattered more than model size.** The test
+  machine runs a system-wide noise filter (a suppressor plus a noise gate)
+  that captures every app's microphone stream. The gate chops soft word onsets (hand→"and",
+  four→"or", to eat→"eat"). Raw audio fixed most of those. The "gated" set
+  went through that filter; the "raw" set bypassed it.
+- Remaining misses on raw audio: eye→"I", hand→"and", ground→"crown". sun→"son"
+  was fixed by the prompt. Homophones can't be resolved without using the
+  question, which F4 forbids.
+- Synthetic Piper TTS clips (`test/fixtures/audio/en`) are unusable for
+  accuracy, because Piper renders isolated words as clipped ~0.2 s blips. They
+  remain useful as pipeline fixtures.
+
+### Phase 2 — Audio + English (built)
+`src/content/audio.js` (mic, resampling, speech detection),
+`src/worker/` (transformers.js worker, shared decoding),
+`src/background/background.js` (worker lifecycle, model status pushed to
+review tabs, heartbeat, diagnostics), `tools/build.mjs` → `build/`.
+Indicator shows model loading progress; Japanese questions show a "type this
+one" state. Test mode (typed text) remains as an option.
 
 ### Phase 3 — Japanese
 JA model chosen by S4. The normalisation and kanji rejection are already in
@@ -282,7 +363,9 @@ Sign as unlisted on AMO, or list publicly (§6).
 | Short Japanese readings (き, か) | S4. Longer endpoint pause for short utterances |
 | WaniKani DOM changes | Selectors live in two files. If the type can't be read, the badge shows "unsupported" and does nothing |
 | Model size vs 200 MB XPI limit | Quantised ONNX (int8/q4) |
-| Background unloaded mid-session | S2 |
+| Background unloaded mid-session | Heartbeat (S2); verified by test |
+| System noise filters (e.g. EasyEffects) degrade recognition | Extension asks for raw audio, but a system-wide filter can still capture the stream. Options: bypass it for Firefox, or soften it (open question) |
+| Your voice recordings in the repo | `test/fixtures/audio/real*` are your voice. Fine in a private repo; review before making it public |
 | Shift-as-PTT clashes with typing capitals | Chords cancel, taps under 200 ms are ignored. Key is configurable |
 
 ---
@@ -296,8 +379,15 @@ Sign as unlisted on AMO, or list publicly (§6).
   listings, and it's true here.
 - Minimal permissions: `storage` + `www.wanikani.com`. No `tabs`, no
   `<all_urls>`.
-- When a bundler arrives (Phase 2), AMO needs the source plus build
-  instructions for review. Keep the build reproducible and avoid obfuscation.
+- AMO needs the source plus build instructions for review, because the
+  worker is bundled: `npm ci && npm run build` (esbuild, not minified). `web-ext
+  lint` on `build/`: 0 errors. Warnings are only `Function`/dynamic `import`
+  inside transformers.js and onnxruntime (unused paths; the CSP forbids eval)
+  and an Android min-version notice.
+- XPI size today is ~103 MB (model 77 MB + WASM runtime 27 MB). A Japanese
+  model must fit in the remaining ~95 MB under AMO's 200 MB limit, or be
+  downloaded on first use (inbound only, but that's a P2 design decision for
+  you).
 - Model licences must allow redistribution (Whisper: MIT. Check the JA
   model's licence in S4).
 - The add-on ID `wanikani-voice@jsmrcina` is permanent once published. Change
@@ -307,4 +397,8 @@ Sign as unlisted on AMO, or list publicly (§6).
 
 ## 7. Open questions
 
-1. S1 graded-state capture: still pending (see §4).
+1. **Noise filter:** bypass the system noise filter for Firefox, soften it,
+   or leave it (about 20/25 instead of 22/25)?
+2. **Live check:** load `build/` in your Firefox and try a few reviews
+   (S1 smoke test plus S3).
+3. **Phase 3 Japanese:** your 25 raw readings are recorded and ready for S4.

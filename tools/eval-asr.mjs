@@ -1,0 +1,99 @@
+// Offline accuracy check for the bundled speech models (spike S5).
+//
+//   node tools/eval-asr.mjs [model ...] [--real | --set NAME] [--show-misses]
+//
+// Runs each model over the English fixtures with the same normalisation the
+// extension uses, and reports exact-match accuracy and decode time.
+// Default set: synthetic TTS clips (test/fixtures/audio/en); --real: the
+// recordings made with tools/recorder (test/fixtures/audio/real), including
+// the noise checks, which pass only if they produce no answer. Uses
+// transformers.js on Node (native onnxruntime), so absolute speed differs from
+// Firefox's WASM backend; accuracy should match.
+import { readFile } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
+import { env, pipeline } from '@huggingface/transformers';
+import { recognize } from '../src/worker/recognize.js';
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const args = process.argv.slice(2);
+const showMisses = args.includes('--show-misses');
+const setIdx = args.indexOf('--set');
+const real = args.includes('--real') || setIdx >= 0;
+const setName = setIdx >= 0 ? args[setIdx + 1] : 'real';
+const models = args.filter((a, i) => !a.startsWith('--') && args[i - 1] !== '--set');
+
+env.allowRemoteModels = false;
+env.allowLocalModels = true;
+env.localModelPath = join(ROOT, 'models') + '/';
+
+// Load the extension's normaliser (a classic script) into this process.
+const sandbox = { globalThis: {} };
+sandbox.globalThis = sandbox;
+vm.runInNewContext(await readFile(join(ROOT, 'src/shared/normalize.js'), 'utf8'), sandbox);
+vm.runInNewContext(await readFile(join(ROOT, 'src/content/audio.js'), 'utf8'), sandbox);
+const { normalizeAnswer } = sandbox.WKV.normalize;
+const { hasSpeech } = sandbox.WKV.audio;
+
+export function decodeWav(buf) {
+  // Minimal PCM16 mono WAV reader (what tools/make-test-audio.py writes).
+  let off = 12;
+  let fmt = null;
+  while (off < buf.length) {
+    const id = buf.toString('ascii', off, off + 4);
+    const size = buf.readUInt32LE(off + 4);
+    if (id === 'fmt ') fmt = { channels: buf.readUInt16LE(off + 10), rate: buf.readUInt32LE(off + 12), bits: buf.readUInt16LE(off + 22) };
+    if (id === 'data') {
+      if (!fmt || fmt.bits !== 16 || fmt.channels !== 1 || fmt.rate !== 16000) throw new Error('expected 16 kHz mono PCM16');
+      const out = new Float32Array(size / 2);
+      for (let i = 0; i < out.length; i++) out[i] = buf.readInt16LE(off + 8 + i * 2) / 32768;
+      return out;
+    }
+    off += 8 + size + (size % 2);
+  }
+  throw new Error('no data chunk');
+}
+
+let fixtures;
+let fixtureDir;
+if (real) {
+  const words = JSON.parse(await readFile(join(ROOT, 'tools/recorder/words.json'), 'utf8'));
+  fixtureDir = join(ROOT, 'test/fixtures/audio', setName);
+  fixtures = [...words.en.map(w => ({ ...w, lang: 'en' })), ...words.noise.map(w => ({ ...w, lang: 'noise' }))]
+    .map(w => ({ file: `${w.lang}/${w.slug}.wav`, said: w.say, expected: w.expected }));
+} else {
+  fixtureDir = join(ROOT, 'test/fixtures/audio/en');
+  fixtures = JSON.parse(await readFile(join(fixtureDir, 'manifest.json'), 'utf8'));
+}
+const candidates = models.length ? models : ['whisper-base.en', 'moonshine-base'];
+
+for (const name of candidates) {
+  const asr = await pipeline('automatic-speech-recognition', name, { dtype: 'q8', device: 'cpu' });
+  let hits = 0;
+  let totalMs = 0;
+  let maxMs = 0;
+  const misses = [];
+  for (const f of fixtures) {
+    const audio = decodeWav(await readFile(join(fixtureDir, f.file)));
+    // Like the extension: clips without detected speech never reach the model.
+    if (!hasSpeech(audio)) {
+      if (f.expected === null) hits += 1;
+      else misses.push(`${f.file}: said "${f.said}" -> no speech detected`);
+      continue;
+    }
+    const t0 = performance.now();
+    const out = { text: await recognize(asr, audio) };
+    const ms = performance.now() - t0;
+    totalMs += ms;
+    maxMs = Math.max(maxMs, ms);
+    const norm = normalizeAnswer(out.text, 'en');
+    const pass = f.expected === null ? !norm.ok : norm.ok && norm.text === f.expected;
+    if (pass) hits += 1;
+    else misses.push(`${f.file}: said "${f.said}" -> raw "${out.text.trim()}" -> ${norm.ok ? `"${norm.text}"` : norm.reason}`);
+  }
+  console.log(`${name.padEnd(18)} ${hits}/${fixtures.length} exact (${(100 * hits / fixtures.length).toFixed(1)}%), ` +
+    `mean ${(totalMs / fixtures.length).toFixed(0)} ms, max ${maxMs.toFixed(0)} ms`);
+  if (showMisses) misses.forEach(m => console.log(`   miss ${m}`));
+  await asr.dispose();
+}

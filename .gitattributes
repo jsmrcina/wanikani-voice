@@ -1,0 +1,4 @@
+# Model weights and tokenizer files (models/models.json itself stays in git).
+models/*/** filter=lfs diff=lfs merge=lfs -text
+# Audio fixtures for recognizer tests.
+test/fixtures/audio/**/*.wav filter=lfs diff=lfs merge=lfs -text

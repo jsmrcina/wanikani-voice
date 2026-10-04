@@ -1,0 +1,65 @@
+{
+  "comment": "Speech models bundled in the extension. Files are fetched by tools/fetch-models.mjs from the pinned revision and verified by sha256. Paths mirror the Hugging Face repo layout that transformers.js expects. \"bundled\": true models are copied into the extension by tools/build.mjs; others are evaluation candidates only (fetched on demand, not committed).",
+  "models": {
+    "whisper-base.en": {
+      "repo": "onnx-community/whisper-base.en",
+      "revision": "51eefc0af78b103839eda9e7e4f4186acc6517fe",
+      "license": "MIT (OpenAI Whisper)",
+      "files": {
+        "config.json": "c8a0de5ed8a083565a4319db29d0c210fda35b4d6076c2d711cae53ae00f3cb1",
+        "generation_config.json": "3479b1f44a07e41db799e22599222fee5816738036def94a39841cb9cdbb4120",
+        "preprocessor_config.json": "a6a76d28c93edb273669eb9e0b0636a2bddbb1272c3261e47b7ca6dfdbac1b8d",
+        "tokenizer.json": "5eb60cec1e77aeeb6869a2bb5a8e01a84c3fe5d072d75369343021fe6f5310d0",
+        "tokenizer_config.json": "93879c3dccdd4b976f709acd85b44778873f30c275e67026f30ca1e4c975230c",
+        "onnx/encoder_model_quantized.onnx": "6e8001198c490bbae018c0044f630c2915efb826bad957006ce36152d0ab2a10",
+        "onnx/decoder_model_merged_quantized.onnx": "dd4761a3f7add26afda3512abff4706920404c2517e85a9f2ff090b0c0987909"
+      },
+      "bundled": true
+    },
+    "moonshine-base": {
+      "repo": "onnx-community/moonshine-base-ONNX",
+      "revision": "b1e9b6aae3c3c7298f10c3798393fdf38e8fbbad",
+      "license": "MIT (Useful Sensors Moonshine)",
+      "files": {
+        "config.json": "fab7241d1e9fc6c2370c4c6dfb5da79bb54d67ed9ab6b507ac51d29d2abe01d1",
+        "generation_config.json": "f9b3f711b57be7def2e50a8942f64f36ee0a55fad5b84ff93a687b6c5bcc1d44",
+        "preprocessor_config.json": "fa43a7017ef85cd1d0fba0d9aae77c8adb16990ae6f11115631f41ec5d8aa679",
+        "tokenizer.json": "7b913404bdd039af4756783218af4440bc07fb7d6d8258d677e34f95b3ec416f",
+        "tokenizer_config.json": "edaee394565d428ea98a663ae7209cdcfeefc5585c42d7a570ff7c986df2cd15",
+        "onnx/encoder_model_quantized.onnx": "1dd9ab0a7f987113d30affcba5a068d11c8f90fa0223caa3e491ade431ad9751",
+        "onnx/decoder_model_merged_quantized.onnx": "cc9f3cd6698a369c6008b41aa60aa3fb3322e7f03c9bdf19d8e6b7200afca4f3"
+      },
+      "bundled": false
+    },
+    "distil-small.en": {
+      "repo": "onnx-community/distil-small.en",
+      "revision": "69be759f982d1d4c5b8a987d4140752742619bd0",
+      "license": "MIT (Distil-Whisper)",
+      "bundled": false,
+      "files": {
+        "config.json": "424d6e09098ea1c7753a675ec727f3adf540bb8591e2a20c4fdf6dca3b832673",
+        "generation_config.json": "ef5b12f82dfc48930897d96c7ab7cbc86e521078015e27052badc281bca52d63",
+        "preprocessor_config.json": "a6a76d28c93edb273669eb9e0b0636a2bddbb1272c3261e47b7ca6dfdbac1b8d",
+        "tokenizer.json": "c9c77688528c0509abbd41873edab16384b8f041531b1d3092ab4d1d83a02a50",
+        "tokenizer_config.json": "a1df3522291588718cf9de70cb1b9f3cd39915a2eb4748353b071023a01d73ac",
+        "onnx/encoder_model_quantized.onnx": "dae677b93ca77f911d858238e277026fa8f95a94cb899ea443ec78ee62726edf",
+        "onnx/decoder_model_merged_quantized.onnx": "fdeac2c9dd3a468c5f3eb875b21f90f4a291e94599f7db66ceba573bfaf0ec20"
+      }
+    },
+    "whisper-small.en": {
+      "repo": "onnx-community/whisper-small.en",
+      "revision": "482fb8ba081b6e906f92efe103622316b2a0cc69",
+      "license": "MIT (OpenAI Whisper)",
+      "bundled": false,
+      "files": {
+        "config.json": "8825c4174cb86f94d9fa67614942f8aa17bfbbdf2fae5426d4adfd0bc5893c43",
+        "generation_config.json": "5490747ca976d6b3765280a0697d66489020c2afa6e754244d9cd093e1639331",
+        "preprocessor_config.json": "a6a76d28c93edb273669eb9e0b0636a2bddbb1272c3261e47b7ca6dfdbac1b8d",
+        "tokenizer.json": "5eb60cec1e77aeeb6869a2bb5a8e01a84c3fe5d072d75369343021fe6f5310d0",
+        "tokenizer_config.json": "93879c3dccdd4b976f709acd85b44778873f30c275e67026f30ca1e4c975230c",
+        "onnx/encoder_model_quantized.onnx": "dae677b93ca77f911d858238e277026fa8f95a94cb899ea443ec78ee62726edf",
+        "onnx/decoder_model_merged_quantized.onnx": "29132c41903c252d0f2b9e59ee1e7d75f7d0b64d37f3e36d1ecc4a1a1af62953"
+      }
+    }
+  }
+}
