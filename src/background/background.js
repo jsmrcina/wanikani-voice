@@ -99,6 +99,7 @@
       if (res.type === 'error') return { ok: false, reason: `Recognizer error: ${res.message}` };
       candidates = res.candidates;
       ms = res.ms;
+      lastDecodeMs = ms;
     }
     // Normalise every candidate; keep the valid, distinct ones, best first.
     const normalized = candidates.map(c => WKV.normalize.normalizeAnswer(c, msg.mode));
@@ -108,6 +109,7 @@
   }
 
   const startedAt = Date.now();
+  let lastDecodeMs = null; // worker time for the most recent transcription
 
   browser.runtime.onMessage.addListener((msg, sender) => {
     if (sender.id !== browser.runtime.id) return undefined;
@@ -115,7 +117,7 @@
     // Diagnostics (used by tests): is this the same background instance, and
     // what state are the models in?
     if (msg?.type === 'wkv:diag') {
-      return Promise.resolve({ startedAt, workerAlive: !!worker, models: Object.fromEntries(modelState) });
+      return Promise.resolve({ startedAt, workerAlive: !!worker, models: Object.fromEntries(modelState), lastDecodeMs });
     }
     return undefined;
   });

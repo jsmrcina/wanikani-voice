@@ -133,7 +133,7 @@
           <span class="mode"></span>
           <button class="badge" type="button"></button>
         </div>
-        <div class="choices" role="group" aria-label="Other readings heard" lang="ja"></div>
+        <div class="choices" role="group" aria-label="Other answers heard"></div>
         <div class="dev">
           <input type="text" placeholder="Type a test answer here" lang="ja" autocomplete="off" spellcheck="false">
           <small>Test mode: no microphone is used. This text stands in for your voice.</small>
@@ -176,7 +176,9 @@
     }
 
     // Alternatives for the answer just recognised; `selected` is filled in.
-    function setChoices(list = [], selected = 0) {
+    // `lang` is 'ja' for readings, so screen readers and fonts treat kana right.
+    function setChoices(list = [], selected = 0, lang = '') {
+      choices.lang = lang;
       choices.replaceChildren(...list.map((text, i) => {
         const b = document.createElement('button');
         b.type = 'button';

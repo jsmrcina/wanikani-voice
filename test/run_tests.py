@@ -439,6 +439,22 @@ def test_reading_choices(b):
            "choices cleared after grading")
 
 
+def test_answer_choices_english(b):
+    """English answers get the same numbered choices (test mode "a|b|c")."""
+    b.set_options()
+    b.open_review()
+    b.say("And|Hand")
+    b.wait_state("filled")
+    assert b.input_value() == "and"
+    assert b.host().get_attribute("data-choices") == "and|hand"
+    assert "another answer" in b.message(), b.message()
+    ActionChains(b.d).send_keys("2").perform()
+    b.wait(lambda: b.input_value() == "hand", 3, "second answer")
+    b.press_enter()
+    b.wait(lambda: b.mock_log(), 5, "submitted")
+    assert b.mock_log()[-1]["answer"] == "hand", b.mock_log()
+
+
 def test_speech_japanese(b):
     """Real Japanese speech through the hiragana model: some valid kana reading
     is filled in (which one depends on the model, so it isn't asserted)."""
@@ -504,7 +520,8 @@ TESTS = [test_unit, test_inactive_off_review_page, test_defaults_fill_only_push_
          test_options_page_saves,
          test_shift_chords_and_taps_ignored, test_custom_ptt_key,
          test_reload_replaces_orphaned_badge, test_speech_push_to_talk,
-         test_speech_numbers_and_phrases, test_reading_choices, test_speech_japanese,
+         test_speech_numbers_and_phrases, test_reading_choices, test_answer_choices_english,
+         test_speech_japanese,
          test_speech_silence_not_sent,
          test_speech_hands_free, test_background_survives_idle]
 

@@ -150,7 +150,15 @@ wanikani.com tab                                 extension background
   never converted.
 - **Alternatives:** every candidate a recogniser returns is normalised; the
   valid, distinct ones are kept, best first, up to 3
-  (`src/background/background.js`).
+  (`src/background/background.js`). English (added 2026-10-04) works like
+  readings. Whisper's top first tokens within 5% of the best are each
+  completed greedily, reusing one encoder pass (transformers.js 4.3 has no
+  real beam search and drops a precomputed `encoder_outputs` unless it's
+  added to `forward_params`).
+  - On raw recordings, the right English answer is offered 25/25 (first
+    choice 22/25): eye→`i / hi / eye`, hand→`and / hand`,
+    ground→`crown / ground / crowd`.
+  - Cost in Firefox: +0–300 ms on a ~1.6 s decode.
 
 ### 2.5 Filling and submitting — built, unverified on live site
 
@@ -437,7 +445,12 @@ accepts `a|b|c` to simulate alternatives.
     is a much bigger job.
 - Silero VAD (~2 MB ONNX) to tell speech from key clicks, instead of the
   energy threshold's thin margin.
-- Alternatives for English too (Whisper beam / n-best), e.g. eye / I.
+- **Speed:** English takes ~1.6 s in Firefox, ~1.3 s of which is Whisper's
+  encoder on a fixed 30 s window, single-threaded WASM. Options:
+  - multi-threaded WASM, if Firefox extension pages can be made
+    cross-origin isolated
+  - whisper-tiny.en, ~4x faster encoder, accuracy to be measured
+  - WebGPU, once Firefox on Linux has it
 - A "didn't catch that" retry budget.
 - Possibly "auto-advance only when correct".
 - An indicator position option if the default clashes with the header.

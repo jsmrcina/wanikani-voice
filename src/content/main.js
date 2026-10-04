@@ -59,15 +59,16 @@
   }
 
   function choicesMessage() {
-    return `Press 1–${choices.length} for another reading, Enter to submit`;
+    const what = question?.mode === 'ja-kana' ? 'reading' : 'answer';
+    return `Press 1–${choices.length} for another ${what}, Enter to submit`;
   }
 
-  // Swaps the filled answer for another reading the recogniser offered.
+  // Swaps the filled answer for another one the recogniser offered.
   function pick(i) {
     if (state !== 'filled' || i < 0 || i >= choices.length) return false;
     if (!answerIO.fill(choices[i])) return false;
     chosen = i;
-    indicator.setChoices(choices, chosen);
+    indicator.setChoices(choices, chosen, question?.mode === 'ja-kana' ? 'ja' : 'en');
     return true;
   }
 
@@ -256,7 +257,7 @@
       choices = result.choices;
       chosen = 0;
       setState('filled', choicesMessage());
-      indicator.setChoices(choices, chosen);
+      indicator.setChoices(choices, chosen, question?.mode === 'ja-kana' ? 'ja' : 'en');
     } else {
       setState('filled', `${result.text} — Enter to submit, or ${keyLabel(settings.pttKey)} to retry`);
     }

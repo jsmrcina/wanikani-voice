@@ -13,9 +13,10 @@
 //               { type: 'result', id, candidates: string[] (best first), ms }
 //               | { type: 'error', id?, message }
 //
-// English uses Whisper (one candidate); Japanese readings use the hiragana CTC
-// model, which returns a few alternatives for the user to choose from.
-import { env, HubertForCTC, pipeline, Tensor } from '@huggingface/transformers';
+// Both return a few candidates, best first, for the user to choose from:
+// Whisper (English) via alternative first tokens, the hiragana CTC model
+// (Japanese readings) via greedy + beam search.
+import { env, HubertForCTC, LogitsProcessor, pipeline, Tensor } from '@huggingface/transformers';
 import { recognize, recognizeCtc } from './recognize.js';
 
 const EXT_ROOT = new URL('../', self.location.href).href; // build/ root
@@ -86,7 +87,8 @@ self.onmessage = async ({ data }) => {
       const t0 = performance.now();
       const candidates = kind === 'ctc'
         ? await recognizeCtc(asr, vocab, data.audio, Tensor)
-        : [String(await recognize(asr, data.audio)).replace(NON_SPEECH, ' ').trim()];
+        : (await recognize(asr, data.audio, { alternatives: 2, LogitsProcessorClass: LogitsProcessor }))
+          .map(text => String(text).replace(NON_SPEECH, ' ').trim());
       self.postMessage({ type: 'result', id: data.id, candidates, ms: Math.round(performance.now() - t0) });
     }
   } catch (err) {

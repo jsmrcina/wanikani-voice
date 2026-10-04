@@ -98,7 +98,7 @@ for (const name of candidates) {
     let candidates;
     if (ctc) candidates = await recognizeCtc(asr, vocab, audio, Tensor);
     else if (lang === 'ja') candidates = [await recognizeKana(asr, audio, tokenizerJson, LogitsProcessor)];
-    else candidates = [await recognize(asr, audio)];
+    else candidates = await recognize(asr, audio, { alternatives: 2, LogitsProcessorClass: LogitsProcessor });
     const choices = [...new Set(candidates.map(c => normalizeAnswer(c, mode)).filter(n => n.ok).map(n => n.text))].slice(0, 3);
     if (f.expected && choices.includes(f.expected)) inTop += 1;
     const out = { text: candidates[0] ?? '' };
@@ -113,7 +113,7 @@ for (const name of candidates) {
   }
   console.log(`${name.padEnd(18)} ${hits}/${fixtures.length} exact (${(100 * hits / fixtures.length).toFixed(1)}%), ` +
     `mean ${(totalMs / fixtures.length).toFixed(0)} ms, max ${maxMs.toFixed(0)} ms`);
-  if (ctc) console.log(`${''.padEnd(18)} expected reading among the offered choices: ${inTop}/${fixtures.filter(f => f.expected).length}`);
+  console.log(`${''.padEnd(18)} expected answer among the offered choices: ${inTop}/${fixtures.filter(f => f.expected).length}`);
   if (showMisses) misses.forEach(m => console.log(`   miss ${m}`));
   await asr.dispose?.();
 }

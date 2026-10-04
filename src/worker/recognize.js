@@ -24,12 +24,75 @@ function decoderPrompt(asr) {
   return promptCache.get(asr);
 }
 
-export async function recognize(asr, audio) {
+// Alternatives under this share of the best first token's probability are noise.
+const MIN_RELATIVE = 0.05;
+
+// Returns candidate transcripts, best first: the greedy decode, then up to
+// `alternatives` more. Whisper's confusions are mostly in the first word
+// (eye / I / bye, hand / and), so the alternatives start from the next most
+// likely *first* tokens, each completed greedily. transformers.js 4.3 has no
+// real beam search (generate() keeps one token per step) and returns no
+// scores, so a one-off logits processor records the first step's scores, and
+// the audio is encoded once and reused for every decode.
+// LogitsProcessorClass: transformers.js's LogitsProcessor (needed only for
+// alternatives).
+export async function recognize(asr, audio, { alternatives = 0, LogitsProcessorClass = null } = {}) {
   const inputs = await asr.processor(audio);
   const prompt = decoderPrompt(asr);
-  const ids = (await asr.model.generate({ ...inputs, decoder_input_ids: prompt, max_new_tokens: 24 })).tolist()[0].map(Number);
+  const promptLen = prompt[0].length;
   // generate() returns the prompt too; keep only what follows it.
-  return asr.tokenizer.decode(ids.slice(prompt[0].length), { skip_special_tokens: true });
+  const textOf = ids => asr.tokenizer.decode(ids.slice(promptLen), { skip_special_tokens: true });
+  const generate = async (decoderIds, extra) =>
+    (await asr.model.generate({ ...extra, decoder_input_ids: decoderIds, max_new_tokens: 24 })).tolist()[0].map(Number);
+
+  if (!alternatives || !LogitsProcessorClass) return [textOf(await generate(prompt, inputs))];
+
+  // Encode once and reuse it for every decode: the encoder is most of the
+  // cost (~1.3 s of ~1.6 s in Firefox's single-threaded WASM). Two
+  // transformers.js 4.3 internals are involved: the helper that runs the
+  // encoder, and generate() keeping only inputs listed in forward_params,
+  // which silently drops encoder_outputs unless it's added (measured: a decode
+  // with it 50 ms, without it 325 ms, in Node). If either internal changes,
+  // decoding still works, just re-encoding each time.
+  let shared = inputs;
+  const prepare = asr.model._prepare_encoder_decoder_kwargs_for_generation;
+  if (Array.isArray(asr.model.forward_params) && !asr.model.forward_params.includes('encoder_outputs')) {
+    asr.model.forward_params = [...asr.model.forward_params, 'encoder_outputs'];
+  }
+  if (typeof prepare === 'function') {
+    const prepared = await prepare.call(asr.model, {
+      inputs_tensor: inputs.input_features,
+      model_inputs: { input_features: inputs.input_features },
+      model_input_name: 'input_features',
+      generation_config: asr.model.generation_config,
+    });
+    if (prepared?.encoder_outputs) shared = { ...inputs, encoder_outputs: prepared.encoder_outputs };
+  }
+
+  let firstStep = null;
+  class RecordFirstStep extends LogitsProcessorClass {
+    _call(ids, logits) {
+      if (!firstStep && ids[0].length === promptLen) firstStep = Float32Array.from(logits[0].data);
+      return logits;
+    }
+  }
+  const best = await generate(prompt, { ...shared, logits_processor: [new RecordFirstStep()] });
+  const out = [textOf(best)];
+  if (!firstStep || best.length <= promptLen) return out;
+
+  // Ordinary text tokens only (special tokens start at <|endoftext|>).
+  const eot = asr.tokenizer.encode('<|endoftext|>', { add_special_tokens: false })[0];
+  const chosen = best[promptLen];
+  const floor = firstStep[chosen] + Math.log(MIN_RELATIVE);
+  const others = [];
+  for (let id = 0; id < eot; id++) {
+    if (id !== chosen && firstStep[id] >= floor) others.push(id);
+  }
+  others.sort((x, y) => firstStep[y] - firstStep[x]);
+  for (const id of others.slice(0, alternatives)) {
+    out.push(textOf(await generate([[...prompt[0], id]], shared)));
+  }
+  return out;
 }
 
 

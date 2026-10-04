@@ -6,8 +6,8 @@ hiragana model for readings. Nothing you say leaves your computer. See
 [PLAN.md](PLAN.md) for the design, findings and roadmap.
 
 **Status: Phase 3.** Meanings, radical names and readings all work by voice.
-For readings the badge also offers up to three kana it heard: press **1–3**
-to switch before you submit.
+The panel also offers up to two other answers it heard (e.g. *hand* for
+*and*, にん for じん): press **1–3** to switch before you submit.
 
 ## Build and try it
 
