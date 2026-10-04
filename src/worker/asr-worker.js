@@ -6,13 +6,17 @@
 // (transformers.js would otherwise fetch it from a CDN). The extension CSP
 // (connect-src 'self') blocks any other network access as a second layer.
 //
-// Messages in:  { type: 'load', model }
-//               { type: 'transcribe', id, model, audio: Float32Array (16 kHz mono) }
+// Messages in:  { type: 'load', model, kind: 'whisper' | 'ctc' }
+//               { type: 'transcribe', id, model, kind, audio: Float32Array (16 kHz mono) }
 // Messages out: { type: 'progress', model, loaded, total }
 //               { type: 'loaded', model, ms }
-//               { type: 'result', id, text, ms } | { type: 'error', id?, message }
-import { env, pipeline } from '@huggingface/transformers';
-import { recognize } from './recognize.js';
+//               { type: 'result', id, candidates: string[] (best first), ms }
+//               | { type: 'error', id?, message }
+//
+// English uses Whisper (one candidate); Japanese readings use the hiragana CTC
+// model, which returns a few alternatives for the user to choose from.
+import { env, HubertForCTC, pipeline, Tensor } from '@huggingface/transformers';
+import { recognize, recognizeCtc } from './recognize.js';
 
 const EXT_ROOT = new URL('../', self.location.href).href; // build/ root
 
@@ -28,13 +32,22 @@ env.backends.onnx.wasm.wasmPaths = {
 // Extension pages aren't cross-origin isolated, so no SharedArrayBuffer threads.
 env.backends.onnx.wasm.numThreads = 1;
 
-const pipelines = new Map(); // model -> Promise<pipeline>
+const pipelines = new Map(); // model -> Promise<{ kind, asr, vocab? }>
 
-function load(model) {
+async function loadModel(model, kind, options) {
+  if (kind === 'ctc') {
+    const asr = await HubertForCTC.from_pretrained(model, options);
+    // The exported config carries the kana vocabulary (tools/export-dual-ctc.py).
+    return { kind, asr, vocab: asr.config.kana_vocab };
+  }
+  return { kind, asr: await pipeline('automatic-speech-recognition', model, options) };
+}
+
+function load(model, kind) {
   if (!pipelines.has(model)) {
     const t0 = performance.now();
     const files = new Map();
-    const p = pipeline('automatic-speech-recognition', model, {
+    const p = loadModel(model, kind, {
       device: 'wasm',
       dtype: 'q8',
       progress_callback: info => {
@@ -45,9 +58,9 @@ function load(model) {
         for (const f of files.values()) { loaded += f.loaded; total += f.total; }
         self.postMessage({ type: 'progress', model, loaded, total });
       },
-    }).then(asr => {
+    }).then(loaded => {
       self.postMessage({ type: 'loaded', model, ms: Math.round(performance.now() - t0) });
-      return asr;
+      return loaded;
     });
     p.catch(() => pipelines.delete(model));
     pipelines.set(model, p);
@@ -67,12 +80,14 @@ self.addEventListener('unhandledrejection', e => {
 self.onmessage = async ({ data }) => {
   try {
     if (data.type === 'load') {
-      await load(data.model);
+      await load(data.model, data.kind);
     } else if (data.type === 'transcribe') {
-      const asr = await load(data.model);
+      const { kind, asr, vocab } = await load(data.model, data.kind);
       const t0 = performance.now();
-      const text = String(await recognize(asr, data.audio)).replace(NON_SPEECH, ' ').trim();
-      self.postMessage({ type: 'result', id: data.id, text, ms: Math.round(performance.now() - t0) });
+      const candidates = kind === 'ctc'
+        ? await recognizeCtc(asr, vocab, data.audio, Tensor)
+        : [String(await recognize(asr, data.audio)).replace(NON_SPEECH, ' ').trim()];
+      self.postMessage({ type: 'result', id: data.id, candidates, ms: Math.round(performance.now() - t0) });
     }
   } catch (err) {
     self.postMessage({ type: 'error', id: data.id, message: String(err?.message ?? err) });

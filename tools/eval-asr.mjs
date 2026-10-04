@@ -1,6 +1,6 @@
 // Offline accuracy check for the bundled speech models (spike S5).
 //
-//   node tools/eval-asr.mjs [model ...] [--real | --set NAME] [--show-misses]
+//   node tools/eval-asr.mjs [model ...] [--real | --set NAME] [--ja] [--show-misses]
 //
 // Runs each model over the English fixtures with the same normalisation the
 // extension uses, and reports exact-match accuracy and decode time.
@@ -13,14 +13,15 @@ import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
-import { env, pipeline } from '@huggingface/transformers';
-import { recognize } from '../src/worker/recognize.js';
+import { env, HubertForCTC, LogitsProcessor, pipeline, Tensor } from '@huggingface/transformers';
+import { recognize, recognizeCtc, recognizeKana } from '../src/worker/recognize.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const showMisses = args.includes('--show-misses');
 const setIdx = args.indexOf('--set');
 const real = args.includes('--real') || setIdx >= 0;
+const lang = args.includes('--ja') ? 'ja' : 'en';
 const setName = setIdx >= 0 ? args[setIdx + 1] : 'real';
 const models = args.filter((a, i) => !a.startsWith('--') && args[i - 1] !== '--set');
 
@@ -60,16 +61,25 @@ let fixtureDir;
 if (real) {
   const words = JSON.parse(await readFile(join(ROOT, 'tools/recorder/words.json'), 'utf8'));
   fixtureDir = join(ROOT, 'test/fixtures/audio', setName);
-  fixtures = [...words.en.map(w => ({ ...w, lang: 'en' })), ...words.noise.map(w => ({ ...w, lang: 'noise' }))]
+  fixtures = [...words[lang].map(w => ({ ...w, lang })), ...words.noise.map(w => ({ ...w, lang: 'noise' }))]
     .map(w => ({ file: `${w.lang}/${w.slug}.wav`, said: w.say, expected: w.expected }));
 } else {
   fixtureDir = join(ROOT, 'test/fixtures/audio/en');
   fixtures = JSON.parse(await readFile(join(fixtureDir, 'manifest.json'), 'utf8'));
 }
-const candidates = models.length ? models : ['whisper-base.en', 'moonshine-base'];
+const candidates = models.length ? models : lang === 'ja' ? ['distilhubert-hiragana'] : ['whisper-base.en'];
 
 for (const name of candidates) {
-  const asr = await pipeline('automatic-speech-recognition', name, { dtype: 'q8', device: 'cpu' });
+  // Japanese: the hiragana CTC model, or multilingual Whisper limited to hiragana.
+  const ctc = name.includes('hiragana');
+  const asr = ctc
+    ? await HubertForCTC.from_pretrained(name, { dtype: 'q8', device: 'cpu' })
+    : await pipeline('automatic-speech-recognition', name, { dtype: 'q8', device: 'cpu' });
+  const tokenizerJson = lang === 'ja' && !ctc
+    ? JSON.parse(await readFile(join(ROOT, 'models', name, 'tokenizer.json'), 'utf8')) : null;
+  const vocab = ctc ? asr.config.kana_vocab : null;
+  const mode = lang === 'ja' ? 'ja-kana' : 'en';
+  let inTop = 0;
   let hits = 0;
   let totalMs = 0;
   let maxMs = 0;
@@ -83,17 +93,27 @@ for (const name of candidates) {
       continue;
     }
     const t0 = performance.now();
-    const out = { text: await recognize(asr, audio) };
+    // Same candidate handling as the background page: normalise, drop
+    // invalid ones, de-duplicate, keep three.
+    let candidates;
+    if (ctc) candidates = await recognizeCtc(asr, vocab, audio, Tensor);
+    else if (lang === 'ja') candidates = [await recognizeKana(asr, audio, tokenizerJson, LogitsProcessor)];
+    else candidates = [await recognize(asr, audio)];
+    const choices = [...new Set(candidates.map(c => normalizeAnswer(c, mode)).filter(n => n.ok).map(n => n.text))].slice(0, 3);
+    if (f.expected && choices.includes(f.expected)) inTop += 1;
+    const out = { text: candidates[0] ?? '' };
     const ms = performance.now() - t0;
     totalMs += ms;
     maxMs = Math.max(maxMs, ms);
-    const norm = normalizeAnswer(out.text, 'en');
+    const norm = choices.length ? { ok: true, text: choices[0] } : normalizeAnswer(out.text, mode);
     const pass = f.expected === null ? !norm.ok : norm.ok && norm.text === f.expected;
     if (pass) hits += 1;
-    else misses.push(`${f.file}: said "${f.said}" -> raw "${out.text.trim()}" -> ${norm.ok ? `"${norm.text}"` : norm.reason}`);
+    else misses.push(`${f.file}: said "${f.said}" -> raw "${out.text.trim()}" -> ${norm.ok ? `"${norm.text}"` : norm.reason}` +
+      (choices.length > 1 ? `  [choices: ${choices.join(' / ')}]` : ''));
   }
   console.log(`${name.padEnd(18)} ${hits}/${fixtures.length} exact (${(100 * hits / fixtures.length).toFixed(1)}%), ` +
     `mean ${(totalMs / fixtures.length).toFixed(0)} ms, max ${maxMs.toFixed(0)} ms`);
+  if (ctc) console.log(`${''.padEnd(18)} expected reading among the offered choices: ${inTop}/${fixtures.filter(f => f.expected).length}`);
   if (showMisses) misses.forEach(m => console.log(`   miss ${m}`));
-  await asr.dispose();
+  await asr.dispose?.();
 }

@@ -43,6 +43,14 @@
       background: var(--bg); border: 1px solid var(--border); box-shadow: var(--shadow);
     }
     .bubble:empty { display: none; }
+    .choices { display: none; gap: 4px; }
+    .choices.on { display: flex; }
+    .choices button {
+      font: 600 15px/1.3 system-ui, sans-serif; padding: 3px 8px; border-radius: 6px; cursor: pointer;
+      background: var(--bg); color: var(--fg); border: 1px solid var(--border); box-shadow: var(--shadow);
+    }
+    .choices button[aria-pressed="true"] { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok), var(--shadow); }
+    .choices kbd { font: 11px ui-monospace, monospace; color: var(--muted); margin-right: 4px; }
     .dev { display: none; }
     .dev.on { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
     .dev input {
@@ -93,7 +101,7 @@
     return [...doc.body.childNodes].map(n => document.importNode(n, true));
   }
 
-  function create({ onToggle, onFakeUtterance }) {
+  function create({ onToggle, onFakeUtterance, onPick }) {
     // An extension reload leaves the previous instance's badge orphaned in
     // the page; remove it. Only our own top-level elements are looked at.
     for (const el of [...document.documentElement.children]) {
@@ -110,6 +118,7 @@
           <span class="mode"></span>
           <button class="badge" type="button"></button>
         </div>
+        <div class="choices" role="group" aria-label="Other readings heard" lang="ja"></div>
         <div class="dev">
           <input type="text" placeholder="Type a test answer here" lang="ja" autocomplete="off" spellcheck="false">
           <small>Test mode: no microphone is used. This text stands in for your voice.</small>
@@ -121,6 +130,7 @@
     const bubble = root.querySelector('.bubble');
     const dev = root.querySelector('.dev');
     const devInput = dev.querySelector('input');
+    const choices = root.querySelector('.choices');
 
     badge.addEventListener('click', () => onToggle());
     // Keys typed in the test field must not reach WaniKani's hotkeys.
@@ -148,8 +158,26 @@
       host.dataset.message = message ?? '';
     }
 
+    // Alternatives for the answer just recognised; `selected` is filled in.
+    function setChoices(list = [], selected = 0) {
+      choices.replaceChildren(...list.map((text, i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.setAttribute('aria-pressed', String(i === selected));
+        const k = document.createElement('kbd');
+        k.textContent = String(i + 1);
+        b.append(k, text);
+        b.addEventListener('click', () => onPick?.(i));
+        return b;
+      }));
+      choices.classList.toggle('on', list.length > 1);
+      host.dataset.choices = list.length > 1 ? list.join('|') : '';
+      host.dataset.selected = list.length > 1 ? String(selected) : '';
+    }
+
     return {
       set,
+      setChoices,
       setDevMode(on) { dev.classList.toggle('on', on); },
       fakeUtterance() { return devInput.value; },
       ownsEvent(e) { return e.composedPath().includes(host); },

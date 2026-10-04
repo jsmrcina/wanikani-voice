@@ -55,6 +55,12 @@
     return true;
   }
 
+  // The answer box's current text (the user's own answer, never the question),
+  // used to tell whether they've typed over a recognised answer.
+  function value() {
+    return input()?.value ?? '';
+  }
+
   // Whether the current answer has been graded: WaniKani sets correct="true" /
   // "false" on the input container and removes it when the next question
   // loads (confirmed on the live page 2026-10-04).
@@ -62,5 +68,5 @@
     return !!document.querySelector(SELECTORS.inputContainer)?.hasAttribute('correct');
   }
 
-  WKV.answerIO = { isPresent, fill, submit: pressSubmit, advance: pressSubmit, isGraded };
+  WKV.answerIO = { isPresent, fill, value, submit: pressSubmit, advance: pressSubmit, isGraded };
 })(globalThis.WKV = globalThis.WKV || {});

@@ -1,18 +1,20 @@
 # Voice Answers for WaniKani
 
 A Firefox extension for answering WaniKani reviews by voice. Speech recognition
-runs on your device (Whisper base.en inside Firefox), and nothing you say
-leaves it. See [PLAN.md](PLAN.md) for the design, findings and roadmap.
+runs on your device, inside Firefox: Whisper base.en for English, and a small
+hiragana model for readings. Nothing you say leaves your computer. See
+[PLAN.md](PLAN.md) for the design, findings and roadmap.
 
-**Status: Phase 2.** English meanings and radical names work by voice.
-Japanese readings still need typing (Phase 3).
+**Status: Phase 3.** Meanings, radical names and readings all work by voice.
+For readings the badge also offers up to three kana it heard: press **1–3**
+to switch before you submit.
 
 ## Build and try it
 
 ```bash
 git lfs pull            # model files and audio fixtures live in Git LFS
 npm ci
-npm run build           # -> build/ (the loadable extension, ~100 MB)
+npm run build           # -> build/ (the loadable extension, ~150 MB)
 ```
 
 1. In Firefox, open `about:debugging#/runtime/this-firefox` → **Load Temporary
@@ -28,7 +30,8 @@ Settings live in the toolbar button's popup (also under about:addons):
 - fill-only or auto-submit
 - auto-advance and its delay
 - the push-to-talk key
-- test mode, where typed text stands in for speech
+- test mode, where typed text stands in for speech (`a|b|c` simulates
+  alternatives)
 
 Click the badge or press **Alt+Shift+V** to pause.
 
@@ -66,19 +69,24 @@ This runs:
 
 ```bash
 node tools/fetch-models.mjs [name]                   # pinned, sha256-checked downloads (models/models.json)
-node tools/eval-asr.mjs [model ...] --set real-raw   # accuracy on recordings, same pipeline as the extension
+node tools/eval-asr.mjs [model ...] --set real-raw [--ja]   # accuracy on recordings, same pipeline as the extension
 python3 tools/recorder/server.py --set NAME          # record evaluation clips at http://localhost:8765/
 ```
 
 Only models marked `"bundled": true` in `models/models.json` are committed
-and shipped. The others are evaluation candidates.
+and shipped. The others are evaluation candidates. The hiragana model is
+exported locally (`"generatedBy"` gives the exact command; needs PyTorch).
+`fetch-models` verifies its committed files instead of downloading them.
+
+Third-party models and libraries and their licences:
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Layout
 
 ```
 manifest.json
-src/background/background.js   speech worker lifecycle, transcribe, model status, commands
-src/worker/                    transformers.js worker + shared Whisper decoding (bundled)
+src/background/background.js   speech worker lifecycle, transcribe + choices, model status, commands
+src/worker/                    transformers.js worker, Whisper and hiragana CTC decoding (bundled)
 src/content/page-reader.js     the ONLY reader of the page: question type
 src/content/answer-io.js       fill the answer box / press submit
 src/content/audio.js           microphone capture, resampling, speech detection

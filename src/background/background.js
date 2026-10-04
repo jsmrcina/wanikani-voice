@@ -6,8 +6,10 @@
 (function (WKV) {
   'use strict';
 
-  // Which bundled model handles each mode. Japanese arrives in Phase 3.
-  const MODELS = { en: 'whisper-base.en', 'ja-kana': null };
+  // Which bundled model handles each mode, and what kind of model it is.
+  const MODELS = { en: 'whisper-base.en', 'ja-kana': 'distilhubert-hiragana' };
+  const KINDS = { 'whisper-base.en': 'whisper', 'distilhubert-hiragana': 'ctc' };
+  const MAX_CHOICES = 3;
   const MODES = new Set(Object.keys(MODELS));
 
   // ---- worker ---------------------------------------------------------------
@@ -65,14 +67,14 @@
       return;
     }
     setModelState(model, { status: 'loading', loaded: 0, total: 0 });
-    getWorker().postMessage({ type: 'load', model });
+    getWorker().postMessage({ type: 'load', model, kind: KINDS[model] });
   }
 
   function runWorker(model, audio) {
     return new Promise(resolve => {
       const id = nextId++;
       pending.set(id, { resolve });
-      getWorker().postMessage({ type: 'transcribe', id, model, audio }, [audio.buffer]);
+      getWorker().postMessage({ type: 'transcribe', id, model, kind: KINDS[model], audio }, [audio.buffer]);
     });
   }
 
@@ -81,23 +83,28 @@
   async function transcribe(msg) {
     if (!MODES.has(msg.mode)) return { ok: false, reason: 'Unknown mode' };
     const settings = await WKV.settings.load();
-    let raw;
+    let candidates;
     let ms;
     if (settings.recognizer === 'fake') {
-      raw = String(msg.fakeUtterance ?? '');
+      // Test mode: "a|b|c" stands in for a recogniser offering alternatives.
+      candidates = String(msg.fakeUtterance ?? '').split('|');
     } else {
       const model = MODELS[msg.mode];
-      if (!model) return { ok: false, reason: 'Japanese recognition arrives in a later version' };
+      if (!model) return { ok: false, reason: 'No speech model for this question type' };
       if (!(msg.audio instanceof Float32Array) || msg.audio.length === 0) {
         return { ok: false, reason: "Didn't catch that" };
       }
       // Copy: the incoming array may not be transferable from this context.
       const res = await runWorker(model, new Float32Array(msg.audio));
       if (res.type === 'error') return { ok: false, reason: `Recognizer error: ${res.message}` };
-      raw = res.text;
+      candidates = res.candidates;
       ms = res.ms;
     }
-    return { raw, ms, ...WKV.normalize.normalizeAnswer(raw, msg.mode) };
+    // Normalise every candidate; keep the valid, distinct ones, best first.
+    const normalized = candidates.map(c => WKV.normalize.normalizeAnswer(c, msg.mode));
+    const choices = [...new Set(normalized.filter(n => n.ok).map(n => n.text))].slice(0, MAX_CHOICES);
+    if (!choices.length) return { raw: candidates[0], ms, ...normalized[0] };
+    return { ok: true, raw: candidates[0], ms, text: choices[0], choices };
   }
 
   const startedAt = Date.now();

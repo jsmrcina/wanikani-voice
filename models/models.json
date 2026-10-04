@@ -1,5 +1,5 @@
 {
-  "comment": "Speech models bundled in the extension. Files are fetched by tools/fetch-models.mjs from the pinned revision and verified by sha256. Paths mirror the Hugging Face repo layout that transformers.js expects. \"bundled\": true models are copied into the extension by tools/build.mjs; others are evaluation candidates only (fetched on demand, not committed).",
+  "comment": "Speech models bundled in the extension. Files are fetched by tools/fetch-models.mjs from the pinned revision and verified by sha256. Paths mirror the Hugging Face repo layout that transformers.js expects. \"bundled\": true models are copied into the extension by tools/build.mjs; others are evaluation candidates only (fetched on demand, not committed). Models with \"generatedBy\" are exported locally (ONNX conversion of a PyTorch checkpoint) rather than downloaded; their hashes pin the committed export.",
   "models": {
     "whisper-base.en": {
       "repo": "onnx-community/whisper-base.en",
@@ -59,6 +59,47 @@
         "tokenizer_config.json": "93879c3dccdd4b976f709acd85b44778873f30c275e67026f30ca1e4c975230c",
         "onnx/encoder_model_quantized.onnx": "dae677b93ca77f911d858238e277026fa8f95a94cb899ea443ec78ee62726edf",
         "onnx/decoder_model_merged_quantized.onnx": "29132c41903c252d0f2b9e59ee1e7d75f7d0b64d37f3e36d1ecc4a1a1af62953"
+      }
+    },
+    "whisper-base": {
+      "repo": "onnx-community/whisper-base",
+      "revision": "1846881b6b3a3024392c1eea3ad983695bc23925",
+      "license": "MIT (OpenAI Whisper)",
+      "bundled": false,
+      "files": {
+        "config.json": "f4d0608f7d918166da7edb3e188de5ef1bfe70d9802e785d271fd88111e9cf4b",
+        "generation_config.json": "61070cf8de25b1e9256e8e102ded49d8d24a8369ed36ef84fdf21549e68125a0",
+        "preprocessor_config.json": "a6a76d28c93edb273669eb9e0b0636a2bddbb1272c3261e47b7ca6dfdbac1b8d",
+        "tokenizer.json": "27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566",
+        "tokenizer_config.json": "2e036e4dbacfdeb7242c7d4ec4149f4a16e86026048f94d1637e3a8ee9c6a573",
+        "onnx/encoder_model_quantized.onnx": "5862993336bf33acd23736071aae2b32261d3b1b2f37780194460d4ef974dd46",
+        "onnx/decoder_model_merged_quantized.onnx": "fa3ef9902734ce5ae6f9ef2bdb2ba9a6c4b5785b09f4f420ce036573dc9d090b"
+      }
+    },
+    "whisper-small": {
+      "repo": "onnx-community/whisper-small",
+      "revision": "36050c46d777d46dc4b5f43f6d90574fc38f8732",
+      "license": "MIT (OpenAI Whisper)",
+      "bundled": false,
+      "files": {
+        "config.json": "457854d452f17661e197d74aee12b8e74fb75ba30ebfaa7426d0d61ea1e08a18",
+        "generation_config.json": "f538b28220c6a6d6f1af1458d4141cacb4ef4963df3de98a19490440c412ddf0",
+        "preprocessor_config.json": "a6a76d28c93edb273669eb9e0b0636a2bddbb1272c3261e47b7ca6dfdbac1b8d",
+        "tokenizer.json": "27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566",
+        "tokenizer_config.json": "2a4c4281cf9f51ac6ccc406fdc711a087afe6530f671fa7b80953edc498275ce",
+        "onnx/encoder_model_quantized.onnx": "a43a83f3c5361cd591cfa7c36f14b43cf7cb22f47a415cc14a8d557be800fa92",
+        "onnx/decoder_model_merged_quantized.onnx": "ec07c3cbb64172c39791e26ee870a65ac22b458c36722bfe2776b3dbf741e0c9"
+      }
+    },
+    "distilhubert-hiragana": {
+      "repo": "TylorShine/distilhubert-hiragana-ctc",
+      "revision": "01ffc3e5b0e49ba34180d50c48ea4111aa041cfd",
+      "license": "Apache-2.0 (TylorShine/distilhubert-hiragana-ctc; base ntu-spml/distilhubert)",
+      "bundled": true,
+      "generatedBy": "python tools/export-dual-ctc.py TylorShine/distilhubert-hiragana-ctc 01ffc3e5b0e49ba34180d50c48ea4111aa041cfd models/distilhubert-hiragana",
+      "files": {
+        "config.json": "b51b5b7073dd8881f78af88d9af811fe495f0ea81234403a3b5597b0b5cd069a",
+        "onnx/model_quantized.onnx": "2e8fdf1c09f25a0610d266a7844a4bbd63859349f0be14e44412b0a0fa59e0d1"
       }
     }
   }

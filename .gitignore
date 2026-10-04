@@ -8,3 +8,6 @@ node_modules/
 models/moonshine-base/
 models/distil-small.en/
 models/whisper-small.en/
+models/whisper-small/
+models/whisper-base/
+models/distilhubert-hiragana/onnx/model.onnx

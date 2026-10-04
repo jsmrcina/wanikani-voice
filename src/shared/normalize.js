@@ -130,16 +130,47 @@
   }
 
   const KANA_PUNCT = /[\s　、。，．,.!?！？「」『』・…〜~'"-]/g;
-  const HIRAGANA_ONLY = /^[ぁ-ゖゝゞー]+$/;
+  const HIRAGANA_ONLY = /^[ぁ-ゖゝゞ]+$/;
+
+  // Rows by vowel, for spelling out ー the way readings are written.
+  const VOWEL_OF = {};
+  for (const [vowel, row] of Object.entries({
+    a: 'あかさたなはまやらわがざだばぱぁゃ', i: 'いきしちにひみりぎじぢびぴぃ',
+    u: 'うくすつぬふむゆるぐずづぶぷぅゅ', e: 'えけせてねへめれげぜでべぺぇ',
+    o: 'おこそとのほもよろをごぞどぼぽぉょ',
+  })) for (const ch of row) VOWEL_OF[ch] = vowel;
+  const LONG = { a: 'あ', i: 'い', u: 'う', e: 'い', o: 'う' };
+
+  // The hiragana model writes long vowels phonetically (きょー); readings are
+  // spelled out (きょう). Convention, not correction: o- and u-rows lengthen
+  // with う, e-row with い (the usual on'yomi spellings), a- and i-rows repeat
+  // the vowel. おお/ええ spellings (おおきい) aren't recoverable from sound.
+  function expandLongVowels(s) {
+    let out = '';
+    for (const ch of s) {
+      if (ch === 'ー') {
+        const vowel = VOWEL_OF[out[out.length - 1]];
+        if (!vowel) return null; // ー after ん, っ or at the start: not a reading
+        out += LONG[vowel];
+      } else {
+        out += ch;
+      }
+    }
+    return out;
+  }
 
   function normalizeKana(raw) {
-    const s = katakanaToHiragana(String(raw).normalize('NFKC')).replace(KANA_PUNCT, '');
+    const folded = katakanaToHiragana(String(raw).normalize('NFKC')).replace(KANA_PUNCT, '');
+    const s = expandLongVowels(folded);
+    if (s === null) return { ok: false, reason: 'Expected kana only' };
     if (!s) return { ok: false, reason: "Didn't catch that" };
     if (/[一-鿿㐀-䶿]/.test(s)) {
       // A kanji's reading is ambiguous; never guess which one was said.
       return { ok: false, reason: 'Got kanji, not kana — try again' };
     }
     if (!HIRAGANA_ONLY.test(s)) return { ok: false, reason: 'Expected kana only' };
+    // No reading starts with ん, っ or a small kana: that's a hum or a cough.
+    if (/^[んっぁぃぅぇぉゃゅょゎ]/.test(s)) return { ok: false, reason: "Didn't catch that" };
     return { ok: true, text: s };
   }
 

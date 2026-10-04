@@ -33,6 +33,14 @@ async function exists(path) {
 let changed = false;
 for (const [name, model] of Object.entries(manifest.models)) {
   if (names.length && !names.includes(name)) continue;
+  if (model.generatedBy) {
+    // Exported locally, not downloadable: check the committed files instead.
+    for (const [file, hash] of Object.entries(model.files)) {
+      const ok = await exists(join(dest, name, file)) && await sha256(join(dest, name, file)) === hash;
+      console.log(`${ok ? 'ok      ' : 'MISSING '} ${name}/${file}${ok ? '' : `  (regenerate: ${model.generatedBy})`}`);
+    }
+    continue;
+  }
   for (const [file, hash] of Object.entries(model.files)) {
     const out = join(dest, name, file);
     if (await exists(out) && hash && await sha256(out) === hash) {

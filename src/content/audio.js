@@ -18,7 +18,11 @@
   const VAD = Object.freeze({
     minRms: 0.006,        // absolute floor, so a silent room doesn't count as speech
     startRatio: 3.0,      // speech starts at this multiple of the noise floor...
-    startMs: 120,         // ...sustained this long
+    // ...sustained this long. Measured 2026-10-04 on real recordings with 20 ms
+    // frames: spoken answers (even か, め) give runs of 120-300 ms; key clicks
+    // and bumps picked up by the mic stay at or under 80 ms.
+    startMs: 100,
+    frameMs: 20,
     endRatio: 2.0,        // speech ends when below this multiple...
     endMs: 800,           // ...for this long
   });
@@ -54,7 +58,7 @@
     return Math.sqrt(s / data.length);
   }
 
-  // Calls back onLevel(isSpeech, chunkMs) per chunk; tracks the noise floor.
+  // push(level) per 20 ms frame -> { speech, quiet }; tracks the noise floor.
   function createDetector() {
     let floor = VAD.minRms;
     return {
@@ -83,10 +87,12 @@
 
     function onAudio(e) {
       const data = new Float32Array(e.inputBuffer.getChannelData(0));
-      const chunkMs = (data.length / ctx.sampleRate) * 1000;
-      const level = rms(data);
-      onLevel?.(level);
-      const { speech, quiet } = detector.push(level);
+      onLevel?.(rms(data));
+      const frame = Math.round((ctx.sampleRate * VAD.frameMs) / 1000);
+      const states = [];
+      for (let i = 0; i + frame <= data.length; i += frame) {
+        states.push(detector.push(rms(data.subarray(i, i + frame))));
+      }
       if (!recording) {
         preroll.push(data);
         prerollLen += data.length;
@@ -97,14 +103,13 @@
       }
       const r = recording;
       r.chunks.push(data);
-      r.totalMs += chunkMs;
-      if (speech) r.speechRunMs += chunkMs; else r.speechRunMs = 0;
-      if (r.speechRunMs >= VAD.startMs) r.heardSpeech = true;
-      if (r.handsFree && r.heardSpeech) {
-        r.quietMs = quiet ? r.quietMs + chunkMs : 0;
-        if (r.quietMs >= VAD.endMs) r.onEnd?.();
+      for (const { speech, quiet } of states) {
+        r.totalMs += VAD.frameMs;
+        r.speechRunMs = speech ? r.speechRunMs + VAD.frameMs : 0;
+        if (r.speechRunMs >= VAD.startMs) r.heardSpeech = true;
+        if (r.handsFree && r.heardSpeech) r.quietMs = quiet ? r.quietMs + VAD.frameMs : 0;
       }
-      if (r.totalMs >= MAX_SEC * 1000) r.onEnd?.();
+      if ((r.handsFree && r.quietMs >= VAD.endMs) || r.totalMs >= MAX_SEC * 1000) r.onEnd?.();
     }
 
     async function getStream() {
@@ -202,13 +207,13 @@
 
   // Runs the speech detector over a finished clip, the way a live recording
   // would have been judged (used by tests and tools/eval-asr.mjs).
-  function hasSpeech(samples, rate = TARGET_RATE, chunk = 1365) {
+  function hasSpeech(samples, rate = TARGET_RATE) {
     const detector = createDetector();
-    const chunkMs = (chunk / rate) * 1000;
+    const frame = Math.round((rate * VAD.frameMs) / 1000);
     let run = 0;
-    for (let i = 0; i + chunk <= samples.length; i += chunk) {
-      const { speech } = detector.push(rms(samples.subarray(i, i + chunk)));
-      run = speech ? run + chunkMs : 0;
+    for (let i = 0; i + frame <= samples.length; i += frame) {
+      const { speech } = detector.push(rms(samples.subarray(i, i + frame)));
+      run = speech ? run + VAD.frameMs : 0;
       if (run >= VAD.startMs) return true;
     }
     return false;

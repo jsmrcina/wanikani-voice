@@ -26,6 +26,8 @@
   let pttHeld = false;
   let evaluateTimer = null;
   let followUpTimer = null;  // error -> ready, or auto-advance
+  let choices = [];          // readings offered for the current answer
+  let chosen = 0;
 
   // What the background can recognise: mode -> model name (null = not yet),
   // and each model's loading state.
@@ -50,6 +52,29 @@
   function setState(next, message) {
     state = next;
     indicator.set(next, { mode: question?.mode, message });
+    if (next !== 'filled' && choices.length) {
+      choices = [];
+      indicator.setChoices([]);
+    }
+  }
+
+  function choicesMessage() {
+    return `Press 1–${choices.length} for another reading, Enter to submit`;
+  }
+
+  // Swaps the filled answer for another reading the recogniser offered.
+  function pick(i) {
+    if (state !== 'filled' || i < 0 || i >= choices.length) return false;
+    if (!answerIO.fill(choices[i])) return false;
+    chosen = i;
+    indicator.setChoices(choices, chosen);
+    return true;
+  }
+
+  // True while the answer box still holds one of the offered readings, i.e.
+  // the user hasn't started typing their own.
+  function choosing() {
+    return state === 'filled' && choices.length > 1 && choices.includes(answerIO.value());
   }
 
   function clearFollowUp() {
@@ -79,7 +104,7 @@
   function enterReady(message) {
     clearFollowUp();
     if (!isFake() && modeModels && modeModel() === null) {
-      setState('manual', 'Japanese voice answers come in a later version: type this one');
+      setState('manual', 'No voice model for this question type: type this one');
       return;
     }
     if (handsFree() && !document.hidden) {
@@ -227,6 +252,11 @@
     if (settings.submitMode === 'auto-submit') {
       setState('filled', result.text);
       answerIO.submit();
+    } else if (result.choices?.length > 1) {
+      choices = result.choices;
+      chosen = 0;
+      setState('filled', choicesMessage());
+      indicator.setChoices(choices, chosen);
     } else {
       setState('filled', `${result.text} — Enter to submit, or ${keyLabel(settings.pttKey)} to retry`);
     }
@@ -359,6 +389,15 @@
 
   function onKeyDown(e) {
     if (!settings.enabled) return;
+    // 1–3 pick another offered reading (only while one is in the box).
+    const digit = /^(?:Digit|Numpad)([1-9])$/.exec(e.code);
+    if (digit && !e.ctrlKey && !e.altKey && !e.metaKey && !indicator.ownsEvent(e) && choosing()) {
+      if (pick(Number(digit[1]) - 1)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+      return;
+    }
     if (!isPttEvent(e)) {
       // Another key while holding PTT (Shift+A for a capital, a shortcut):
       // the user is typing, not talking.
@@ -421,7 +460,7 @@
 
   function activate() {
     active = true;
-    indicator = WKV.indicator.create({ onToggle, onFakeUtterance });
+    indicator = WKV.indicator.create({ onToggle, onFakeUtterance, onPick: pick });
     indicator.setDevMode(isFake());
     mic = WKV.audio.createMic();
     state = 'off';

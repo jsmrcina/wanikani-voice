@@ -225,10 +225,13 @@ class Browser:
 
 def test_unit(b):
     b.d.get(b.base + "/test/unit/index.html")
-    res = json.loads(b.wait(lambda: (t := b.d.find_element(By.ID, "results").text) != "running" and t,
-                            what="unit results"))
-    assert not res["failures"], json.dumps(res["failures"], ensure_ascii=False, indent=1)
-    return f"{res['total']} cases"
+    total = 0
+    for el in ("results", "ctc-results"):
+        res = json.loads(b.wait(lambda: (t := b.d.find_element(By.ID, el).text) != "running" and t,
+                                what=f"{el}"))
+        assert not res["failures"], json.dumps(res["failures"], ensure_ascii=False, indent=1)
+        total += res["total"]
+    return f"{total} cases"
 
 
 def test_inactive_off_review_page(b):
@@ -398,9 +401,53 @@ def test_speech_numbers_and_phrases(b):
     b.wait_model_ready()
     b.speak(SPEECH_PREFIX + "twenty-one.wav")  # radical question; wrong but must pass through as said
     b.wait(lambda: b.mock_log(), timeout=20, what="first answer")
-    b.wait(lambda: b.state() == "manual", timeout=5, what="reading question has no model yet")
-    assert b.mode() == "ja-kana"
     assert b.mock_log()[-1]["answer"] == "21", b.mock_log()
+    b.wait(lambda: b.mode() == "ja-kana" and b.state() == "ready", timeout=5, what="reading question")
+
+
+def test_reading_choices(b):
+    """The choices UI, driven deterministically by test mode ("a|b|c")."""
+    b.set_options()
+    b.open_review()
+    b.say("fire")
+    b.press_enter()
+    b.wait_state("waiting")
+    b.press_enter()  # kanji reading question (人)
+    b.wait(lambda: b.mode() == "ja-kana" and b.state() == "ready", 10, "reading question")
+    b.say("ジン|ニン|ヒト")
+    b.wait_state("filled")
+    assert b.input_value() == "じん", b.input_value()
+    assert b.host().get_attribute("data-choices") == "じん|にん|ひと"
+    field = b.d.find_element(By.ID, "user-response")
+    ActionChains(b.d).send_keys("3").perform()  # digits pick, never reach the box
+    b.wait(lambda: b.input_value() == "ひと", 3, "third choice")
+    assert b.host().get_attribute("data-selected") == "2"
+    ActionChains(b.d).send_keys("1").perform()
+    b.wait(lambda: b.input_value() == "じん", 3, "first choice again")
+    # Once the user types their own answer, digits are left alone.
+    b.d.execute_script("arguments[0].value = 'じ'", field)
+    ActionChains(b.d).send_keys("2").perform()
+    assert b.input_value() == "じ2", b.input_value()
+    b.d.execute_script("arguments[0].value = 'にん'", field)
+    b.press_enter()
+    b.wait(lambda: len(b.mock_log()) == 2, 5, "reading submitted")
+    assert b.mock_log()[-1]["answer"] == "にん", b.mock_log()
+    b.wait(lambda: b.state() == "waiting" and not b.host().get_attribute("data-choices"), 3,
+           "choices cleared after grading")
+
+
+def test_speech_japanese(b):
+    """Real Japanese speech through the hiragana model: some valid kana reading
+    is filled in (which one depends on the model, so it isn't asserted)."""
+    b.set_options(recognizer="local", submitMode="auto-submit", autoAdvance=True, autoAdvanceDelayMs=200)
+    b.open_review()
+    b.wait_model_ready()
+    b.speak(SPEECH_PREFIX + "fire.wav")
+    b.wait(lambda: b.mode() == "ja-kana" and b.state() == "ready", 20, "reading question")
+    b.speak("real-raw/ja/yama.wav")
+    b.wait(lambda: len(b.mock_log()) == 2, 20, "reading submitted")
+    answer = b.mock_log()[-1]["answer"]
+    assert answer and all("\u3041" <= c <= "\u3096" for c in answer), answer
 
 
 def test_speech_silence_not_sent(b):
@@ -454,7 +501,8 @@ TESTS = [test_unit, test_inactive_off_review_page, test_defaults_fill_only_push_
          test_options_page_saves,
          test_shift_chords_and_taps_ignored, test_custom_ptt_key,
          test_reload_replaces_orphaned_badge, test_speech_push_to_talk,
-         test_speech_numbers_and_phrases, test_speech_silence_not_sent,
+         test_speech_numbers_and_phrases, test_reading_choices, test_speech_japanese,
+         test_speech_silence_not_sent,
          test_speech_hands_free, test_background_survives_idle]
 
 

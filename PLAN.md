@@ -3,10 +3,11 @@
 A Firefox extension that lets you answer WaniKani reviews by voice. Speech
 recognition runs entirely on-device.
 
-Status (2026-10-04): **Phase 2 done, pending a live check on WaniKani.**
-English answers are recognised on-device (Whisper base.en in a worker) from
-push-to-talk or hands-free speech, end to end in Firefox against the mock
-review page. Japanese readings fall back to typing until Phase 3.
+Status (2026-10-04): **Phase 3 done, pending a live check on WaniKani.**
+English answers are recognised by Whisper base.en, and Japanese readings by a
+small hiragana CTC model. For readings, the badge offers up to three kana
+readings it heard (keys 1–3). All of it runs on-device, from push-to-talk or
+hands-free speech, end to end in Firefox against the mock review page.
 
 ---
 
@@ -55,13 +56,13 @@ selects the model.
 | Mode | Model (initial pick) | Why |
 |---|---|---|
 | **English** (meaning, radical name) | **Whisper `base.en`, 8-bit (77 MB)** via transformers.js 4.3 + onnxruntime-web (WASM) — **chosen in S5** | Best accuracy on real recordings; bigger variants were no better (S5) |
-| **Japanese reading** | A **hiragana-output CTC model** (wav2vec2-XLSR fine-tuned to emit hiragana, e.g. `vumichien/wav2vec2-large-xlsr-japanese-hiragana`) exported to ONNX | Emits kana directly. No kanji to convert, no language model "fixing" what you said |
+| **Japanese reading** | **distilhubert-hiragana-ctc** (Apache-2.0), exported to ONNX by `tools/export-dual-ctc.py`, MatMul-only int8 (51 MB) — **chosen in S4** | Emits hiragana directly, so there's no kanji to convert and no language model inventing words. Best first-choice accuracy, tiny and fast (~20 ms). Up to 3 alternatives from beam search, which you pick between |
 
 **Why not Whisper for Japanese:** it writes kanji (人), and converting back is
 ambiguous (じん / にん / ひと). That ambiguity is exactly the reading being
-tested, and Whisper also pulls toward real words, which breaks F5.
-**Fallback:** Whisper with a fixed hiragana prompt and kanji tokens suppressed.
-If kanji still comes out, we reject it and re-listen. We never guess.
+tested. Even constrained to hiragana (`recognizeKana` in
+`src/worker/recognize.js`, kept for evaluation), it invents phrases
+(すみません, しなくて) and did worse (S4).
 
 **Rejected:** Web Speech API (server-based, and off in Firefox). Firefox's
 `browser.trial.ml` (experimental, Mozilla-controlled model list, may download
@@ -140,8 +141,16 @@ wanikani.com tab                                 extension background
   Malformed runs like "one two" are left alone. Japanese text in English mode
   is rejected.
 - **Japanese:** NFKC (fixes half-width kana), katakana → hiragana, strip spaces
-  and punctuation, then require pure hiragana (plus ー). Kanji or romaji is
-  **rejected** with a message. It is never converted.
+  and punctuation. **ー is spelled out**: o- and u-rows take う, the e-row
+  takes い, and the a- and i-rows repeat the vowel (きょー→きょう,
+  せんせー→せんせい). The hiragana model writes long vowels phonetically;
+  this is a spelling convention and never looks at the question. Then the
+  result must be pure hiragana and must not start with ん, っ or a small kana
+  (that's a hum or cough). Kanji or romaji is **rejected** with a message,
+  never converted.
+- **Alternatives:** every candidate a recogniser returns is normalised; the
+  valid, distinct ones are kept, best first, up to 3
+  (`src/background/background.js`).
 
 ### 2.5 Filling and submitting — built, unverified on live site
 
@@ -200,7 +209,8 @@ State is mirrored to `data-state` / `data-mode` on the host element for tests.
 manifest.json                  MV3, Firefox ≥140
 src/background/background.js   speech worker lifecycle, transcribe, model status, commands
 src/worker/asr-worker.js       transformers.js worker (bundled into build/dist/)
-src/worker/recognize.js        Whisper decoding with the fixed prompt (shared with eval)
+src/worker/recognize.js        Whisper decoding (fixed prompt), hiragana CTC decoding (shared with eval)
+src/worker/ctc.js              CTC prefix beam search (reading alternatives)
 src/content/audio.js           mic capture, resampling, speech detection
 src/content/page-reader.js     ONLY reader of the page: question type
 src/content/answer-io.js       fill / submit / graded?
@@ -222,7 +232,10 @@ tools/fetch-models.mjs         downloads pinned, hash-checked models (models/mod
 tools/eval-asr.mjs             offline accuracy on recordings (S5)
 tools/recorder/                local page for recording evaluation clips
 tools/make-test-audio.py       synthetic TTS fixtures (Piper)
-models/                        bundled model (Git LFS) + models.json manifest
+tools/export-dual-ctc.py       exports the hiragana model to ONNX (+ partial int8)
+tools/export-ctc.py            generic CTC export (optimum), for other candidates
+tools/eval-ja-torch.py         S4 comparison of hiragana models in PyTorch
+models/                        bundled models (Git LFS) + models.json manifest
 test/fixtures/audio/           WAV fixtures (Git LFS): en/ synthetic, real/ gated, real-raw/ raw
 test/worker/index.html         runs the built worker in a plain page (debugging)
 ```
@@ -235,9 +248,10 @@ were installed on 2026-10-04. Model files and WAVs are in Git LFS
 
 
 Tests: `npm run build && python3 test/run_tests.py`. Current result: policy
-ok, 39 unit cases, 16 end-to-end scenarios. They include real speech through
-the extension (push-to-talk, hands-free with autoplay unblock, numbers,
-silence rejected) and the S2 idle-survival check. All non-localhost traffic
+ok, 53 unit cases (normalisation, CTC beam search), 19 end-to-end scenarios.
+They include real English and Japanese speech through the extension
+(push-to-talk, hands-free with autoplay unblock, numbers, silence rejected),
+the reading-choices UI, and the S2 idle-survival check. All non-localhost traffic
 goes to a dead proxy, so any network dependency would fail them. The rest
 cover: defaults (fill-only + PTT, no auto-advance), wrong
 answer passed through uncorrected, auto-submit + auto-advance through
@@ -251,10 +265,10 @@ off the review page.
 
 | Phase | Status |
 |---|---|
-| 0 — Spikes S1–S5 | S1 done except the live smoke test. **S2 and S5 done** (findings below). S3 needs the live test. S4 is Phase 3 |
+| 0 — Spikes S1–S5 | S1 done except the live smoke test. **S2, S4 and S5 done** (findings below). S3 needs the live test |
 | **1 — Skeleton with fake ASR** | **Done 2026-10-04** |
 | **2 — Audio + English** | **Done 2026-10-04**, pending a live check on WaniKani |
-| 3 — Japanese | |
+| **3 — Japanese** | **Done 2026-10-04**, pending a live check on WaniKani |
 | 4 — UX and robustness | Partly pulled into Phase 1 (options, hotkeys, pause, tab-hidden handling) |
 | 5 — Privacy audit + packaging | |
 
@@ -340,14 +354,54 @@ review tabs, heartbeat, diagnostics), `tools/build.mjs` → `build/`.
 Indicator shows model loading progress; Japanese questions show a "type this
 one" state. Test mode (typed text) remains as an option.
 
-### Phase 3 — Japanese
-JA model chosen by S4. The normalisation and kanji rejection are already in
-place.
+### S4 findings: Japanese model choice (2026-10-04)
+Your 25 raw readings (JLPT N5/N4: single-mora answers, じん/にん/ひと, long
+vowels, small っ, yōon, rendaku), scored like the extension. Exact match
+after normalisation:
+
+| Model | Shippable size | First choice | Notes |
+|---|---|---|---|
+| **distilhubert-hiragana CTC**, greedy + beam alternatives | **51 MB**, ~20 ms | **10/25**; right reading offered **11/25** | No invented words. Both noise checks rejected |
+| wavlm-base-plus-hiragana-ctc-v2 (CC-BY-SA-3.0) | ~95 MB | 8/25 | Same family, worse here |
+| wav2vec2-large-xlsr-japanese-hiragana | ~320 MB | 3/25 | Too big; adds trailing vowels |
+| Whisper base, hiragana-only decoding | ~80 MB | 6/25 | Invents phrases |
+| Whisper small, hiragana-only decoding | ~250 MB | 10/25 | Too big; invents phrases (すみません) |
+
+- **The models agree on the same "errors"** (にん→ねん, て→た, くち→けち,
+  りょこう→よこう, びょういん→よういん). Very different architectures hearing
+  the same thing points at the speaker's pronunciation rather than
+  model quality. The extension
+  doesn't check readings against the answer (F4), so it types what it hears.
+  Offering the alternatives the audio supports is the compromise you chose
+  (option 1).
+- **Quantisation:** plain dynamic int8 of the whole graph (24 MB) dropped
+  10/25 to 6/25. Quantising only the transformer's MatMuls, per-channel signed
+  int8 (51 MB), matches fp32 (99.9% frame agreement).
+- **Greedy beats beam for the first choice.** Beam search's top hypothesis
+  tends to append ー (か→かー); greedy doesn't. So greedy goes first and the
+  beam supplies alternatives, minus those under 5% of the top hypothesis.
+- **Trimming clips to speech hurt** (じん→ん): this model needs the
+  surrounding context. Not done, for either language.
+- **Speech detection moved to 20 ms frames.** Spoken answers (even か)
+  give runs of 120–300 ms; the push-to-talk key's click and other bumps stay
+  ≤ 80 ms. Threshold: 100 ms. Thin margin, so see Phase 4 (Silero VAD).
+
+### Phase 3 — Japanese (built)
+`models/distilhubert-hiragana/` (exported, Git LFS; the vocabulary is in
+`config.json`), `src/worker/ctc.js` (prefix beam search), `recognizeCtc` in
+`src/worker/recognize.js`. Background normalises and ranks up to three
+choices. The badge shows them as numbered buttons; keys 1–3 (or a click) swap
+the filled reading, but only while the box still holds an offered reading,
+so typing a correction works normally. Choices clear on grading. Test mode
+accepts `a|b|c` to simulate alternatives.
 
 ### Phase 4 — UX and robustness
-First-run model download/progress UI if not bundled. A "didn't catch that"
-retry budget. Possibly "auto-advance only when correct". Indicator position
-option if the default clashes with the header.
+- Silero VAD (~2 MB ONNX) to tell speech from key clicks, instead of the
+  energy threshold's thin margin.
+- Alternatives for English too (Whisper beam / n-best), e.g. eye / I.
+- A "didn't catch that" retry budget.
+- Possibly "auto-advance only when correct".
+- An indicator position option if the default clashes with the header.
 
 ### Phase 5 — Privacy audit and packaging
 Network Monitor + `about:networking` audit over a full session. `web-ext lint`.
@@ -360,11 +414,11 @@ Sign as unlisted on AMO, or list publicly (§6).
 | Risk | Mitigation |
 |---|---|
 | Misheard answer counts against you | Default is fill-only: you see it before pressing Enter |
-| Short Japanese readings (き, か) | S4. Longer endpoint pause for short utterances |
+| Japanese readings misheard (accent, short readings) | Fill-only default plus up to 3 alternatives to pick from; typing still works. Model accuracy measured in S4 |
 | WaniKani DOM changes | Selectors live in two files. If the type can't be read, the badge shows "unsupported" and does nothing |
-| Model size vs 200 MB XPI limit | Quantised ONNX (int8/q4) |
+| Model size vs 200 MB XPI limit | ~152 MB today (77 + 51 MB models, 27 MB runtime) |
 | Background unloaded mid-session | Heartbeat (S2); verified by test |
-| System noise filters (e.g. EasyEffects) degrade recognition | Extension asks for raw audio, but a system-wide filter can still capture the stream. Options: bypass it for Firefox, or soften it (open question) |
+| System noise filters (e.g. EasyEffects) degrade recognition | Extension asks for raw audio. Users with system noise gates will see worse accuracy; worth a note in the listing |
 | Your voice recordings in the repo | `test/fixtures/audio/real*` are your voice. Fine in a private repo; review before making it public |
 | Shift-as-PTT clashes with typing capitals | Chords cancel, taps under 200 ms are ignored. Key is configurable |
 
@@ -384,12 +438,10 @@ Sign as unlisted on AMO, or list publicly (§6).
   lint` on `build/`: 0 errors. Warnings are only `Function`/dynamic `import`
   inside transformers.js and onnxruntime (unused paths; the CSP forbids eval)
   and an Android min-version notice.
-- XPI size today is ~103 MB (model 77 MB + WASM runtime 27 MB). A Japanese
-  model must fit in the remaining ~95 MB under AMO's 200 MB limit, or be
-  downloaded on first use (inbound only, but that's a P2 design decision for
-  you).
-- Model licences must allow redistribution (Whisper: MIT. Check the JA
-  model's licence in S4).
+- XPI size today is ~152 MB, under AMO's 200 MB limit.
+- Model licences allow redistribution: Whisper (MIT) and
+  distilhubert-hiragana-ctc (Apache-2.0). Both are listed with the libraries
+  in `THIRD_PARTY_NOTICES.md`.
 - The add-on ID `wanikani-voice@jsmrcina` is permanent once published. Change
   it now if you'd prefer something else.
 
@@ -397,8 +449,7 @@ Sign as unlisted on AMO, or list publicly (§6).
 
 ## 7. Open questions
 
-1. **Noise filter:** bypass the system noise filter for Firefox, soften it,
-   or leave it (about 20/25 instead of 22/25)?
-2. **Live check:** load `build/` in your Firefox and try a few reviews
-   (S1 smoke test plus S3).
-3. **Phase 3 Japanese:** your 25 raw readings are recorded and ready for S4.
+1. **Live check:** load `build/` in your Firefox and try a few reviews in
+   both languages (S1 smoke test plus S3).
+2. **Phase 4 priorities:** Silero VAD, English alternatives, or something
+   you notice in the live check.
