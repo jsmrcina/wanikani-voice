@@ -1,0 +1,36 @@
+<!doctype html>
+<!-- Loads the real options page markup and scripts with an in-memory
+     browser.storage, so WebDriver can exercise the UI. -->
+<html lang="en">
+<head><meta charset="utf-8"><title>Options Harness</title>
+<link rel="stylesheet" href="/src/options/options.css"></head>
+<body>
+<script>
+  const listeners = [];
+  const data = {};
+  window.__store = data;
+  window.browser = { storage: {
+    local: {
+      async get(keys) {
+        if (!keys) return { ...data };
+        return Object.fromEntries([].concat(keys).filter(k => k in data).map(k => [k, data[k]]));
+      },
+      async set(obj) {
+        const changes = {};
+        for (const [k, v] of Object.entries(obj)) { changes[k] = { oldValue: data[k], newValue: v }; data[k] = v; }
+        listeners.forEach(l => l(changes, 'local'));
+      },
+    },
+    onChanged: { addListener: l => listeners.push(l) },
+  } };
+  (async () => {
+    const html = await (await fetch('/src/options/options.html')).text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    document.body.prepend(...doc.body.querySelector('main').childNodes.length ? [doc.body.querySelector('main')] : []);
+    for (const src of ['/src/shared/settings.js', '/src/options/options.js']) {
+      await new Promise(ok => { const s = document.createElement('script'); s.src = src; s.onload = ok; document.body.append(s); });
+    }
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!doctype html>
+<!--
+  Hand-built stand-in for https://www.wanikani.com/subjects/review, served at
+  /subjects/review/ by test/run_tests.py. It mimics only what the extension
+  touches, plus a question-characters element the extension must ignore.
+  Markup and behaviour follow the live page as observed 2026-10-04:
+  - graded: correct="true"/"false" on .quiz-input__input-container, input gets
+    enabled="false"; both reset when the next question loads
+  - didAnswerQuestion fires on grading AND again on advancing, immediately
+    followed by willShowNextQuestion
+  - a wrong-type answer un-hides .quiz-input__exception-container
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Mock WaniKani Review</title>
+  <style>
+    body { font: 16px system-ui; margin: 0; }
+    header { height: 56px; background: #333; color: #fff; display: flex; align-items: center; padding: 0 16px; }
+    .character-header { background: #a0f; color: #fff; text-align: center; font-size: 72px; padding: 24px; }
+    .quiz-input__question-type-container { text-align: center; padding: 8px; background: #eee; }
+    .quiz-input__question-type-container[data-question-type="reading"] { background: #333; color: #fff; }
+    .quiz-input__input-container form { display: flex; margin: 0; }
+    .quiz-input__input-container[correct="true"] input { background: #8c8; }
+    .quiz-input__input-container[correct="false"] input { background: #f66; }
+    #user-response { flex: 1; font-size: 24px; text-align: center; padding: 8px; }
+  </style>
+</head>
+<body>
+  <header>Mock review</header>
+  <div class="character-header"><div class="character-header__characters"></div></div>
+  <div class="quiz-input">
+    <label for="user-response" class="quiz-input__question-type-container">
+      <span class="quiz-input__question-category"></span>
+      <span class="quiz-input__question-type"></span>
+    </label>
+    <div class="quiz-input__input-wrapper">
+      <div class="quiz-input__input-container">
+        <form autocomplete="off" onsubmit="return false">
+          <input class="quiz-input__input" id="user-response" type="text" autocomplete="off" autocapitalize="none">
+          <button class="quiz-input__submit-button" type="button">&rarr;</button>
+        </form>
+      </div>
+      <div class="quiz-input__exception-container" hidden>
+        <div class="quiz-input__exception"></div>
+      </div>
+    </div>
+  </div>
+  <pre id="mock-log">[]</pre>
+  <script>
+    const QUEUE = [
+      { chars: '火', category: 'Radical', type: 'Name', answer: 'fire' },
+      { chars: '人', category: 'Kanji', type: 'Reading', answer: 'じん' },
+      { chars: '四', category: 'Kanji', type: 'Meaning', answer: 'four' },
+      { chars: '二十', category: 'Vocabulary', type: 'Meaning', answer: '20' },
+      { chars: '大人', category: 'Vocabulary', type: 'Reading', answer: 'おとな' },
+      { chars: '口', category: 'Kanji', type: 'Meaning', answer: 'mouth' },
+    ];
+    const log = [];
+    let index = 0;
+    let graded = false;
+    const $ = s => document.querySelector(s);
+    const input = $('#user-response');
+    const container = $('.quiz-input__input-container');
+
+    function record(entry) {
+      log.push(entry);
+      $('#mock-log').textContent = JSON.stringify(log);
+    }
+
+    function show() {
+      const q = QUEUE[index % QUEUE.length];
+      $('.character-header__characters').textContent = q.chars;
+      $('.quiz-input__question-category').textContent = q.category;
+      $('.quiz-input__question-type').textContent = q.type.toLowerCase();
+      $('.quiz-input__question-type-container').dataset.questionType =
+        q.type === 'Reading' ? 'reading' : 'meaning';
+      input.lang = q.type === 'Reading' ? 'ja' : 'en';
+      input.value = '';
+      input.setAttribute('enabled', 'true');
+      $('.quiz-input__exception-container').hidden = true;
+      container.removeAttribute('correct');
+      graded = false;
+      input.focus();
+    }
+
+    function submit() {
+      const q = QUEUE[index % QUEUE.length];
+      if (graded) {
+        window.dispatchEvent(new CustomEvent('didAnswerQuestion', { detail: { subject: q } }));
+        window.dispatchEvent(new CustomEvent('willShowNextQuestion', { detail: { subject: q } }));
+        index += 1;
+        setTimeout(show, 50);
+        return;
+      }
+      const value = input.value.trim();
+      const kana = /[぀-ヿ]/.test(value);
+      if (!value || (q.type !== 'Reading' && kana)) {
+        $('.quiz-input__exception-container').hidden = false;
+        record({ index, shake: value });
+        return;
+      }
+      graded = true;
+      const pass = value === q.answer;
+      $('.quiz-input__exception-container').hidden = true;
+      input.setAttribute('enabled', 'false');
+      container.setAttribute('correct', String(pass));
+      record({ index, answer: value, pass });
+      window.dispatchEvent(new CustomEvent('didAnswerQuestion',
+        { detail: { subject: q, results: { action: pass ? 'pass' : 'fail' } } }));
+    }
+
+    $('.quiz-input__submit-button').addEventListener('click', submit);
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+    });
+    show();
+  </script>
+</body>
+</html>
