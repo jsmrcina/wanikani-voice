@@ -22,6 +22,7 @@ Version 0.1.1. The design notes, measurements and roadmap are in [PLAN.md](PLAN.
 
 ## Contents
 - [Install](#install)
+- [Requirements](#requirements)
 - [Using it](#using-it)
 - [Privacy](#privacy)
 - [How it works](#how-it-works)
@@ -46,6 +47,31 @@ npm run build    # -> build/ (~185 MB: three speech models, a speech detector, t
 
 Then `about:debugging#/runtime/this-firefox` → **Load Temporary Add-on…** →
 `build/manifest.json`. A temporary add-on is removed when Firefox restarts.
+
+## Requirements
+
+**No GPU is needed, and none is used.** Firefox has no WebGPU on Linux, so
+the add-on runs its speech models on the **CPU**, on a single core,
+in WebAssembly (extension pages can't use WASM threads in Firefox). What
+matters is one core's speed and some memory:
+
+| | Measured on an AMD Ryzen 9 9950X3D (2026-10-04) |
+|---|---|
+| English, *accurate* (Whisper base.en) | 1.5–1.7 s from releasing the key to the answer |
+| English, *fast* (Whisper tiny.en) | 0.8–0.9 s |
+| Readings | ~0.4 s |
+| Extra memory with the models loaded | ~650 MB (*accurate*), ~420 MB (*fast*) |
+| Download / installed size | ~120 MB / ~185 MB |
+
+That CPU has one of the fastest single cores available, so treat these as
+best-case numbers. Time scales roughly with single-core speed. On a typical
+laptop CPU expect about **1.5–2.5× longer** (an estimate, not measured): about
+2.5–4 s for English on *accurate*, which is why *fast* exists. Any 64-bit
+desktop CPU from the last decade runs it. Firefox 140 or newer on desktop is
+required; Android isn't supported.
+
+A GPU only matters for the optional fine-tuning tools (PyTorch). Even there
+the CPU is enough: ~7 minutes for 400 recordings on the CPU above.
 
 ## Using it
 
@@ -299,6 +325,7 @@ hiragana model is exported locally (`"generatedBy"` has the exact command).
 npm run package                # dist/: .xpi, source zip for AMO review, SHA256SUMS
 npm run package -- --verify    # also rebuild from the source zip and compare every file
 npm run package -- --sign      # also get it signed by Mozilla (unlisted channel)
+npm run package -- --sign --listed   # submit to the public store instead (see store/LISTING.md)
 ```
 
 What the package script does:

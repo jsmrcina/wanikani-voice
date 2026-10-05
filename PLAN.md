@@ -532,6 +532,17 @@ Requested 2026-10-04, after Phase 4:
   - the recognition and normalisation rules
   - custom models and fine-tuning, development, testing, and packaging
     and signing
+- **Store listing (prepared 2026-10-04):** `store/amo-metadata.json`
+  (summary, description, category Language Support, MIT) and
+  `store/LISTING.md` (the same text plus reviewer notes, a privacy
+  statement and a screenshot checklist at 1280×800). `npm run package --
+  --sign --listed` submits to the public store. Waiting on screenshots, a
+  version bump, and making the repo public first.
+- **Hardware (README → Requirements):** no GPU used: single-core WASM on
+  the CPU. On a fast desktop CPU, English takes 1.5–1.7 s (accurate) or
+  0.8–0.9 s (fast), readings ~0.4 s, and the models use ~650/420 MB of
+  memory. Slower CPUs scale roughly with single-core speed (estimated
+  1.5–2.5× on a typical laptop).
 - **Before making the repository public:** history was rewritten on
   2026-10-04 (`git filter-repo`) to remove `test/fixtures/audio/real*`
   (your voice), and a fresh clone has no trace of them. But GitHub keeps
@@ -646,6 +657,17 @@ Sign as unlisted on AMO, or list publicly (§6).
     reading model (`2e8fdf1c…`)
   - your private data lives only in `wanikani-voice-private` (the
     `personal/` submodule) and in git-ignored `dist/models/`
+- **Store listing (prepared 2026-10-04):** `store/amo-metadata.json`
+  (summary, description, category Language Support, MIT) and
+  `store/LISTING.md` (the same text plus reviewer notes, a privacy
+  statement and a screenshot checklist at 1280×800). `npm run package --
+  --sign --listed` submits to the public store. Waiting on screenshots, a
+  version bump, and making the repo public first.
+- **Hardware (README → Requirements):** no GPU used: single-core WASM on
+  the CPU. On a fast desktop CPU, English takes 1.5–1.7 s (accurate) or
+  0.8–0.9 s (fast), readings ~0.4 s, and the models use ~650/420 MB of
+  memory. Slower CPUs scale roughly with single-core speed (estimated
+  1.5–2.5× on a typical laptop).
 - **Before making the repository public:**
   - Decide on the personal notes in this file (mic setup, GPU,
     pronunciation observations) and on the commit author name/email.

@@ -1,6 +1,6 @@
 // Packages the add-on for addons.mozilla.org (AMO).
 //
-//   npm run package [-- --verify] [--sign] [--allow-dirty]
+//   npm run package [-- --verify] [--sign [--listed]] [--allow-dirty]
 //
 // Produces, in dist/:
 //   voice-answers-for-wanikani-<version>.xpi         the add-on (unsigned)
@@ -17,6 +17,11 @@
 // (mode 600). They go to web-ext through its environment variables, never on
 // a command line. AMO signs each version once: bump the version to re-sign.
 // Personal builds are never packaged, so a voice-tuned model is never uploaded.
+//
+// --listed (with --sign) submits to the *listed* channel instead: the public
+// store, with the listing text from store/amo-metadata.json (see
+// store/LISTING.md). Listed versions wait in AMO's review queue, so no signed
+// file is downloaded; it's published on the store once approved.
 //
 // Steps: a clean normal build (never a personal one), the privacy policy
 // check, `web-ext lint` (any error fails), the size limit, then the two
@@ -158,27 +163,37 @@ async function main() {
   for (const f of [xpi, srcZip]) sums.push(`${await sha256(f)}  ${relative(DIST, f)}`);
   await writeFile(join(DIST, 'SHA256SUMS'), `${sums.join('\n')}\n`);
 
+  const listed = args.includes('--listed');
+  if (listed && !args.includes('--sign')) throw new Error('--listed needs --sign');
   if (args.includes('--sign')) {
-    step('sign (AMO, unlisted channel)');
+    step(`sign (AMO, ${listed ? 'listed' : 'unlisted'} channel)`);
     const credFile = join(homedir(), '.config/wanikani-voice/amo-credentials');
     const cred = JSON.parse(await readFile(credFile, 'utf8').catch(() => {
       throw new Error(`no AMO credentials in ${credFile} (see the comment at the top of tools/package.mjs)`);
     }));
     if (((await stat(credFile)).mode & 0o077) !== 0) throw new Error(`${credFile} must not be readable by others (chmod 600)`);
     const signedDir = join(DIST, 'signed');
-    execFileSync('npx', ['web-ext', 'sign', '-s', 'build', '-a', signedDir, '--channel', 'unlisted',
-      '--upload-source-code', srcZip, '--approval-timeout', String(30 * 60 * 1000)], {
+    const channelArgs = listed
+      ? ['--channel', 'listed', '--amo-metadata', join(ROOT, 'store/amo-metadata.json'), '--approval-timeout', '0']
+      : ['--channel', 'unlisted', '--approval-timeout', String(30 * 60 * 1000)];
+    execFileSync('npx', ['web-ext', 'sign', '-s', 'build', '-a', signedDir, ...channelArgs,
+      '--upload-source-code', srcZip], {
       cwd: ROOT, stdio: 'inherit',
       env: { ...process.env, WEB_EXT_API_KEY: cred.issuer, WEB_EXT_API_SECRET: cred.secret },
     });
-    const produced = (await readdir(signedDir)).filter(f => f.endsWith('.xpi'));
-    if (produced.length !== 1) throw new Error(`expected one signed .xpi in ${signedDir}, found ${produced.length}`);
-    const signed = join(DIST, `${base}-signed.xpi`);
-    await writeFile(signed, await readFile(join(signedDir, produced[0])));
-    await rm(signedDir, { recursive: true, force: true });
-    sums.push(`${await sha256(signed)}  ${relative(DIST, signed)}`);
-    await writeFile(join(DIST, 'SHA256SUMS'), `${sums.join('\n')}\n`);
-    console.log(`  ${relative(ROOT, signed)}: install it from about:addons (gear menu > Install Add-on From File)`);
+    if (listed) {
+      console.log('  submitted to the listed channel: it appears on addons.mozilla.org once Mozilla approves it');
+      await rm(signedDir, { recursive: true, force: true });
+    } else {
+      const produced = (await readdir(signedDir)).filter(f => f.endsWith('.xpi'));
+      if (produced.length !== 1) throw new Error(`expected one signed .xpi in ${signedDir}, found ${produced.length}`);
+      const signed = join(DIST, `${base}-signed.xpi`);
+      await writeFile(signed, await readFile(join(signedDir, produced[0])));
+      await rm(signedDir, { recursive: true, force: true });
+      sums.push(`${await sha256(signed)}  ${relative(DIST, signed)}`);
+      await writeFile(join(DIST, 'SHA256SUMS'), `${sums.join('\n')}\n`);
+      console.log(`  ${relative(ROOT, signed)}: install it from about:addons (gear menu > Install Add-on From File)`);
+    }
   }
 
   if (args.includes('--verify')) {
@@ -200,7 +215,9 @@ async function main() {
     }
   }
 
-  if (args.includes('--sign')) {
+  if (listed) {
+    console.log('\nSubmitted to AMO (listed). Add screenshots in the Developer Hub; see store/LISTING.md.');
+  } else if (args.includes('--sign')) {
     console.log(`\nSubmitted to AMO (unlisted) and signed: ${relative(ROOT, join(DIST, `${base}-signed.xpi`))}.`);
   } else {
     console.log(`\nUpload ${relative(ROOT, xpi)} to https://addons.mozilla.org/developers/ and,`);
