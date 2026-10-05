@@ -34,6 +34,7 @@
   // What the background can recognise: mode -> model name (null = not yet),
   // and each model's loading state.
   let modeModels = null;
+  let backgroundNotice = null; // e.g. a custom model that failed to load
   const modelStatus = new Map();
 
   // ---- helpers -------------------------------------------------------------
@@ -99,7 +100,7 @@
       return `Loading speech model…${pct}`;
     }
     if (s?.status === 'error') return `Speech model failed to load: ${s.message}`;
-    return `Hold ${key} to answer`;
+    return backgroundNotice ? `Hold ${key} to answer. ${backgroundNotice}` : `Hold ${key} to answer`;
   }
 
   // ---- state transitions ---------------------------------------------------
@@ -356,6 +357,7 @@
   function onBackgroundMessage(msg) {
     if (msg?.type === 'capabilities') {
       modeModels = msg.modes;
+      backgroundNotice = msg.notice ?? null;
     } else if (msg?.type === 'model') {
       modelStatus.set(msg.model, msg);
     } else {

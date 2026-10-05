@@ -21,6 +21,10 @@
     autoAdvanceOnlyCorrect: false,
     // Where the panel sits: 'top-right', 'top-left', 'bottom-right', 'bottom-left'.
     indicatorPosition: 'top-right',
+    // Custom models chosen in the settings, per language ('en', 'ja-kana'):
+    // { id, name, kind, size, addedAt }; the files are in IndexedDB
+    // (src/shared/model-store.js).
+    customModels: {},
     // English model: 'accurate' (Whisper base.en) or 'fast' (tiny.en).
     englishSpeed: 'accurate',
     // 'local': the bundled on-device speech model.

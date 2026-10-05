@@ -532,27 +532,35 @@ Requested 2026-10-04, after Phase 4:
   stored there. To publish: delete the GitHub repository and push this
   history to a new one (or ask GitHub Support to purge the LFS objects).
   `personal/` stays a private submodule.
-- **Custom model files** (requested 2026-10-04): in settings, choose a local
-  fine-tuned model to use instead of the bundled one, separately for
-  English (Whisper) and Japanese readings (hiragana CTC).
-  - The public build could then use a voice-tuned model without a personal
-    build. The tuned model never leaves your computer: it's picked from
-    disk and kept in the extension's own storage (IndexedDB), not
-    `storage.sync`.
-  - Format: one file per model (e.g. a zip of `config.json` + the ONNX
-    file(s) + tokenizer files for Whisper), as written by the export tools.
-    The worker loads it from storage instead of the bundled `models/`.
-  - Validate before use: the right model type and inputs/outputs for the
-    slot, and for CTC the kana vocabulary in `config.json`. If loading fails,
-    fall back to the bundled model and say so in the panel.
-  - Settings show the active model per language with a "Reset to built-in"
-    button.
-  - English needs a Whisper fine-tuning pipeline to produce such files (only
-    the hiragana pipeline exists today). Same recorder and word-list
-    approach, likely full fine-tuning of whisper-base.en/tiny.en and export
-    via Optimum + int8.
-  - Needs no new permissions: a file picker in the settings page plus
-    IndexedDB.
+- **Custom model files (done, 2026-10-04).** Settings → *Custom models*
+  has *Choose file…* and *Reset to built-in* for English and for readings.
+  - **Model file:** a `.wkv-model.zip` made by `tools/pack-model.mjs
+    MODEL_DIR --language en|ja-kana`. It holds the model files
+    transformers.js loads plus `wkv-model.json` (`format`, `language`,
+    `kind`, `name`). ONNX files are stored uncompressed. Your fine-tuned
+    readings model packs to 49 MB.
+  - **Install:** the settings page unpacks it (`src/shared/zip-reader.js`:
+    stored/deflate via `DecompressionStream`) and validates it
+    (`src/shared/model-store.js`): language, kind, required files, and
+    Whisper config or kana vocabulary. It's stored in the extension's
+    IndexedDB, and a summary in `settings.customModels`, so the background
+    sees the change.
+  - **Load:** the worker reads the files from IndexedDB and serves them to
+    transformers.js through its `env.customCache` hook. transformers.js
+    checks the cache before loading any model file, so there's no network
+    code and no `fetch` patching.
+  - **Broken custom model:** its ONNX files are first opened with
+    onnxruntime directly. transformers.js queues all session creation on
+    one shared promise chain, and one failure there broke *every* later
+    load, built-in models included (seen in testing). The background
+    then switches that language back to the built-in model, and the panel
+    says so.
+  - **Tests:** a custom English model is used end to end, a model for the
+    wrong language is refused, a broken model falls back, and the settings
+    UI flow works.
+  - Without the private submodule, the public build can now use a
+    voice-tuned model. An English fine-tuning pipeline (Whisper) is still to
+    do; any exported Whisper model can already be packed and used.
 - **Lessons (done in code, 2026-10-04; live check pending).** The panel
   runs on lesson quizzes, `/subject-lessons/<ids>/quiz` and the older
   `/subjects/lesson/quiz`, as well as reviews. Lesson content pages without

@@ -9,6 +9,7 @@ All traffic except localhost goes to a dead proxy, so anything that tried to
 reach the network (a CDN, a model host) would fail the tests.
 """
 import argparse
+import subprocess
 import http.server
 import socketserver
 import json
@@ -116,6 +117,9 @@ def build_test_extension() -> Path:
     shutil.copy(ROOT / "test/hooks/settings-bridge.js", out / "settings-bridge.js")
     manifest["content_scripts"].append(
         {"matches": ["http://localhost/*"], "js": ["settings-bridge.js"], "run_at": "document_start"})
+    # Custom-model install hook, using the real model store.
+    shutil.copy(ROOT / "test/hooks/bg-hook.js", out / "bg-hook.js")
+    manifest["background"]["scripts"] += ["src/shared/zip-reader.js", "src/shared/model-store.js", "bg-hook.js"]
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2))
     ind = out / "src/content/indicator.js"
     ind.write_text(ind.read_text().replace("mode: 'closed'", "mode: 'open'"))
@@ -622,6 +626,93 @@ def test_panel_position(b):
     assert rect["left"] <= 20 and height - rect["bottom"] <= 20, (rect, height)
 
 
+TEST_MODELS = ROOT / "dist/test-models"
+
+
+def pack_test_models():
+    """Model files for the custom-model tests: tiny.en packed for English, the
+    hiragana model mislabelled... and a Whisper model with broken weights."""
+    TEST_MODELS.mkdir(parents=True, exist_ok=True)
+    pack = lambda d, lang, out, name: subprocess.run(
+        ["node", "tools/pack-model.mjs", str(d), "--language", lang, "--name", name, "--out", str(TEST_MODELS / out)],
+        cwd=ROOT, check=True, capture_output=True)
+    pack(ROOT / "models/whisper-tiny.en", "en", "tiny.wkv-model.zip", "test tiny.en")
+    pack(ROOT / "models/distilhubert-hiragana", "ja-kana", "hiragana.wkv-model.zip", "test hiragana")
+    broken = Path(tempfile.mkdtemp(prefix="wkv-broken-"))
+    shutil.copytree(ROOT / "models/whisper-tiny.en", broken, dirs_exist_ok=True)
+    for f in (broken / "onnx").glob("*.onnx"):
+        f.write_bytes(b"not an onnx model")
+    pack(broken, "en", "broken.wkv-model.zip", "broken")
+    shutil.rmtree(broken)
+
+
+def custom(b, slot, zip_name=None):
+    """Installs (or with zip_name=None removes) a custom model via the test hook."""
+    if not b.d.current_url.startswith(b.base):
+        b.d.get(b.base + "/elsewhere")
+    if zip_name is None:
+        return b.bridge("wkv-test:remove-custom", slot=slot)
+    b.d.set_script_timeout(120)
+    return b.bridge("wkv-test:install-custom", slot=slot, name=zip_name,
+                    url=f"{b.base}/dist/test-models/{zip_name}")
+
+
+def test_custom_model_english(b):
+    b.set_options(recognizer="local")
+    res = custom(b, "en", "tiny.wkv-model.zip")
+    assert res["ok"], res
+    model_id = res["meta"]["id"]
+    b.open_review()
+    b.wait_model_ready(timeout=90)
+    models = b.diag()["models"]
+    assert models.get(model_id, {}).get("status") == "ready", models
+    if VOICE_FIXTURES.exists():
+        b.speak(SPEECH_PREFIX + "fire.wav")
+        b.wait_state("filled", timeout=20)
+        assert b.input_value() == "fire", b.input_value()
+    assert custom(b, "en")["ok"]
+
+
+def test_custom_model_wrong_language_rejected(b):
+    b.set_options(recognizer="local")
+    res = custom(b, "en", "hiragana.wkv-model.zip")
+    assert not res["ok"] and "not English" in res["error"], res
+    assert b.settings().get("customModels", {}) == {}, "nothing stored"
+
+
+def test_custom_model_broken_falls_back(b):
+    b.set_options(recognizer="local")
+    res = custom(b, "en", "broken.wkv-model.zip")
+    assert res["ok"], res
+    b.open_review()
+    b.wait(lambda: "failed to load" in (b.message() or "") and b.message().startswith("Hold"), 90,
+           "fallback notice")
+    assert b.diag()["models"].get("whisper-base.en", {}).get("status") == "ready"
+    assert custom(b, "en")["ok"]
+
+
+def test_options_custom_models(b):
+    """The settings page's Custom models rows (real model store, page origin)."""
+    b.d.get(b.base + "/test/options/index.html")
+    row = lambda slot: b.d.find_element(By.CSS_SELECTOR, f'.model-row[data-slot="{slot}"]')
+    status = lambda slot: row(slot).find_element(By.CSS_SELECTOR, ".model-status").text
+    b.wait(lambda: "built-in" in status("ja-kana"), 5, "rows rendered")
+
+    def choose(slot, name):
+        field = row(slot).find_element(By.CSS_SELECTOR, "input[type=file]")
+        b.d.execute_script("arguments[0].hidden = false", field)
+        field.send_keys(str(TEST_MODELS / name))
+
+    choose("ja-kana", "tiny.wkv-model.zip")
+    b.wait(lambda: "can't use" in status("ja-kana"), 20, "wrong language refused")
+    assert "not readings" in status("ja-kana"), status("ja-kana")
+    choose("ja-kana", "hiragana.wkv-model.zip")
+    b.wait(lambda: status("ja-kana").startswith("custom: test hiragana"), 60, "installed")
+    assert b.d.execute_script("return window.__store.customModels['ja-kana'].kind") == "ctc"
+    row("ja-kana").find_element(By.CSS_SELECTOR, ".reset").click()
+    b.wait(lambda: "built-in" in status("ja-kana"), 10, "reset")
+
+
 def test_custom_ptt_key(b):
     b.set_options(pttKey="KeyJ", submitMode="auto-submit")
     b.open_review()
@@ -635,7 +726,10 @@ TESTS = [test_unit, test_inactive_off_review_page, test_lesson_quiz, test_defaul
          test_kanji_rejected_for_reading, test_hands_free, test_pause_toggle,
          test_options_page_saves,
          test_shift_chords_and_taps_ignored, test_custom_ptt_key,
-         test_reload_replaces_orphaned_badge, test_auto_advance_only_correct,
+         test_reload_replaces_orphaned_badge, test_custom_model_english,
+         test_custom_model_wrong_language_rejected, test_custom_model_broken_falls_back,
+         test_options_custom_models,
+         test_auto_advance_only_correct,
          test_hands_free_gives_up_after_misses, test_panel_position, test_speech_push_to_talk,
          test_speech_numbers_and_phrases, test_reading_choices, test_answer_choices_english,
          test_speech_japanese,
@@ -656,6 +750,7 @@ def main():
     print(f"{'FAIL' if problems else 'ok  '} policy")
     failed += bool(problems)
 
+    pack_test_models()
     server, base = start_server()
     proxy = RefusingProxy()
     ext = build_test_extension()

@@ -29,3 +29,12 @@ select { font: inherit; margin: 2px 0 4px; padding: 2px 4px; }
 }
 #pttKey.capturing { border-color: var(--accent); }
 .help { color: var(--muted); font-size: 12px; margin: 2px 0 0; }
+.model-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; flex-wrap: wrap; }
+.model-status { color: var(--muted); font-size: 12px; }
+.model-status.error { color: #d13438; }
+.model-actions { display: flex; gap: 6px; }
+.button, .model-actions button {
+  font: inherit; font-size: 12px; padding: 3px 8px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--bg); color: var(--fg);
+}
+code { font-size: 11px; }

@@ -15,8 +15,40 @@
   const MAX_CHOICES = 3;
   const MODES = new Set(['en', 'ja-kana']);
 
+  // Custom models chosen in the settings (src/shared/model-store.js) replace
+  // the built-in model for their language, unless they failed to load.
+  const customInfo = new Map();   // custom model id -> { slot, kind }
+  const failedCustom = new Map(); // custom model id -> error message
+
   function modelsFor(settings) {
-    return { en: ENGLISH_MODELS[settings.englishSpeed] ?? ENGLISH_MODELS.accurate, 'ja-kana': JAPANESE_MODEL };
+    const modes = { en: ENGLISH_MODELS[settings.englishSpeed] ?? ENGLISH_MODELS.accurate, 'ja-kana': JAPANESE_MODEL };
+    for (const [slot, meta] of Object.entries(settings.customModels ?? {})) {
+      if (!(slot in modes) || !meta?.id) continue;
+      customInfo.set(meta.id, { slot, kind: meta.kind });
+      if (!failedCustom.has(meta.id)) modes[slot] = meta.id;
+    }
+    return modes;
+  }
+
+  const kindOf = model => customInfo.get(model)?.kind ?? KINDS[model];
+  const slotOf = model => customInfo.get(model)?.slot;
+
+  // Shown in the panel while a chosen custom model can't be used.
+  function noticeFor(settings) {
+    for (const [slot, meta] of Object.entries(settings.customModels ?? {})) {
+      const message = failedCustom.get(meta?.id);
+      if (message) {
+        return `Custom ${slot === 'en' ? 'English' : 'reading'} model failed to load (${message}); using the built-in one`;
+      }
+    }
+    return null;
+  }
+
+  async function announce(ports = sessions) {
+    const settings = await WKV.settings.load();
+    const modes = modelsFor(settings);
+    for (const port of ports) port.postMessage({ type: 'capabilities', modes, notice: noticeFor(settings) });
+    if (settings.recognizer !== 'fake') for (const model of Object.values(modes)) loadModel(model);
   }
 
   // ---- worker ---------------------------------------------------------------
@@ -45,6 +77,13 @@
         setModelState(data.model, { status: 'loading', loaded: data.loaded, total: data.total });
       } else if (data.type === 'loaded') {
         setModelState(data.model, { status: 'ready', ms: data.ms });
+      } else if (data.type === 'error' && data.model) {
+        // A model failed to load. For a custom model, fall back to built-in.
+        setModelState(data.model, { status: 'error', message: data.message });
+        if (customInfo.has(data.model)) {
+          failedCustom.set(data.model, data.message);
+          announce();
+        }
       } else if (data.type === 'result' || data.type === 'error') {
         if (data.id === undefined) {
           for (const [model, s] of modelState) {
@@ -74,14 +113,14 @@
       return;
     }
     setModelState(model, { status: 'loading', loaded: 0, total: 0 });
-    getWorker().postMessage({ type: 'load', model, kind: KINDS[model] });
+    getWorker().postMessage({ type: 'load', model, kind: kindOf(model), slot: slotOf(model) });
   }
 
   function runWorker(model, audio) {
     return new Promise(resolve => {
       const id = nextId++;
       pending.set(id, { resolve });
-      getWorker().postMessage({ type: 'transcribe', id, model, kind: KINDS[model], audio }, [audio.buffer]);
+      getWorker().postMessage({ type: 'transcribe', id, model, kind: kindOf(model), slot: slotOf(model), audio }, [audio.buffer]);
     });
   }
 
@@ -145,23 +184,15 @@
     if (port.sender?.id !== browser.runtime.id || port.name !== 'wkv-session') return;
     sessions.add(port);
     port.onDisconnect.addListener(() => sessions.delete(port));
-    port.onMessage.addListener(async msg => {
-      if (msg?.type !== 'warmup') return;
-      const settings = await WKV.settings.load();
-      const modes = modelsFor(settings);
-      port.postMessage({ type: 'capabilities', modes });
-      if (settings.recognizer === 'fake') return;
-      for (const model of Object.values(modes)) loadModel(model);
+    port.onMessage.addListener(msg => {
+      if (msg?.type === 'warmup') announce([port]);
     });
   });
 
-  // Switching the English model while a review is open: tell the tabs and
-  // load it straight away.
-  WKV.settings.onChange(settings => {
-    if (!sessions.size) return;
-    const modes = modelsFor(settings);
-    for (const port of sessions) port.postMessage({ type: 'capabilities', modes });
-    if (settings.recognizer !== 'fake') for (const model of Object.values(modes)) loadModel(model);
+  // Switching the English model or a custom model while a review is open:
+  // tell the tabs and load it straight away.
+  WKV.settings.onChange(() => {
+    if (sessions.size) announce();
   });
 
   browser.commands.onCommand.addListener(async command => {

@@ -44,6 +44,11 @@ window.addEventListener('message', async e => {
       result = await say(e.data.url);
     } else if (e.data.type === 'wkv-test:diag') {
       result = await browser.runtime.sendMessage({ type: 'wkv:diag' });
+    } else if (e.data.type === 'wkv-test:install-custom') {
+      const bytes = await (await fetch(e.data.url)).arrayBuffer();
+      result = await browser.runtime.sendMessage({ type: 'wkv-test:install-custom', slot: e.data.slot, bytes, name: e.data.name });
+    } else if (e.data.type === 'wkv-test:remove-custom') {
+      result = await browser.runtime.sendMessage({ type: 'wkv-test:remove-custom', slot: e.data.slot });
     }
   } catch (err) {
     result = { error: String(err) };

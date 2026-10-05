@@ -66,8 +66,30 @@
         It also offers up to two other answers it heard (e.g. "hand" for "and", or にん for じん):
         press 1–3 to switch before you submit.</p>
     </fieldset>
+    <fieldset id="custom-models">
+      <legend>Custom models</legend>
+      <p class="help">Use your own fine-tuned model instead of the built-in one. Model files
+        (<code>.wkv-model.zip</code>) are made with <code>tools/pack-model.mjs</code> and stay on this computer.</p>
+      <div class="model-row" data-slot="en">
+        <div><strong>English</strong> <span class="model-status"></span></div>
+        <div class="model-actions">
+          <label class="button">Choose file…<input type="file" accept=".zip" hidden></label>
+          <button type="button" class="reset">Reset to built-in</button>
+        </div>
+      </div>
+      <div class="model-row" data-slot="ja-kana">
+        <div><strong>Readings</strong> <span class="model-status"></span></div>
+        <div class="model-actions">
+          <label class="button">Choose file…<input type="file" accept=".zip" hidden></label>
+          <button type="button" class="reset">Reset to built-in</button>
+        </div>
+      </div>
+    </fieldset>
   </main>
   <script src="../shared/settings.js"></script>
+  <script src="../shared/zip-reader.js"></script>
+  <script src="../shared/model-store.js"></script>
   <script src="options.js"></script>
+  <script src="custom-models.js"></script>
 </body>
 </html>
