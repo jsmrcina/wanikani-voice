@@ -292,7 +292,7 @@ off the review page.
 | **2 — Audio + English** | **Done 2026-10-04**, pending a live check on WaniKani |
 | **3 — Japanese** | **Done 2026-10-04**, pending a live check on WaniKani |
 | **4 — UX and robustness** | In progress: VAD, speed, retry limit, correct-only advance and panel position done; fine-tuning pipeline built, waiting on your recordings |
-| **5 — Privacy audit + packaging** | Done 2026-10-04, released as **v0.1.1** (signed by Mozilla, GitHub release): lessons and custom models verified live, automated privacy audit, packaging and signing, README, MIT licence, private data split out, repo recreated. Left before going public: review the personal notes in this file and commit authorship. Still open: an English fine-tuning pipeline |
+| **5 — Privacy audit + packaging** | Done 2026-10-04, released as **v0.1.1** (signed by Mozilla, GitHub release): lessons and custom models verified live, automated privacy audit, packaging and signing, README, MIT licence, private data split out, repo recreated. Personal notes removed from the plan and from history (2026-10-05). Still open: an English fine-tuning pipeline |
 
 ### Spikes
 | Spike | Question | Exit criterion |
@@ -668,11 +668,13 @@ Sign as unlisted on AMO, or list publicly (§6).
   0.8–0.9 s (fast), readings ~0.4 s, and the models use ~650/420 MB of
   memory. Slower CPUs scale roughly with single-core speed (estimated
   1.5–2.5× on a typical laptop).
-- **Before making the repository public:**
-  - Decide on the personal notes in this file (mic setup, GPU,
-    pronunciation observations) and on the commit author name/email.
-  - The submodule link to `wanikani-voice-private` will be visible, but
-    its contents stay private.
+- **Personal notes removed (2026-10-05).** Details of the developer's own
+  hardware, audio setup and pronunciation were taken out of this file and
+  the recorder's comments, and scrubbed from every earlier version in git
+  history (`git filter-repo --replace-text`, then a force-push). The
+  commit author name and email stay, by choice.
+  - The submodule link to `wanikani-voice-private` will be visible once
+    the repository is public, but its contents stay private.
 
 ## 8. Open questions
 
