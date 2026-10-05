@@ -132,8 +132,11 @@ async function main() {
 
   step('package');
   // Replace only this script's outputs (dist/ may also hold packed models).
+  // Signed packages are kept: AMO signs each version once, so they can't be
+  // recreated.
   await mkdir(DIST, { recursive: true });
   for (const f of await readdir(DIST)) {
+    if (f.endsWith('-signed.xpi')) continue;
     if (f.startsWith('voice-answers-for-wanikani-') || f === 'SHA256SUMS' || f === 'signed') {
       await rm(join(DIST, f), { recursive: true, force: true });
     }
