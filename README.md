@@ -18,7 +18,7 @@ computer, inside Firefox. Nothing you say is sent anywhere.
 - **Your rules:** it never looks at the question, only whether a meaning or
   a reading is asked for. A wrong answer goes in exactly as you said it.
 
-Version 0.1.0. The design notes, measurements and roadmap are in [PLAN.md](PLAN.md).
+Version 0.1.1. The design notes, measurements and roadmap are in [PLAN.md](PLAN.md).
 
 ## Contents
 - [Install](#install)
