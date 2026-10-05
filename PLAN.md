@@ -292,7 +292,7 @@ off the review page.
 | **2 — Audio + English** | **Done 2026-10-04**, pending a live check on WaniKani |
 | **3 — Japanese** | **Done 2026-10-04**, pending a live check on WaniKani |
 | **4 — UX and robustness** | In progress: VAD, speed, retry limit, correct-only advance and panel position done; fine-tuning pipeline built, waiting on your recordings |
-| **5 — Privacy audit + packaging** | Mostly done 2026-10-04: lessons (live check pending), automated privacy audit, packaging + signing (v0.1.0 signed), custom model files, README, MIT licence, private data split and repo recreated. Left: a live lesson-quiz check, an English fine-tuning pipeline, review personal notes before going public |
+| **5 — Privacy audit + packaging** | Done 2026-10-04, released as **v0.1.1** (signed by Mozilla, GitHub release): lessons and custom models verified live, automated privacy audit, packaging and signing, README, MIT licence, private data split out, repo recreated. Left before going public: review the personal notes in this file and commit authorship. Still open: an English fine-tuning pipeline |
 
 ### Spikes
 | Spike | Question | Exit criterion |
@@ -539,7 +539,9 @@ Requested 2026-10-04, after Phase 4:
   stored there. To publish: delete the GitHub repository and push this
   history to a new one (or ask GitHub Support to purge the LFS objects).
   `personal/` stays a private submodule.
-- **Custom model files (done, 2026-10-04).** Settings → *Custom models*
+- **Custom model files (done, verified live 2026-10-04).** You loaded your
+  fine-tuned reading model (`My voice (full fine-tune).wkv-model.zip`) into
+  the signed v0.1.1 through the settings, and it works. Settings → *Custom models*
   has *Choose file…* and *Reset to built-in* for English and for readings.
   - **Model file:** a `.wkv-model.zip` made by `tools/pack-model.mjs
     MODEL_DIR --language en|ja-kana`. It holds the model files
@@ -568,13 +570,12 @@ Requested 2026-10-04, after Phase 4:
   - Without the private submodule, the public build can now use a
     voice-tuned model. An English fine-tuning pipeline (Whisper) is still to
     do; any exported Whisper model can already be packed and used.
-- **Lessons (done in code, 2026-10-04; live check pending).** The panel
+- **Lessons (done, verified live 2026-10-04).** The panel
   runs on lesson quizzes, `/subject-lessons/<ids>/quiz` and the older
   `/subjects/lesson/quiz`, as well as reviews. Lesson content pages without
   an answer box are left alone. Matched by `pageReader.isQuizPage`; covered
-  by `test_lesson_quiz`. The live lesson-quiz markup and events haven't been
-  inspected yet (as in S1). The quiz UI is the same component, and the state
-  machine reads only the DOM.
+  by `test_lesson_quiz`. You confirmed it works on a real lesson quiz with the
+  signed v0.1.1.
 - **Privacy audit (automated, 2026-10-04).** Every test run sends all
   non-localhost traffic to a proxy that refuses it and records the
   destination. The run fails if anything goes to a host other than
@@ -631,7 +632,27 @@ Sign as unlisted on AMO, or list publicly (§6).
 
 ---
 
-## 7. Open questions
+## 7. Release status (2026-10-04)
+
+- **v0.1.1** is signed by Mozilla (unlisted channel) and published as a
+  GitHub release (`v0.1.1`) with the signed `.xpi`, the source zip and
+  `SHA256SUMS`. Lesson quizzes and custom models are verified live.
+- **No private data is in the public repository or the release.** Checked
+  on 2026-10-04:
+  - the fine-tuned model's exact content (`73eeb68b…`) and the packed
+    `.wkv-model.zip` appear in no LFS object of any commit
+  - nothing under `personal/` and no `.wkv-model.zip` was ever committed
+  - both the release `.xpi` and the source zip contain only the generic
+    reading model (`2e8fdf1c…`)
+  - your private data lives only in `wanikani-voice-private` (the
+    `personal/` submodule) and in git-ignored `dist/models/`
+- **Before making the repository public:**
+  - Decide on the personal notes in this file (mic setup, GPU,
+    pronunciation observations) and on the commit author name/email.
+  - The submodule link to `wanikani-voice-private` will be visible, but
+    its contents stay private.
+
+## 8. Open questions
 
 1. **Fine-tuning:** how to ship a voice-adapted model (personal build vs
    in-browser adaptation), and when to record the training set.
