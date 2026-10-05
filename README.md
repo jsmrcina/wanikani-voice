@@ -18,9 +18,15 @@ computer, inside Firefox. Nothing you say is sent anywhere.
 - **Your rules:** it never looks at the question, only whether a meaning or
   a reading is asked for. A wrong answer goes in exactly as you said it.
 
+<p align="center">
+  <img src="store/screenshots/4-reading-choices.png" width="760"
+       alt="A WaniKani reading question with the extension's panel offering three hiragana readings to choose from">
+</p>
+
 Version 0.1.2. The design notes, measurements and roadmap are in [PLAN.md](PLAN.md).
 
 ## Contents
+- [Screenshots](#screenshots)
 - [Install](#install)
 - [Requirements](#requirements)
 - [Using it](#using-it)
@@ -29,6 +35,17 @@ Version 0.1.2. The design notes, measurements and roadmap are in [PLAN.md](PLAN.
 - [Custom and fine-tuned models](#custom-and-fine-tuned-models)
 - [Development](#development)
 - [Licence](#licence)
+
+## Screenshots
+
+| | |
+|---|---|
+| <img src="store/screenshots/1-listening.png" width="400" alt="Listening: the panel turns red while you hold Shift"> | <img src="store/screenshots/2-recognising.png" width="400" alt="Recognising the answer on your own computer"> |
+| Hold Shift and say the answer | Recognised on your own computer |
+| <img src="store/screenshots/3-filled-in.png" width="400" alt="The recognised English answer filled into the answer box"> | <img src="store/screenshots/4-reading-choices.png" width="400" alt="Reading choices: とじる, とじうる, ととじる"> |
+| The answer is filled in for you | Readings in hiragana, with choices |
+| <img src="store/screenshots/5-settings.png" width="400" alt="The settings popup"> | |
+| Settings: push-to-talk or hands-free, auto-submit, custom models | |
 
 ## Install
 
