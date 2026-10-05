@@ -53,6 +53,19 @@ git submodule update --init personal
 (cd personal && git lfs install --local && git lfs pull)
 ```
 
+## Packaging for addons.mozilla.org
+
+```bash
+npm run package              # add -- --verify to rebuild from the source zip and compare
+```
+
+This does a clean normal build (never a personal one), then runs the privacy
+policy check, `web-ext lint` (errors fail it) and the 200 MB size check. It
+writes `dist/voice-answers-for-wanikani-<version>.xpi`, the source archive AMO
+asks for when a package contains bundled code (`…-source.zip`, with a
+`SOURCE-README.md` of build steps), and `SHA256SUMS`. The working tree must
+be committed.
+
 ## Tests
 
 ```bash

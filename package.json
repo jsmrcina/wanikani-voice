@@ -1,6 +1,6 @@
 {
   "name": "wanikani-voice",
-  "version": "0.4.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Firefox extension: answer WaniKani reviews by voice, recognised on-device",
   "type": "module",
@@ -8,7 +8,8 @@
     "build": "node tools/build.mjs",
     "fetch-models": "node tools/fetch-models.mjs",
     "lint": "web-ext lint --source-dir . --ignore-files 'node_modules/**' 'test/**' 'tools/**'",
-    "test": "node tools/build.mjs && python3 test/run_tests.py"
+    "test": "node tools/build.mjs && python3 test/run_tests.py",
+    "package": "node tools/package.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "4.3.0"

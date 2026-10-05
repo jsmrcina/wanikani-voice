@@ -515,10 +515,14 @@ record.
 
 ### Phase 5 — Privacy audit and packaging
 Requested 2026-10-04, after Phase 4:
-- **AMO packaging script:** builds the `.xpi` to upload, plus the source
-  archive and build instructions that AMO review needs for the bundled
-  worker. It runs `web-ext lint`, checks the size against the 200 MB limit,
-  and excludes personal/test data.
+- **AMO packaging script (done, 2026-10-04):** `npm run package`
+  (`tools/package.mjs`) does a clean normal build (it refuses a personal
+  one), the policy check, `web-ext lint` (errors fail it) and the 200 MB
+  check. It writes `dist/…-<version>.xpi`, `…-source.zip` (tracked sources
+  and bundled models plus `SOURCE-README.md`, without tests or `personal/`)
+  and `SHA256SUMS`. `--verify` rebuilds from the source zip and compares
+  every file. First package: **v0.1.0**; the manifest version was reset
+  from the internal 0.4.0 phase numbering.
 - **README rewrite:** a detailed description of how the implementation works,
   with an embedded Mermaid diagram of how data flows through the add-on.
 - **Before making the repository public:** history was rewritten on
