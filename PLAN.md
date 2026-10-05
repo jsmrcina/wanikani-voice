@@ -521,6 +521,13 @@ Requested 2026-10-04, after Phase 4:
   and excludes personal/test data.
 - **README rewrite:** a detailed description of how the implementation works,
   with an embedded Mermaid diagram of how data flows through the add-on.
+- **Before making the repository public:** history was rewritten on
+  2026-10-04 (`git filter-repo`) to remove `test/fixtures/audio/real*`
+  (your voice), and a fresh clone has no trace of them. But GitHub keeps
+  LFS objects that are no longer referenced, so the old WAVs are still
+  stored there. To publish: delete the GitHub repository and push this
+  history to a new one (or ask GitHub Support to purge the LFS objects).
+  `personal/` stays a private submodule.
 - **Lessons** (requested 2026-10-04): support the lesson quiz as well as
   reviews. It uses the same quiz UI (`quiz-input`), so most of the work is
   extending `pageReader.isReviewPage` to the lesson-quiz URLs and checking
