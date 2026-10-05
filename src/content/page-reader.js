@@ -16,10 +16,18 @@
     typeContainer: '.quiz-input__question-type-container',
   });
 
-  const REVIEW_PATH = /^\/subjects\/review(\/|$)/;
+  // Pages with the quiz UI this extension drives: reviews, and the quiz at
+  // the end of a lesson batch (both URL forms WaniKani has used). Lesson
+  // *content* pages (/subject-lessons/<ids> without /quiz) have no answer box
+  // and are left alone.
+  const QUIZ_PATHS = [
+    /^\/subjects\/review(\/|$)/,
+    /^\/subject-lessons\/[^/]+\/quiz(\/|$)/,
+    /^\/subjects\/lesson\/quiz(\/|$)/,
+  ];
 
-  function isReviewPage() {
-    return REVIEW_PATH.test(location.pathname);
+  function isQuizPage() {
+    return QUIZ_PATHS.some(re => re.test(location.pathname));
   }
 
   function text(selector) {
@@ -52,5 +60,5 @@
     return { subject, kind, mode: kind === 'reading' ? 'ja-kana' : 'en' };
   }
 
-  WKV.pageReader = { isReviewPage, getQuestionType };
+  WKV.pageReader = { isQuizPage, getQuestionType };
 })(globalThis.WKV = globalThis.WKV || {});

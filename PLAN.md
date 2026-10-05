@@ -553,10 +553,25 @@ Requested 2026-10-04, after Phase 4:
     via Optimum + int8.
   - Needs no new permissions: a file picker in the settings page plus
     IndexedDB.
-- **Lessons** (requested 2026-10-04): support the lesson quiz as well as
-  reviews. It uses the same quiz UI (`quiz-input`), so most of the work is
-  extending `pageReader.isReviewPage` to the lesson-quiz URLs and checking
-  the live markup and events there (as in S1).
+- **Lessons (done in code, 2026-10-04; live check pending).** The panel
+  runs on lesson quizzes, `/subject-lessons/<ids>/quiz` and the older
+  `/subjects/lesson/quiz`, as well as reviews. Lesson content pages without
+  an answer box are left alone. Matched by `pageReader.isQuizPage`; covered
+  by `test_lesson_quiz`. The live lesson-quiz markup and events haven't been
+  inspected yet (as in S1). The quiz UI is the same component, and the state
+  machine reads only the DOM.
+- **Privacy audit (automated, 2026-10-04).** Every test run sends all
+  non-localhost traffic to a proxy that refuses it and records the
+  destination. The run fails if anything goes to a host other than
+  Mozilla's.
+  - A full run records ~180 attempts, all Firefox's own background traffic
+    to Mozilla's servers: Remote Settings, content-signature certificates,
+    archive.mozilla.org.
+  - None goes to model hosts, CDNs or WaniKani.
+  - A planted `fetch('https://example.org/…')` fails the audit, as it
+    should.
+  - Combined with the static policy check (no network code or URLs in
+    `src/`) and the CSP (`connect-src 'self'`).
 
 Network Monitor + `about:networking` audit over a full session. `web-ext lint`.
 Sign as unlisted on AMO, or list publicly (§6).

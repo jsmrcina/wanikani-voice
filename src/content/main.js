@@ -544,7 +544,7 @@
   // WaniKani navigates with Turbo, so the review page can be reached without a
   // full page load: re-check on every visit.
   function checkPage() {
-    const want = pageReader.isReviewPage();
+    const want = pageReader.isQuizPage();
     if (want && !active) activate();
     else if (!want && active) deactivate();
   }

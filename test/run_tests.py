@@ -10,6 +10,7 @@ reach the network (a CDN, a model host) would fail the tests.
 """
 import argparse
 import http.server
+import socketserver
 import json
 import os
 import shutil
@@ -36,7 +37,11 @@ ADDON_UUID = "6f1e0c52-3a8b-4c7e-9d41-2b5a7e9c0d11"
 # ---- local server ------------------------------------------------------------
 
 class Handler(http.server.SimpleHTTPRequestHandler):
-    ROUTES = {"/subjects/review": "test/mock/review.html", "/elsewhere": "test/unit/index.html"}
+    ROUTES = {"/subjects/review": "test/mock/review.html", "/elsewhere": "test/unit/index.html",
+              # The lesson quiz uses the same quiz UI; lesson content pages don't.
+              "/subject-lessons/440-441/quiz": "test/mock/review.html",
+              "/subjects/lesson/quiz": "test/mock/review.html",
+              "/subject-lessons/440-441": "test/unit/index.html"}
 
     def __init__(self, *a, **kw):
         super().__init__(*a, directory=str(ROOT), **kw)
@@ -49,6 +54,32 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def log_message(self, *a):
         pass
+
+
+class RefusingProxy(socketserver.ThreadingTCPServer):
+    """HTTP(S) proxy that refuses every request and records what was asked
+    for: the privacy audit. Firefox sends all non-localhost traffic here."""
+    daemon_threads = True
+    allow_reuse_address = True
+
+    def __init__(self):
+        self.requests = []
+        outer = self
+
+        class Handler(socketserver.StreamRequestHandler):
+            def handle(self):
+                line = self.rfile.readline(4096).decode("latin-1").strip()
+                if line:
+                    method, _, rest = line.partition(" ")
+                    outer.requests.append(f"{method} {rest.rsplit(' ', 1)[0]}")
+                self.wfile.write(b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+
+        super().__init__(("127.0.0.1", 0), Handler)
+        threading.Thread(target=self.serve_forever, daemon=True).start()
+
+    @property
+    def port(self):
+        return self.server_address[1]
 
 
 def start_server():
@@ -94,7 +125,7 @@ def build_test_extension() -> Path:
 # ---- browser helpers ----------------------------------------------------------
 
 class Browser:
-    def __init__(self, base, ext_dir, headed=False):
+    def __init__(self, base, ext_dir, headed=False, proxy_port=9):
         self.base = base
         opts = webdriver.FirefoxOptions()
         if not headed:
@@ -103,10 +134,11 @@ class Browser:
         if os.environ.get("WKV_THEME"):  # screenshots: force light or dark
             opts.set_preference("layout.css.prefers-color-scheme.content-override",
                                 0 if os.environ["WKV_THEME"] == "dark" else 1)
-        # Nothing but localhost is reachable: a dead proxy for everything else.
+        # Nothing but localhost is reachable: everything else goes to a proxy
+        # that refuses it and records the attempt (the privacy audit).
         for scheme in ("http", "ssl"):
             opts.set_preference(f"network.proxy.{scheme}", "127.0.0.1")
-            opts.set_preference(f"network.proxy.{scheme}_port", 9)
+            opts.set_preference(f"network.proxy.{scheme}_port", proxy_port)
         opts.set_preference("network.proxy.type", 1)
         opts.set_preference("network.proxy.no_proxies_on", "localhost, 127.0.0.1")
         opts.set_preference("network.proxy.allow_hijacking_localhost", False)
@@ -243,6 +275,20 @@ def test_inactive_off_review_page(b):
     b.d.get(b.base + "/elsewhere")
     time.sleep(0.5)
     assert b.state() is None, "indicator should not appear outside /subjects/review"
+
+
+def test_lesson_quiz(b):
+    """Lesson quizzes (both URL forms) get the panel; lesson content doesn't."""
+    b.set_options()
+    for path in ("/subject-lessons/440-441/quiz/", "/subjects/lesson/quiz/"):
+        b.d.get(b.base + path)
+        b.wait(lambda: b.state() == "ready", 5, f"panel on {path}")
+        b.say("fire")
+        b.wait_state("filled")
+        assert b.input_value() == "fire"
+    b.d.get(b.base + "/subject-lessons/440-441/")
+    time.sleep(0.5)
+    assert b.state() is None, "no panel on lesson content pages"
 
 
 def test_defaults_fill_only_push_to_talk(b):
@@ -584,7 +630,7 @@ def test_custom_ptt_key(b):
     assert b.mock_log()[-1]["answer"] == "fire"
 
 
-TESTS = [test_unit, test_inactive_off_review_page, test_defaults_fill_only_push_to_talk,
+TESTS = [test_unit, test_inactive_off_review_page, test_lesson_quiz, test_defaults_fill_only_push_to_talk,
          test_wrong_answer_not_corrected, test_auto_submit_and_advance,
          test_kanji_rejected_for_reading, test_hands_free, test_pause_toggle,
          test_options_page_saves,
@@ -611,8 +657,9 @@ def main():
     failed += bool(problems)
 
     server, base = start_server()
+    proxy = RefusingProxy()
     ext = build_test_extension()
-    b = Browser(base, ext, headed=args.headed)
+    b = Browser(base, ext, headed=args.headed, proxy_port=proxy.port)
     try:
         for t in TESTS:
             if args.k not in t.__name__:
@@ -630,6 +677,19 @@ def main():
         b.quit()
         server.shutdown()
         shutil.rmtree(ext, ignore_errors=True)
+    # Privacy audit: Firefox's own background traffic goes to Mozilla's
+    # servers (Remote Settings, certificates); anything else would have come
+    # from the page or the extension, and fails the run.
+    import re as _re
+    host = lambda r: _re.sub(r"^\S+ (https?://)?([^/:]+).*$", r"\2", r)
+    foreign = [r for r in proxy.requests
+               if not _re.search(r"(^|\.)mozilla\.(com|net|org)$", host(r))]
+    print(f"{'FAIL' if foreign else 'ok  '} privacy audit: {len(proxy.requests)} outside requests, "
+          f"all from Firefox to Mozilla hosts" if not foreign else
+          f"FAIL privacy audit: {len(foreign)} requests to non-Mozilla hosts")
+    for r in sorted(set(foreign)):
+        print(f"   {foreign.count(r)}x {r}")
+    failed += bool(foreign)
     print("all passed" if not failed else f"{failed} failed")
     sys.exit(1 if failed else 0)
 
