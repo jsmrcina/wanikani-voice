@@ -15,6 +15,8 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { env, HubertForCTC, LogitsProcessor, pipeline, Tensor } from '@huggingface/transformers';
 import { recognize, recognizeCtc, recognizeKana } from '../src/worker/recognize.js';
+import { createVad } from '../src/worker/vad.js';
+import * as ortNode from 'onnxruntime-node';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -22,20 +24,20 @@ const showMisses = args.includes('--show-misses');
 const setIdx = args.indexOf('--set');
 const real = args.includes('--real') || setIdx >= 0;
 const lang = args.includes('--ja') ? 'ja' : 'en';
+// --models-root DIR: evaluate models from elsewhere (e.g. personal fine-tuned exports).
+const rootIdx = args.indexOf('--models-root');
 const setName = setIdx >= 0 ? args[setIdx + 1] : 'real';
-const models = args.filter((a, i) => !a.startsWith('--') && args[i - 1] !== '--set');
+const models = args.filter((a, i) => !a.startsWith('--') && args[i - 1] !== '--set' && args[i - 1] !== '--models-root');
 
 env.allowRemoteModels = false;
 env.allowLocalModels = true;
-env.localModelPath = join(ROOT, 'models') + '/';
+env.localModelPath = (args.includes('--models-root') ? resolve(args[args.indexOf('--models-root') + 1]) : join(ROOT, 'models')) + '/';
 
 // Load the extension's normaliser (a classic script) into this process.
 const sandbox = { globalThis: {} };
 sandbox.globalThis = sandbox;
 vm.runInNewContext(await readFile(join(ROOT, 'src/shared/normalize.js'), 'utf8'), sandbox);
-vm.runInNewContext(await readFile(join(ROOT, 'src/content/audio.js'), 'utf8'), sandbox);
 const { normalizeAnswer } = sandbox.WKV.normalize;
-const { hasSpeech } = sandbox.WKV.audio;
 
 export function decodeWav(buf) {
   // Minimal PCM16 mono WAV reader (what tools/make-test-audio.py writes).
@@ -67,6 +69,7 @@ if (real) {
   fixtureDir = join(ROOT, 'test/fixtures/audio/en');
   fixtures = JSON.parse(await readFile(join(fixtureDir, 'manifest.json'), 'utf8'));
 }
+const vad = await createVad(ortNode, join(ROOT, 'models/silero-vad/onnx/model.onnx'));
 const candidates = models.length ? models : lang === 'ja' ? ['distilhubert-hiragana'] : ['whisper-base.en'];
 
 for (const name of candidates) {
@@ -86,8 +89,8 @@ for (const name of candidates) {
   const misses = [];
   for (const f of fixtures) {
     const audio = decodeWav(await readFile(join(fixtureDir, f.file)));
-    // Like the extension: clips without detected speech never reach the model.
-    if (!hasSpeech(audio)) {
+    // Like the extension: clips Silero VAD finds no speech in never reach the model.
+    if (!(await vad.hasSpeech(audio))) {
       if (f.expected === null) hits += 1;
       else misses.push(`${f.file}: said "${f.said}" -> no speech detected`);
       continue;

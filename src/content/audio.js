@@ -106,6 +106,7 @@
       for (const { speech, quiet } of states) {
         r.totalMs += VAD.frameMs;
         r.speechRunMs = speech ? r.speechRunMs + VAD.frameMs : 0;
+        if (speech) r.audible = true;
         if (r.speechRunMs >= VAD.startMs) r.heardSpeech = true;
         if (r.handsFree && r.heardSpeech) r.quietMs = quiet ? r.quietMs + VAD.frameMs : 0;
       }
@@ -179,19 +180,22 @@
         }
       }
       recording = {
-        chunks: [...preroll], totalMs: 0, speechRunMs: 0, heardSpeech: false,
+        chunks: [...preroll], totalMs: 0, speechRunMs: 0, heardSpeech: false, audible: false,
         quietMs: 0, handsFree, onEnd,
       };
       preroll = [];
       prerollLen = 0;
     }
 
-    // Stops collecting. Returns { audio, heardSpeech } or null if not recording.
+    // Stops collecting. Returns { audio, heardSpeech, audible } or null if not
+    // recording. heardSpeech: a sustained run above the noise floor (used for
+    // hands-free endpointing); audible: anything above it at all. Whether a
+    // clip really contains speech is decided by Silero VAD in the worker.
     function stop() {
       const r = recording;
       recording = null;
       if (!r || !ctx) return null;
-      return { audio: resample(r.chunks, ctx.sampleRate), heardSpeech: r.heardSpeech };
+      return { audio: resample(r.chunks, ctx.sampleRate), heardSpeech: r.heardSpeech, audible: r.audible };
     }
 
     function cancel() {
@@ -205,19 +209,5 @@
     };
   }
 
-  // Runs the speech detector over a finished clip, the way a live recording
-  // would have been judged (used by tests and tools/eval-asr.mjs).
-  function hasSpeech(samples, rate = TARGET_RATE) {
-    const detector = createDetector();
-    const frame = Math.round((rate * VAD.frameMs) / 1000);
-    let run = 0;
-    for (let i = 0; i + frame <= samples.length; i += frame) {
-      const { speech } = detector.push(rms(samples.subarray(i, i + frame)));
-      run = speech ? run + VAD.frameMs : 0;
-      if (run >= VAD.startMs) return true;
-    }
-    return false;
-  }
-
-  WKV.audio = { createMic, resample, hasSpeech, TARGET_RATE };
+  WKV.audio = { createMic, resample, TARGET_RATE };
 })(globalThis.WKV = globalThis.WKV || {});

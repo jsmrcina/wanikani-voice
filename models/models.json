@@ -101,6 +101,30 @@
         "config.json": "b51b5b7073dd8881f78af88d9af811fe495f0ea81234403a3b5597b0b5cd069a",
         "onnx/model_quantized.onnx": "2e8fdf1c09f25a0610d266a7844a4bbd63859349f0be14e44412b0a0fa59e0d1"
       }
+    },
+    "silero-vad": {
+      "repo": "onnx-community/silero-vad",
+      "revision": "e71cae966052b992a7eca6b17738916ce0eca4ec",
+      "license": "MIT (Silero Team)",
+      "bundled": true,
+      "files": {
+        "onnx/model.onnx": "a4a068cd6cf1ea8355b84327595838ca748ec29a25bc91fc82e6c299ccdc5808"
+      }
+    },
+    "whisper-tiny.en": {
+      "repo": "onnx-community/whisper-tiny.en",
+      "revision": "2575352d61be1bf7225cf8f8b268a4678025fc58",
+      "license": "MIT (OpenAI Whisper)",
+      "bundled": true,
+      "files": {
+        "config.json": "251ea843b5901a99efa58c0b99b8052c6019aa3e7d2baf46693a1128ff606233",
+        "generation_config.json": "7b2e8451ed5f118e75fdd991409d72119d21d2fef1eba9723f68fb9c57fe5dc9",
+        "preprocessor_config.json": "a6a76d28c93edb273669eb9e0b0636a2bddbb1272c3261e47b7ca6dfdbac1b8d",
+        "tokenizer.json": "5eb60cec1e77aeeb6869a2bb5a8e01a84c3fe5d072d75369343021fe6f5310d0",
+        "tokenizer_config.json": "93879c3dccdd4b976f709acd85b44778873f30c275e67026f30ca1e4c975230c",
+        "onnx/encoder_model_quantized.onnx": "e93ec822f16a8fd264e7de972ad17d615ea7334b75a52d54c50c2e18dd503a25",
+        "onnx/decoder_model_merged_quantized.onnx": "c0592d0749413c960569e1c7fb806b060d5d18f3ebad4a95cbf9a77dc6e9be52"
+      }
     }
   }
 }

@@ -6,6 +6,7 @@ config.json (`kana_vocab`), which transformers.js loads with the model.
 
 Dev-time only (needs torch, transformers, onnxruntime, huggingface_hub):
     python tools/export-dual-ctc.py REPO REVISION OUT_DIR
+    python tools/export-dual-ctc.py LOCAL_CHECKPOINT_DIR - OUT_DIR   (fine-tuned)
 
 The repo's custom model code runs (trust_remote_code) at the pinned revision;
 reviewed 2026-10-04: an encoder plus two small linear heads, nothing else.
@@ -33,7 +34,7 @@ class KanaHead(torch.nn.Module):
 
 def main():
     repo, revision, out = sys.argv[1], sys.argv[2], Path(sys.argv[3])
-    src = Path(snapshot_download(repo, revision=revision))
+    src = Path(repo) if Path(repo).is_dir() else Path(snapshot_download(repo, revision=revision))
     dual = AutoModel.from_pretrained(src, trust_remote_code=True).eval()
     (out / "onnx").mkdir(parents=True, exist_ok=True)
 

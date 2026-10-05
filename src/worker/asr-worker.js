@@ -11,13 +11,18 @@
 // Messages out: { type: 'progress', model, loaded, total }
 //               { type: 'loaded', model, ms }
 //               { type: 'result', id, candidates: string[] (best first), ms }
+//               | { type: 'result', id, noSpeech: true, ms }  (Silero heard no speech)
 //               | { type: 'error', id?, message }
 //
 // Both return a few candidates, best first, for the user to choose from:
 // Whisper (English) via alternative first tokens, the hiragana CTC model
 // (Japanese readings) via greedy + beam search.
 import { env, HubertForCTC, LogitsProcessor, pipeline, Tensor } from '@huggingface/transformers';
+// The same onnxruntime entry transformers.js uses (mapped to the WASM-only
+// build in tools/build.mjs), so the bundle has one runtime.
+import * as ort from 'onnxruntime-web/wasm';
 import { recognize, recognizeCtc } from './recognize.js';
+import { createVad } from './vad.js';
 
 const EXT_ROOT = new URL('../', self.location.href).href; // build/ root
 
@@ -27,13 +32,21 @@ env.localModelPath = `${EXT_ROOT}models/`;
 env.useBrowserCache = false;
 env.useWasmCache = false;
 env.backends.onnx.wasm.wasmPaths = {
-  mjs: `${EXT_ROOT}vendor/ort/ort-wasm-simd-threaded.asyncify.mjs`,
-  wasm: `${EXT_ROOT}vendor/ort/ort-wasm-simd-threaded.asyncify.wasm`,
+  mjs: `${EXT_ROOT}vendor/ort/ort-wasm-simd-threaded.mjs`,
+  wasm: `${EXT_ROOT}vendor/ort/ort-wasm-simd-threaded.wasm`,
 };
 // Extension pages aren't cross-origin isolated, so no SharedArrayBuffer threads.
 env.backends.onnx.wasm.numThreads = 1;
 
 const pipelines = new Map(); // model -> Promise<{ kind, asr, vocab? }>
+
+// Silero VAD, loaded with the first model; ort shares transformers.js's env
+// (bundled WASM, one thread).
+let vadPromise = null;
+function vad() {
+  vadPromise ??= createVad(ort, `${EXT_ROOT}models/silero-vad/onnx/model.onnx`);
+  return vadPromise;
+}
 
 async function loadModel(model, kind, options) {
   if (kind === 'ctc') {
@@ -81,10 +94,14 @@ self.addEventListener('unhandledrejection', e => {
 self.onmessage = async ({ data }) => {
   try {
     if (data.type === 'load') {
-      await load(data.model, data.kind);
+      await Promise.all([load(data.model, data.kind), vad()]);
     } else if (data.type === 'transcribe') {
       const { kind, asr, vocab } = await load(data.model, data.kind);
       const t0 = performance.now();
+      if (!(await (await vad()).hasSpeech(data.audio))) {
+        self.postMessage({ type: 'result', id: data.id, noSpeech: true, ms: Math.round(performance.now() - t0) });
+        return;
+      }
       const candidates = kind === 'ctc'
         ? await recognizeCtc(asr, vocab, data.audio, Tensor)
         : (await recognize(asr, data.audio, { alternatives: 2, LogitsProcessorClass: LogitsProcessor }))

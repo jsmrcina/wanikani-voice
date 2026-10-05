@@ -73,6 +73,19 @@ node tools/eval-asr.mjs [model ...] --set real-raw [--ja]   # accuracy on record
 python3 tools/recorder/server.py --set NAME          # record evaluation clips at http://localhost:8765/
 ```
 
+### Fine-tuning the reading model on your voice (personal build)
+
+```bash
+mkdir -p ~/.config/wanikani-voice   # put a read-only WaniKani API token in api-token
+python3 tools/wk-readings.py                     # -> personal/words.json (your readings)
+python3 tools/recorder/server.py --words personal/words.json --set personal
+python tools/finetune-hiragana.py                # needs torch + transformers
+python tools/export-dual-ctc.py personal/models/distilhubert-hiragana/checkpoint - personal/models/distilhubert-hiragana
+npm run build -- --personal                      # build/ with your model; never publish it
+```
+
+Everything under `personal/` is git-ignored.
+
 Only models marked `"bundled": true` in `models/models.json` are committed
 and shipped. The others are evaluation candidates. The hiragana model is
 exported locally (`"generatedBy"` gives the exact command; needs PyTorch).

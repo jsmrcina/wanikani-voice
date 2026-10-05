@@ -1,13 +1,15 @@
 """Local recording page for evaluation clips (dev tool; nothing leaves the machine).
 
-    python3 tools/recorder/server.py [--port 8765] [--set real]
+    python3 tools/recorder/server.py [--port 8765] [--set real] [--words FILE]
 then open http://localhost:8765/ in Firefox and allow the microphone.
 
 Serves the repository read-only (the page reuses src/content/audio.js, the
 extension's own capture code) and accepts clip uploads, written to
 test/fixtures/audio/<set>/<lang>/<slug>.wav (16 kHz mono PCM16); use a new
 --set for each recording condition (e.g. real = through a system noise filter,
-real-raw = raw microphone) so takes can be compared.
+real-raw = raw microphone) so takes can be compared. With --words (a personal list,
+e.g. from tools/wk-readings.py) and --set personal, clips go to
+personal/recordings/ instead, which is git-ignored.
 """
 import argparse
 import http.server
@@ -17,8 +19,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "test/fixtures/audio/real"  # replaced by --set
-WORDS = json.loads((ROOT / "tools/recorder/words.json").read_text(encoding="utf-8"))
-VALID = {(lang, w["slug"]) for lang in ("en", "ja", "noise") for w in WORDS[lang]}
+WORDS = None  # set in main from --words
+SET = "real"
+VALID = set()
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -34,11 +37,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.path = "/tools/recorder/index.html"
         if self.path == "/status":
             done = sorted(f"{p.parent.name}/{p.stem}" for p in OUT.glob("*/*.wav"))
-            return self._json({"words": WORDS, "recorded": done, "set": OUT.name})
+            return self._json({"words": WORDS, "recorded": done, "set": SET})
         return super().do_GET()
 
     def do_POST(self):
-        m = re.fullmatch(r"/save/(en|ja|noise)/([a-z0-9-]+)", self.path)
+        m = re.fullmatch(r"/save/(en|ja|noise)/([A-Za-z0-9-]+)", self.path)
         if not m or (m[1], m[2]) not in VALID:
             return self._json({"error": "unknown clip"}, 400)
         body = self.rfile.read(int(self.headers["Content-Length"]))
@@ -65,9 +68,13 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--set", default="real")
+    ap.add_argument("--words", default=str(ROOT / "tools/recorder/words.json"))
     a = ap.parse_args()
     port = a.port
-    OUT = ROOT / "test/fixtures/audio" / a.set
+    WORDS = json.loads(Path(a.words).read_text(encoding="utf-8"))
+    VALID = {(lang, w["slug"]) for lang in ("en", "ja", "noise") for w in WORDS[lang]}
+    SET = a.set
+    OUT = (ROOT / "personal/recordings") if a.set == "personal" else (ROOT / "test/fixtures/audio" / a.set)
     server = http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)
     print(f"Recorder: http://localhost:{port}/  (Ctrl+C to stop)")
     server.serve_forever()

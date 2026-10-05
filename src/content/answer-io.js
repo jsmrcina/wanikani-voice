@@ -68,5 +68,10 @@
     return !!document.querySelector(SELECTORS.inputContainer)?.hasAttribute('correct');
   }
 
-  WKV.answerIO = { isPresent, fill, value, submit: pressSubmit, advance: pressSubmit, isGraded };
+  // Whether the graded answer was marked correct (correct="true").
+  function isCorrect() {
+    return document.querySelector(SELECTORS.inputContainer)?.getAttribute('correct') === 'true';
+  }
+
+  WKV.answerIO = { isPresent, fill, value, submit: pressSubmit, advance: pressSubmit, isGraded, isCorrect };
 })(globalThis.WKV = globalThis.WKV || {});

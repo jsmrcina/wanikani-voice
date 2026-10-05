@@ -171,6 +171,11 @@
     if (!HIRAGANA_ONLY.test(s)) return { ok: false, reason: 'Expected kana only' };
     // No reading starts with ん, っ or a small kana: that's a hum or a cough.
     if (/^[んっぁぃぅぇぉゃゅょゎ]/.test(s)) return { ok: false, reason: "Didn't catch that" };
+    // A few WaniKani readings really do contain ー (びーだま, ビー玉), so when
+    // ー was heard, the form that keeps it is offered as an alternative.
+    if (folded !== s && /^[\u3041-\u3096\u309d\u309e][\u3041-\u3096\u309d\u309eー]*$/.test(folded)) {
+      return { ok: true, text: s, alternates: [folded] };
+    }
     return { ok: true, text: s };
   }
 

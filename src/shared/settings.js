@@ -16,6 +16,13 @@
     // After an answer is graded, move to the next question automatically.
     autoAdvance: false,
     autoAdvanceDelayMs: 1500,
+    // Only auto-advance when WaniKani marked the answer correct, so a wrong
+    // answer stays on screen until the user moves on.
+    autoAdvanceOnlyCorrect: false,
+    // Where the panel sits: 'top-right', 'top-left', 'bottom-right', 'bottom-left'.
+    indicatorPosition: 'top-right',
+    // English model: 'accurate' (Whisper base.en) or 'fast' (tiny.en).
+    englishSpeed: 'accurate',
     // 'local': the bundled on-device speech model.
     // 'fake': test mode; text typed into the indicator stands in for speech.
     recognizer: 'local',

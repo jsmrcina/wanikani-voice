@@ -36,6 +36,8 @@
       border-radius: 14px; box-shadow: var(--shadow);
       font: 13px/1.35 system-ui, sans-serif; transition: border-color .15s;
     }
+    .wrap[data-pos$="left"] { right: auto; left: 16px; }
+    .wrap[data-pos^="bottom"] { top: auto; bottom: 16px; }
     .row { display: flex; align-items: center; gap: 8px; }
     .logo { flex: none; width: 24px; height: 24px; }
     .logo svg { display: block; width: 100%; height: 100%; }
@@ -194,9 +196,15 @@
       host.dataset.selected = list.length > 1 ? String(selected) : '';
     }
 
+    const POSITIONS = ['top-right', 'top-left', 'bottom-right', 'bottom-left'];
+    function setPosition(pos) {
+      wrap.dataset.pos = POSITIONS.includes(pos) ? pos : 'top-right';
+    }
+
     return {
       set,
       setChoices,
+      setPosition,
       setDevMode(on) { dev.classList.toggle('on', on); },
       fakeUtterance() { return devInput.value; },
       ownsEvent(e) { return e.composedPath().includes(host); },

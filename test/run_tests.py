@@ -413,6 +413,7 @@ def test_reading_choices(b):
     b.set_options()
     b.open_review()
     b.say("fire")
+    b.wait_state("filled")
     b.press_enter()
     b.wait_state("waiting")
     b.press_enter()  # kanji reading question (人)
@@ -469,6 +470,18 @@ def test_speech_japanese(b):
     assert answer and all("\u3041" <= c <= "\u3096" for c in answer), answer
 
 
+def test_speech_fast_english(b):
+    """The 'fast' English setting uses whisper-tiny.en."""
+    b.set_options(recognizer="local", englishSpeed="fast")
+    b.open_review()
+    b.wait_model_ready()
+    b.speak(SPEECH_PREFIX + "fire.wav")
+    b.wait_state("filled", timeout=20)
+    assert b.input_value() == "fire", b.input_value()
+    models = b.diag()["models"]
+    assert models.get("whisper-tiny.en", {}).get("status") == "ready", models
+
+
 def test_speech_silence_not_sent(b):
     b.set_options(recognizer="local")
     b.open_review()
@@ -506,6 +519,46 @@ def test_background_survives_idle(b):
     b.wait_state("filled", timeout=20)
 
 
+def test_auto_advance_only_correct(b):
+    b.set_options(submitMode="auto-submit", autoAdvance=True, autoAdvanceDelayMs=200,
+                  autoAdvanceOnlyCorrect=True)
+    b.open_review()
+    b.say("water")  # wrong (the radical is fire): stays put
+    b.wait(lambda: b.mock_log(), 5, "graded")
+    time.sleep(1.0)
+    assert b.state() == "waiting" and b.mode() == "en", (b.state(), b.mode())
+    assert "Not quite" in b.message(), b.message()
+    b.press_enter()  # the user moves on
+    b.wait(lambda: b.mode() == "ja-kana" and b.state() == "ready", 5, "next question")
+    b.say("じん")  # right: advances by itself
+    b.wait(lambda: b.mode() == "en" and len(b.mock_log()) == 2, 5, "auto-advanced after a correct answer")
+
+
+def test_hands_free_gives_up_after_misses(b):
+    b.set_options(inputMode="voice-activity")
+    b.open_review()
+    for attempt in range(3):
+        b.wait_state("listening", timeout=6)
+        b.say_hands_free("")  # nothing recognisable
+        if attempt < 2:
+            b.wait_state("error")
+    b.wait(lambda: b.state() == "ready" and "Stopped listening" in b.message(), 6, "gave up")
+    time.sleep(3.5)
+    assert b.state() == "ready", "no automatic retry after giving up"
+    b.d.find_element(By.TAG_NAME, "body").click()
+    b.wait_state("listening", timeout=3)
+
+
+def test_panel_position(b):
+    b.set_options(indicatorPosition="bottom-left")
+    b.open_review()
+    rect = b.d.execute_script(
+        "return arguments[0].getBoundingClientRect().toJSON()",
+        b.host().shadow_root.find_element(By.CSS_SELECTOR, ".wrap"))
+    height = b.d.execute_script("return window.innerHeight")
+    assert rect["left"] <= 20 and height - rect["bottom"] <= 20, (rect, height)
+
+
 def test_custom_ptt_key(b):
     b.set_options(pttKey="KeyJ", submitMode="auto-submit")
     b.open_review()
@@ -519,10 +572,11 @@ TESTS = [test_unit, test_inactive_off_review_page, test_defaults_fill_only_push_
          test_kanji_rejected_for_reading, test_hands_free, test_pause_toggle,
          test_options_page_saves,
          test_shift_chords_and_taps_ignored, test_custom_ptt_key,
-         test_reload_replaces_orphaned_badge, test_speech_push_to_talk,
+         test_reload_replaces_orphaned_badge, test_auto_advance_only_correct,
+         test_hands_free_gives_up_after_misses, test_panel_position, test_speech_push_to_talk,
          test_speech_numbers_and_phrases, test_reading_choices, test_answer_choices_english,
          test_speech_japanese,
-         test_speech_silence_not_sent,
+         test_speech_fast_english, test_speech_silence_not_sent,
          test_speech_hands_free, test_background_survives_idle]
 
 

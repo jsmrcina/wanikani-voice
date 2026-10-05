@@ -288,7 +288,7 @@ off the review page.
 | **1 — Skeleton with fake ASR** | **Done 2026-10-04** |
 | **2 — Audio + English** | **Done 2026-10-04**, pending a live check on WaniKani |
 | **3 — Japanese** | **Done 2026-10-04**, pending a live check on WaniKani |
-| 4 — UX and robustness | Partly pulled into Phase 1 (options, hotkeys, pause, tab-hidden handling) |
+| **4 — UX and robustness** | In progress: VAD, speed, retry limit, correct-only advance and panel position done; fine-tuning pipeline built, waiting on your recordings |
 | 5 — Privacy audit + packaging | |
 
 ### Spikes
@@ -428,34 +428,101 @@ the filled reading, but only while the box still holds an offered reading,
 so typing a correction works normally. Choices clear on grading. Test mode
 accepts `a|b|c` to simulate alternatives.
 
-### Phase 4 — UX and robustness
-- **Fine-tune the hiragana model on your voice** (requested 2026-10-04).
-  - Record a few hundred readings with `tools/recorder`, e.g. WaniKani
-    readings up to your level, said naturally.
-  - Fine-tune distilhubert-hiragana's kana CTC head (and possibly the top
-    encoder layers) locally. Re-export with
-    `tools/export-dual-ctc.py`.
-  - Measure on a held-out set of your recordings plus the current 31.
-  - **Goal:** your りょ, せいおう and vowels map to the intended kana.
-  - **Trade-off:** it learns your accent as correct. That's fine for a
-    personal tool, since WaniKani tests knowing the reading, not
-    pronunciation.
-  - **Open:** ship it as a personal model (not in the public build), or
-    as an optional "adapt to my voice" step that trains in-browser, which
-    is a much bigger job.
-- Silero VAD (~2 MB ONNX) to tell speech from key clicks, instead of the
-  energy threshold's thin margin.
-- **Speed:** English takes ~1.6 s in Firefox, ~1.3 s of which is Whisper's
-  encoder on a fixed 30 s window, single-threaded WASM. Options:
-  - multi-threaded WASM, if Firefox extension pages can be made
-    cross-origin isolated
-  - whisper-tiny.en, ~4x faster encoder, accuracy to be measured
-  - WebGPU, once Firefox on Linux has it
-- A "didn't catch that" retry budget.
-- Possibly "auto-advance only when correct".
-- An indicator position option if the default clashes with the header.
+### Phase 4 — UX and robustness (in progress, 2026-10-04)
+Your decisions: the tuned model ships in a **personal build** only; the training
+list comes from **your WaniKani items**; VAD and speed are done while you
+record.
+
+- **Fine-tuning on your voice (pipeline built; waiting on recordings).**
+  - `tools/wk-readings.py` reads a read-only API token from
+    `~/.config/wanikani-voice/api-token` and lists the accepted readings of
+    your unlocked kanji and vocabulary. Readings with the hard sounds (small
+    ゃゅょ, っ, long vowels, the r-row) are always kept, up to 400. It writes
+    `personal/words.json`. The extension itself never calls the API.
+  - `tools/recorder/server.py --words personal/words.json --set personal`
+    records into `personal/recordings/`. Everything under `personal/` is
+    git-ignored.
+  - `tools/finetune-hiragana.py`:
+    - trains the transformer and kana CTC head with CTC loss (frozen
+      convolutional encoder, with speed/gain/noise/shift augmentation) on
+      WaniKani spellings
+    - keeps 10% for validation and never trains on the committed 31 raw
+      readings, which are the before/after benchmark
+    - saves the best checkpoint
+    - CPU is enough: ~1 s per epoch per 26 clips, so ~8 min for 400 clips ×
+      30 epochs
+  - `tools/export-dual-ctc.py CHECKPOINT - personal/models/distilhubert-hiragana`
+    exports it.
+  - `npm run build -- --personal` swaps it into `build/` and stamps
+    `BUILD-INFO.txt` "PERSONAL BUILD … Do not publish". A normal build puts
+    the generic model back.
+  - Smoke-tested end to end on the gated recordings (2 epochs, CPU).
+- **Fine-tuning results (2026-10-04).** 400 recordings of your WaniKani
+  readings (75% with hard sounds), 360 for training and 40 for validation,
+  on CPU. Scored on the 31 benchmark readings through the extension's real
+  pipeline (only 4 of them, て/しゅくだい/じゅう/じょうず, also appear in the
+  training list):
+
+  | Model | Validation (greedy) | Benchmark first choice | Benchmark offered | Train time |
+  |---|---|---|---|---|
+  | Generic | 14/40 | 13/31 | 13/31 | n/a |
+  | **Full fine-tune** (20M weights) | **32/40** | **18/31** | **24/31** | 7 min |
+  | Head-only (0.69M weights) | 29/40 | 16/31 | 20/31 | 3.5 min |
+
+  - The full model gets りょうかい exactly, and offers がっこう, しゅくだい,
+    しゅっぱつ and にん. Still missed: りょこう→よこう, びょういん→よういん.
+  - Both tuned models turn the "um" noise clip into kana (あんうん): a
+    Japanese hum filter is still needed.
+  - **Head-only**, which is what could train inside the extension in plain
+    JS, gets a bit over half the full gain on the benchmark.
+  - The full model is in your personal build (`npm run build -- --personal`),
+    loaded in your Firefox 2026-10-04.
+  - **Decision (2026-10-04): no in-extension training for now.** The
+    personal build gives the better result. Revisit if the add-on is
+    published (it would matter more to other users).
+- **Silero VAD (done).** A 2.2 MB MIT ONNX model in the worker
+  (`src/worker/vad.js`) decides whether a clip contains speech (≥ 96 ms at
+  p > 0.5).
+  - On the real recordings, the click-only clip peaks at p = 0.04; every
+    answer has ≥ 160 ms at p ≈ 0.99.
+  - The page now sends anything audible, and the energy detector only ends
+    hands-free utterances.
+  - `tools/eval-asr.mjs` gates clips the same way (onnxruntime-node).
+- **Speed (done).**
+  - Firefox ignores `cross_origin_embedder_policy` /
+    `cross_origin_opener_policy` in the manifest: no cross-origin isolation,
+    no `SharedArrayBuffer`, so no WASM threads.
+  - onnxruntime's plain WASM build (14 MB) replaces the WebGPU-capable
+    "asyncify" one (27 MB), via an esbuild alias. That's ~8% faster, and the
+    linter's `eval` warnings are gone.
+  - **English speed setting:** *accurate* (base.en, ~1.5–1.8 s, the default)
+    or *fast* (tiny.en, 42 MB, ~0.8–1.0 s; right answer offered 23/25
+    instead of 25/25, first choice 22/25 either way). Only the selected
+    model loads; switching mid-review loads the new one.
+  - Add-on size: 184 MB.
+- **Hands-free retry limit (done).** After 3 failed attempts at one question,
+  hands-free stops listening ("Stopped listening after 3 tries: click the
+  page or hold Shift to try again"); a click or key press resumes.
+- **Auto-advance only when correct (done).** An option under auto-advance: a
+  wrong answer stays on screen ("Not quite…") until you press Enter. It
+  reads WaniKani's `correct="true|false"`, i.e. the graded state, never the
+  answer.
+- **Panel position (done).** Top right (default), top left, bottom right or
+  bottom left, in settings.
 
 ### Phase 5 — Privacy audit and packaging
+Requested 2026-10-04, after Phase 4:
+- **AMO packaging script:** builds the `.xpi` to upload, plus the source
+  archive and build instructions that AMO review needs for the bundled
+  worker. It runs `web-ext lint`, checks the size against the 200 MB limit,
+  and excludes personal/test data.
+- **README rewrite:** a detailed description of how the implementation works,
+  with an embedded Mermaid diagram of how data flows through the add-on.
+- **Lessons** (requested 2026-10-04): support the lesson quiz as well as
+  reviews. It uses the same quiz UI (`quiz-input`), so most of the work is
+  extending `pageReader.isReviewPage` to the lesson-quiz URLs and checking
+  the live markup and events there (as in S1).
+
 Network Monitor + `about:networking` audit over a full session. `web-ext lint`.
 Sign as unlisted on AMO, or list publicly (§6).
 

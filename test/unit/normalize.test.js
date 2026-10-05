@@ -57,12 +57,24 @@
     ['jin', 'ja-kana', null],
     ['', 'ja-kana', null],
   ];
+  // Alternate spellings offered alongside the main answer.
+  const alternates = [
+    ['びーだま', ['びいだま', ['びーだま']]],
+    ['きょー', ['きょう', ['きょー']]],
+    ['きょう', ['きょう', undefined]],
+  ];
   const failures = [];
+  for (const [raw, [text, alts]] of alternates) {
+    const got = normalizeAnswer(raw, 'ja-kana');
+    if (got.text !== text || JSON.stringify(got.alternates) !== JSON.stringify(alts)) {
+      failures.push({ raw, mode: 'ja-kana', expected: { text, alts }, got });
+    }
+  }
   for (const [raw, mode, expected] of cases) {
     const got = normalizeAnswer(raw, mode);
     const ok = expected === null ? !got.ok : got.ok && got.text === expected;
     if (!ok) failures.push({ raw, mode, expected, got });
   }
   document.getElementById('results').textContent =
-    JSON.stringify({ total: cases.length, failures });
+    JSON.stringify({ total: cases.length + alternates.length, failures });
 })();

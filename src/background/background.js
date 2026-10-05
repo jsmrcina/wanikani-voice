@@ -7,10 +7,17 @@
   'use strict';
 
   // Which bundled model handles each mode, and what kind of model it is.
-  const MODELS = { en: 'whisper-base.en', 'ja-kana': 'distilhubert-hiragana' };
-  const KINDS = { 'whisper-base.en': 'whisper', 'distilhubert-hiragana': 'ctc' };
+  // English has two, chosen by the englishSpeed setting: base.en is the more
+  // accurate (~1.6 s per answer in Firefox), tiny.en about twice as fast.
+  const ENGLISH_MODELS = { accurate: 'whisper-base.en', fast: 'whisper-tiny.en' };
+  const JAPANESE_MODEL = 'distilhubert-hiragana';
+  const KINDS = { 'whisper-base.en': 'whisper', 'whisper-tiny.en': 'whisper', 'distilhubert-hiragana': 'ctc' };
   const MAX_CHOICES = 3;
-  const MODES = new Set(Object.keys(MODELS));
+  const MODES = new Set(['en', 'ja-kana']);
+
+  function modelsFor(settings) {
+    return { en: ENGLISH_MODELS[settings.englishSpeed] ?? ENGLISH_MODELS.accurate, 'ja-kana': JAPANESE_MODEL };
+  }
 
   // ---- worker ---------------------------------------------------------------
 
@@ -89,7 +96,7 @@
       // Test mode: "a|b|c" stands in for a recogniser offering alternatives.
       candidates = String(msg.fakeUtterance ?? '').split('|');
     } else {
-      const model = MODELS[msg.mode];
+      const model = modelsFor(settings)[msg.mode];
       if (!model) return { ok: false, reason: 'No speech model for this question type' };
       if (!(msg.audio instanceof Float32Array) || msg.audio.length === 0) {
         return { ok: false, reason: "Didn't catch that" };
@@ -97,13 +104,22 @@
       // Copy: the incoming array may not be transferable from this context.
       const res = await runWorker(model, new Float32Array(msg.audio));
       if (res.type === 'error') return { ok: false, reason: `Recognizer error: ${res.message}` };
+      if (res.noSpeech) return { ok: false, reason: "Didn't hear anything" };
       candidates = res.candidates;
       ms = res.ms;
       lastDecodeMs = ms;
     }
     // Normalise every candidate; keep the valid, distinct ones, best first.
     const normalized = candidates.map(c => WKV.normalize.normalizeAnswer(c, msg.mode));
-    const choices = [...new Set(normalized.filter(n => n.ok).map(n => n.text))].slice(0, MAX_CHOICES);
+    const valid = normalized.filter(n => n.ok);
+    // Order: best answer, its alternate spelling (e.g. with ー), the other
+    // candidates, then their alternates.
+    const ordered = [
+      ...(valid[0] ? [valid[0].text, ...(valid[0].alternates ?? [])] : []),
+      ...valid.slice(1).map(n => n.text),
+      ...valid.slice(1).flatMap(n => n.alternates ?? []),
+    ];
+    const choices = [...new Set(ordered)].slice(0, MAX_CHOICES);
     if (!choices.length) return { raw: candidates[0], ms, ...normalized[0] };
     return { ok: true, raw: candidates[0], ms, text: choices[0], choices };
   }
@@ -122,20 +138,30 @@
     return undefined;
   });
 
-  // A review tab keeps a port open for its whole session. That lets the
-  // background push model-loading progress, and an open port keeps Firefox
-  // from unloading this (non-persistent) page and the loaded model with it.
+  // A review tab keeps a port open for its whole session, to receive
+  // model-loading progress; its heartbeat messages keep Firefox from
+  // unloading this (non-persistent) page and the loaded models with it.
   browser.runtime.onConnect.addListener(port => {
     if (port.sender?.id !== browser.runtime.id || port.name !== 'wkv-session') return;
     sessions.add(port);
     port.onDisconnect.addListener(() => sessions.delete(port));
     port.onMessage.addListener(async msg => {
       if (msg?.type !== 'warmup') return;
-      port.postMessage({ type: 'capabilities', modes: MODELS });
       const settings = await WKV.settings.load();
+      const modes = modelsFor(settings);
+      port.postMessage({ type: 'capabilities', modes });
       if (settings.recognizer === 'fake') return;
-      for (const model of Object.values(MODELS)) if (model) loadModel(model);
+      for (const model of Object.values(modes)) loadModel(model);
     });
+  });
+
+  // Switching the English model while a review is open: tell the tabs and
+  // load it straight away.
+  WKV.settings.onChange(settings => {
+    if (!sessions.size) return;
+    const modes = modelsFor(settings);
+    for (const port of sessions) port.postMessage({ type: 'capabilities', modes });
+    if (settings.recognizer !== 'fake') for (const model of Object.values(modes)) loadModel(model);
   });
 
   browser.commands.onCommand.addListener(async command => {

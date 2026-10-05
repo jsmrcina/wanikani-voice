@@ -10,7 +10,7 @@
 
   function render(s) {
     $('enabled').checked = s.enabled;
-    for (const name of ['inputMode', 'submitMode', 'recognizer']) {
+    for (const name of ['inputMode', 'submitMode', 'recognizer', 'englishSpeed']) {
       const radio = document.querySelector(`input[name="${name}"][value="${s[name]}"]`);
       if (radio) radio.checked = true;
     }
@@ -18,17 +18,22 @@
     $('autoAdvance').checked = s.autoAdvance;
     $('autoAdvanceDelay').value = s.autoAdvanceDelayMs / 1000;
     $('autoAdvanceDelay').disabled = !s.autoAdvance;
+    $('autoAdvanceOnlyCorrect').checked = s.autoAdvanceOnlyCorrect;
+    $('autoAdvanceOnlyCorrect').disabled = !s.autoAdvance;
+    $('indicatorPosition').value = s.indicatorPosition;
   }
 
   function bind() {
     const save = WKV.settings.save;
     $('enabled').addEventListener('change', e => save({ enabled: e.target.checked }));
-    for (const name of ['inputMode', 'submitMode', 'recognizer']) {
+    for (const name of ['inputMode', 'submitMode', 'recognizer', 'englishSpeed']) {
       for (const radio of document.querySelectorAll(`input[name="${name}"]`)) {
         radio.addEventListener('change', e => save({ [name]: e.target.value }));
       }
     }
     $('autoAdvance').addEventListener('change', e => save({ autoAdvance: e.target.checked }));
+    $('autoAdvanceOnlyCorrect').addEventListener('change', e => save({ autoAdvanceOnlyCorrect: e.target.checked }));
+    $('indicatorPosition').addEventListener('change', e => save({ indicatorPosition: e.target.value }));
     $('autoAdvanceDelay').addEventListener('change', e => {
       const seconds = Math.min(10, Math.max(0, Number(e.target.value) || 0));
       save({ autoAdvanceDelayMs: Math.round(seconds * 1000) });

@@ -26,6 +26,8 @@
   let pttHeld = false;
   let evaluateTimer = null;
   let followUpTimer = null;  // error -> ready, or auto-advance
+  let misses = 0;            // failed attempts on the current question
+  let handsFreePaused = false; // hands-free stopped after too many misses
   let choices = [];          // readings offered for the current answer
   let chosen = 0;
 
@@ -108,15 +110,27 @@
       setState('manual', 'No voice model for this question type: type this one');
       return;
     }
-    if (handsFree() && !document.hidden) {
+    if (handsFree() && !document.hidden && !handsFreePaused) {
       startListening();
     } else {
       setState('ready', message ?? (document.hidden ? 'Paused while the tab is hidden' : readyMessage()));
     }
   }
 
+  // Hands-free mode stops listening on its own after this many failed
+  // attempts at one question, rather than looping on noise indefinitely.
+  const HANDS_FREE_MAX_MISSES = 3;
+
   function showError(reason, retryMs = 2000) {
     const gen = generation;
+    misses += 1;
+    if (handsFree() && misses >= HANDS_FREE_MAX_MISSES) {
+      handsFreePaused = true;
+      setState('ready', `${reason}. Stopped listening after ${misses} tries: ` +
+        `click the page or hold ${keyLabel(settings.pttKey)} to try again`);
+      resumeOnGesture();
+      return;
+    }
     setState('error', reason);
     followUpTimer = setTimeout(() => {
       if (gen !== generation || state !== 'error') return;
@@ -124,8 +138,25 @@
     }, retryMs);
   }
 
+  // After hands-free gave up: the next click or key press listens again.
+  function resumeOnGesture() {
+    const resume = e => {
+      if (indicator?.ownsEvent(e)) return; // the panel's own buttons
+      window.removeEventListener('pointerdown', resume, true);
+      window.removeEventListener('keydown', resume, true);
+      if (!active || !handsFreePaused) return;
+      handsFreePaused = false;
+      misses = 0;
+      if (state === 'ready') enterReady();
+    };
+    window.addEventListener('pointerdown', resume, true);
+    window.addEventListener('keydown', resume, true);
+  }
+
   function onNewQuestion(q) {
     generation += 1;
+    misses = 0;
+    handsFreePaused = false;
     question = q;
     pttHeld = false;
     cancelCapture();
@@ -137,7 +168,9 @@
     pttHeld = false;
     cancelCapture();
     clearFollowUp();
-    if (settings.autoAdvance) {
+    if (settings.autoAdvance && settings.autoAdvanceOnlyCorrect && !answerIO.isCorrect()) {
+      setState('waiting', 'Not quite. Press Enter for the next question when you\'re ready');
+    } else if (settings.autoAdvance) {
       setState('waiting', 'Next question shortly…');
       followUpTimer = setTimeout(() => {
         if (active && settings.enabled && answerIO.isGraded()) answerIO.advance();
@@ -226,8 +259,10 @@
         enterReady();
         return;
       }
-      // Don't hand silence to Whisper: it tends to "hear" something anyway.
-      if (!clip.heardSpeech) {
+      // Pure silence never leaves the page; anything audible goes to the
+      // worker, where Silero VAD decides if it's speech (Whisper "hears"
+      // something in silence or a key click otherwise).
+      if (!clip.audible) {
         showError("Didn't hear anything");
         return;
       }
@@ -463,6 +498,7 @@
     active = true;
     indicator = WKV.indicator.create({ onToggle, onFakeUtterance, onPick: pick });
     indicator.setDevMode(isFake());
+    indicator.setPosition(settings.indicatorPosition);
     mic = WKV.audio.createMic();
     state = 'off';
     question = null;
@@ -517,6 +553,7 @@
     const wasFake = isFake();
     settings = next;
     if (!active) return;
+    indicator.setPosition(next.indicatorPosition);
     if (wasFake !== isFake()) {
       indicator.setDevMode(isFake());
       if (isFake()) {
