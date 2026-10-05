@@ -160,7 +160,9 @@ async function main() {
   step('web-ext lint');
   const lint = JSON.parse(execFileSync('npx', ['web-ext', 'lint', '-s', 'build', '--output', 'json'],
     { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 << 20 }).replace(/^[^{]*/, ''));
-  for (const m of [...lint.errors, ...lint.warnings]) console.log(`  ${m.type.padEnd(7)} ${m.code} ${m.file ?? ''}`);
+  for (const [kind, list] of [['error', lint.errors], ['warning', lint.warnings]]) {
+    for (const m of list) console.log(`  ${kind.padEnd(7)} ${m.code} ${m.file ?? ''}`);
+  }
   console.log(`  ${lint.summary.errors} errors, ${lint.summary.warnings} warnings, ${lint.summary.notices} notices`);
   if (lint.summary.errors) throw new Error('web-ext lint reported errors');
 
