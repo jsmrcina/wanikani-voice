@@ -19,7 +19,7 @@ them from here.
 | Tags (optional) | `japanese`, `wanikani`, `speech recognition`, `voice`, `language learning`, `accessibility` |
 
 ## Summary (max 250 characters)
-Answer WaniKani reviews and lesson quizzes by voice. Speech recognition runs entirely on your computer: no cloud, nothing sent anywhere. English meanings and hiragana readings, with alternatives to pick from.
+Answer WaniKani reviews and lesson quizzes by voice. Speech recognition runs entirely on your computer; nothing is sent anywhere. Hiragana readings and English meanings. Created with AI: Anthropic's Claude Opus 5.5.
 
 ## Description
 Say your WaniKani answers instead of typing them. Hold Shift, say the meaning or the reading, and release: the answer is filled into WaniKani's answer box, ready for you to press Enter.
@@ -42,7 +42,7 @@ Say your WaniKani answers instead of typing them. Hold Shift, say the meaning or
 No GPU needed: everything runs on the CPU. Answers take about 1.5 s (English, accurate), 0.8 s (English, fast) and 0.4 s (readings) on a fast desktop, longer on slower machines. The models use about 400–650 MB of memory while a review is open. Avoid system noise gates or suppressors on the microphone (e.g. EasyEffects): they cut off the start of words.
 
 <b>Notes</b>
-Not affiliated with WaniKani or Tofugu. Open source (MIT). This extension was written with Claude (Anthropic's Claude Code), directed and tested by a human.
+Not affiliated with WaniKani or Tofugu. Open source (MIT). This extension was created with AI: all of its code was written by Anthropic's Claude Opus 5.5 (in Claude Code), directed and tested by a human.
 
 ## Privacy policy
 Not required: the add-on collects and transmits no data
@@ -81,24 +81,19 @@ Paste into "Notes to Reviewer" when submitting:
 > `data_collection_permissions` not being supported on Android (desktop
 > only).
 
-## Screenshots (you)
-AMO shows screenshots at **1280×800** (other sizes are scaled; PNG or JPG). Suggested set:
-1. **A reading being answered:** the panel at the top right showing a
-   filled-in kana answer with the 1–3 choices visible.
-2. **Listening:** the red "Listening…" panel during a meaning question.
-3. **Settings popup:** the toolbar popup with the options (push-to-talk,
-   auto-advance, English speed, custom models).
-4. **Choices for English:** e.g. `hand` / `and`.
-5. Optionally, dark mode, or the panel in another corner.
+## Screenshots
+Ready in `store/screenshots/` (1280×800 PNG, upload in this order). They were
+made from real captures, cropped to leave out the header
+statistics, with the panel enlarged 2×; the settings shot is rendered from
+the real settings page.
 
-Tips:
-- Avoid showing your WaniKani username, level or review counts if you'd
-  rather keep them private (the header statistics are visible at the top
-  right).
-- Use light mode for the main shots.
-
-Captions are optional (one line each) and can be added in the Developer
-Hub.
+| File | Caption |
+|---|---|
+| `1-listening.png` | Hold Shift and say the answer: the panel turns red while it listens |
+| `2-recognising.png` | Recognised on your own computer; speech never leaves Firefox |
+| `3-filled-in.png` | The answer is filled in; check it and press Enter |
+| `4-reading-choices.png` | Readings in hiragana; press 1–3 if it heard a different reading |
+| `5-settings.png` | Push-to-talk or hands-free, auto-submit, auto-advance, English speed, custom models |
 
 ## Before submitting a listed version
 - **Make the GitHub repository public** first (see PLAN.md: personal notes

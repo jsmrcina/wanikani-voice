@@ -67,7 +67,7 @@ async function sha256(file) {
 // the private submodule and generated output.
 function sourceFiles() {
   const tracked = run('git', ['ls-files', '-z'], { maxBuffer: 64 << 20 }).split('\0').filter(Boolean);
-  return tracked.filter(f => !/^(test\/|personal(\/|$)|build\/|dist\/|\.gitmodules$)/.test(f));
+  return tracked.filter(f => !/^(test\/|personal(\/|$)|build\/|dist\/|store\/screenshots\/|\.gitmodules$)/.test(f));
 }
 
 function sourceReadme(version, commit, dirty) {
