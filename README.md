@@ -27,6 +27,7 @@ Version 0.1.2. The design notes, measurements and roadmap are in [PLAN.md](PLAN.
 
 ## Contents
 - [Screenshots](#screenshots)
+- [Demo](#demo)
 - [Install](#install)
 - [Requirements](#requirements)
 - [Using it](#using-it)
@@ -46,6 +47,15 @@ Version 0.1.2. The design notes, measurements and roadmap are in [PLAN.md](PLAN.
 | The answer is filled in for you | Readings in hiragana, with choices |
 | <img src="store/screenshots/5-settings.png" width="400" alt="The settings popup"> | |
 | Settings: push-to-talk or hands-free, auto-submit, custom models | |
+
+## Demo
+
+A muted, full-screen recording of real reviews: answering meanings and a
+reading by voice, choosing between readings, and a wrong answer staying on
+screen. ([MP4](docs/media/demo.mp4))
+
+<a href="docs/media/demo.mp4"><img src="docs/media/demo.gif" width="800"
+   alt="Animated demo: answering WaniKani reviews by voice with the extension's panel at the top right"></a>
 
 ## Install
 
