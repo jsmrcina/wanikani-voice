@@ -528,6 +528,27 @@ Requested 2026-10-04, after Phase 4:
   stored there. To publish: delete the GitHub repository and push this
   history to a new one (or ask GitHub Support to purge the LFS objects).
   `personal/` stays a private submodule.
+- **Custom model files** (requested 2026-10-04): in settings, choose a local
+  fine-tuned model to use instead of the bundled one, separately for
+  English (Whisper) and Japanese readings (hiragana CTC).
+  - The public build could then use a voice-tuned model without a personal
+    build. The tuned model never leaves your computer: it's picked from
+    disk and kept in the extension's own storage (IndexedDB), not
+    `storage.sync`.
+  - Format: one file per model (e.g. a zip of `config.json` + the ONNX
+    file(s) + tokenizer files for Whisper), as written by the export tools.
+    The worker loads it from storage instead of the bundled `models/`.
+  - Validate before use: the right model type and inputs/outputs for the
+    slot, and for CTC the kana vocabulary in `config.json`. If loading fails,
+    fall back to the bundled model and say so in the panel.
+  - Settings show the active model per language with a "Reset to built-in"
+    button.
+  - English needs a Whisper fine-tuning pipeline to produce such files (only
+    the hiragana pipeline exists today). Same recorder and word-list
+    approach, likely full fine-tuning of whisper-base.en/tiny.en and export
+    via Optimum + int8.
+  - Needs no new permissions: a file picker in the settings page plus
+    IndexedDB.
 - **Lessons** (requested 2026-10-04): support the lesson quiz as well as
   reviews. It uses the same quiz UI (`quiz-input`), so most of the work is
   extending `pageReader.isReviewPage` to the lesson-quiz URLs and checking
