@@ -9,7 +9,7 @@ Dev-time only (torch + transformers; a CUDA GPU makes it take minutes):
 - Training data: each --data pair is a recorder word list and the folder its
   clips were saved to (default: the personal list from tools/wk-readings.py).
   10% is held out for validation.
-- Benchmark: the committed raw readings (test/fixtures/audio/real-raw/ja) are
+- Benchmark: the raw evaluation readings (personal/fixtures/real-raw/ja) are
   never trained on; they're scored before and after, like eval-asr's first
   choice (greedy decode + the extension's normalisation rules).
 - Trains the transformer layers and kana CTC head; the convolutional feature
@@ -120,7 +120,7 @@ def main():
     n_val = max(5, len(data) // 10)
     val, train = data[:n_val], data[n_val:]
     bench_words = json.loads((ROOT / "tools/recorder/words.json").read_text(encoding="utf-8"))["ja"]
-    bench = [(ROOT / "test/fixtures/audio/real-raw/ja" / f"{w['slug']}.wav", w["expected"]) for w in bench_words]
+    bench = [(ROOT / "personal/fixtures/real-raw/ja" / f"{w['slug']}.wav", w["expected"]) for w in bench_words]
     print(f"train {len(train)}, validation {len(val)}, benchmark {len(bench)} (never trained on); device {args.device}")
 
     # Freeze the convolutional feature encoder (or, with --head-only, the whole

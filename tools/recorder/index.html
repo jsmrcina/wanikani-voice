@@ -83,7 +83,7 @@
 (async () => {
   const $ = id => document.getElementById(id);
   const { words, recorded, set } = await (await fetch('/status')).json();
-  const dir = set === 'personal' ? 'personal/recordings' : `test/fixtures/audio/${set}`;
+  const dir = set === 'personal' ? 'personal/recordings' : `personal/fixtures/${set}`;
   document.querySelector('.sub').append(` Saving to ${dir}/.`);
   const items = ['en', 'ja', 'noise'].flatMap(lang => words[lang].map(w => ({ ...w, lang })));
   const done = new Set(recorded);

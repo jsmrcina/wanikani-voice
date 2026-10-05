@@ -96,7 +96,7 @@ def main():
         hits, misses, total = 0, [], 0.0
         with torch.inference_mode():
             for w in words:
-                audio = read_wav(ROOT / "test/fixtures/audio" / args.set / "ja" / f"{w['slug']}.wav")
+                audio = read_wav(ROOT / "personal/fixtures" / args.set / "ja" / f"{w['slug']}.wav")
                 t0 = time.perf_counter()
                 raw = run(audio)
                 total += time.perf_counter() - t0

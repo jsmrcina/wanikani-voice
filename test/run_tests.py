@@ -162,8 +162,9 @@ class Browser:
         return self.bridge("wkv-test:diag")
 
     def play(self, clip):
-        """Plays a WAV (path under test/fixtures/audio) into the fake mic; returns seconds."""
-        return self.bridge("wkv-test:say", url=f"{self.base}/test/fixtures/audio/{clip}")
+        """Plays a WAV from the private voice fixtures (personal/fixtures) into the
+        fake mic; returns seconds."""
+        return self.bridge("wkv-test:say", url=f"{self.base}/personal/fixtures/{clip}")
 
     def speak(self, clip, key=Keys.SHIFT):
         """Push-to-talk with real audio: hold the key while the clip plays."""
@@ -384,8 +385,18 @@ def test_reload_replaces_orphaned_badge(b):
 
 
 SPEECH_PREFIX = "real-raw/en/"
+# Real-voice recordings live in the private submodule (personal/); tests that
+# need them are skipped when it isn't checked out.
+VOICE_FIXTURES = ROOT / "personal/fixtures/real-raw"
 
 
+def needs_voice(test):
+    test.needs_voice = True
+    return test
+
+
+
+@needs_voice
 def test_speech_push_to_talk(b):
     b.set_options(recognizer="local")
     b.open_review()
@@ -398,6 +409,7 @@ def test_speech_push_to_talk(b):
     assert b.mock_log() == [], "fill-only must not submit"
 
 
+@needs_voice
 def test_speech_numbers_and_phrases(b):
     b.set_options(recognizer="local", submitMode="auto-submit", autoAdvance=True, autoAdvanceDelayMs=200)
     b.open_review()
@@ -456,6 +468,7 @@ def test_answer_choices_english(b):
     assert b.mock_log()[-1]["answer"] == "hand", b.mock_log()
 
 
+@needs_voice
 def test_speech_japanese(b):
     """Real Japanese speech through the hiragana model: some valid kana reading
     is filled in (which one depends on the model, so it isn't asserted)."""
@@ -470,6 +483,7 @@ def test_speech_japanese(b):
     assert answer and all("\u3041" <= c <= "\u3096" for c in answer), answer
 
 
+@needs_voice
 def test_speech_fast_english(b):
     """The 'fast' English setting uses whisper-tiny.en."""
     b.set_options(recognizer="local", englishSpeed="fast")
@@ -482,6 +496,7 @@ def test_speech_fast_english(b):
     assert models.get("whisper-tiny.en", {}).get("status") == "ready", models
 
 
+@needs_voice
 def test_speech_silence_not_sent(b):
     b.set_options(recognizer="local")
     b.open_review()
@@ -492,6 +507,7 @@ def test_speech_silence_not_sent(b):
     assert b.input_value() == ""
 
 
+@needs_voice
 def test_speech_hands_free(b):
     b.set_options(recognizer="local", inputMode="voice-activity", submitMode="auto-submit")
     b.open_review()
@@ -504,6 +520,7 @@ def test_speech_hands_free(b):
     assert b.mock_log()[-1]["answer"] == "water", b.mock_log()
 
 
+@needs_voice
 def test_background_survives_idle(b):
     """Spike S2: with the idle timeout at 8 s, the background (and the loaded
     model) must outlive a longer pause while a review tab is open."""
@@ -599,6 +616,9 @@ def main():
     try:
         for t in TESTS:
             if args.k not in t.__name__:
+                continue
+            if getattr(t, "needs_voice", False) and not VOICE_FIXTURES.exists():
+                print(f"skip {t.__name__} (private voice fixtures not checked out)")
                 continue
             try:
                 note = t(b)

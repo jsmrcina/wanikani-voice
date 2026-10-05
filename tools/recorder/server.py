@@ -5,7 +5,8 @@ then open http://localhost:8765/ in Firefox and allow the microphone.
 
 Serves the repository read-only (the page reuses src/content/audio.js, the
 extension's own capture code) and accepts clip uploads, written to
-test/fixtures/audio/<set>/<lang>/<slug>.wav (16 kHz mono PCM16); use a new
+personal/fixtures/<set>/<lang>/<slug>.wav (16 kHz mono PCM16; personal/ is
+the private submodule); use a new
 --set for each recording condition (e.g. real = through a system noise filter,
 real-raw = raw microphone) so takes can be compared. With --words (a personal list,
 e.g. from tools/wk-readings.py) and --set personal, clips go to
@@ -18,7 +19,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT = ROOT / "test/fixtures/audio/real"  # replaced by --set
+OUT = ROOT / "personal/fixtures/real"  # replaced by --set
 WORDS = None  # set in main from --words
 SET = "real"
 VALID = set()
@@ -74,7 +75,7 @@ if __name__ == "__main__":
     WORDS = json.loads(Path(a.words).read_text(encoding="utf-8"))
     VALID = {(lang, w["slug"]) for lang in ("en", "ja", "noise") for w in WORDS[lang]}
     SET = a.set
-    OUT = (ROOT / "personal/recordings") if a.set == "personal" else (ROOT / "test/fixtures/audio" / a.set)
+    OUT = (ROOT / "personal/recordings") if a.set == "personal" else (ROOT / "personal/fixtures" / a.set)
     server = http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)
     print(f"Recorder: http://localhost:{port}/  (Ctrl+C to stop)")
     server.serve_forever()

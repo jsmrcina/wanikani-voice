@@ -255,7 +255,10 @@ tools/export-dual-ctc.py       exports the hiragana model to ONNX (+ partial int
 tools/export-ctc.py            generic CTC export (optimum), for other candidates
 tools/eval-ja-torch.py         S4 comparison of hiragana models in PyTorch
 models/                        bundled models (Git LFS) + models.json manifest
-test/fixtures/audio/           WAV fixtures (Git LFS): en/ synthetic, real/ gated, real-raw/ raw
+test/fixtures/audio/en/        synthetic (Piper) WAV fixtures (Git LFS)
+personal/                      private submodule (wanikani-voice-private): voice recordings
+                               (fixtures/real, fixtures/real-raw, recordings/), WaniKani word
+                               list, fine-tuned models
 test/worker/index.html         runs the built worker in a plain page (debugging)
 ```
 
@@ -440,8 +443,8 @@ record.
     ゃゅょ, っ, long vowels, the r-row) are always kept, up to 400. It writes
     `personal/words.json`. The extension itself never calls the API.
   - `tools/recorder/server.py --words personal/words.json --set personal`
-    records into `personal/recordings/`. Everything under `personal/` is
-    git-ignored.
+    records into `personal/recordings/`. `personal/` is the private
+    submodule `wanikani-voice-private`.
   - `tools/finetune-hiragana.py`:
     - trains the transformer and kana CTC head with CTC loss (frozen
       convolutional encoder, with speed/gain/noise/shift augmentation) on
@@ -538,7 +541,7 @@ Sign as unlisted on AMO, or list publicly (§6).
 | Model size vs 200 MB XPI limit | ~152 MB today (77 + 51 MB models, 27 MB runtime) |
 | Background unloaded mid-session | Heartbeat (S2); verified by test |
 | System noise filters (e.g. EasyEffects) degrade recognition | Extension asks for raw audio. Users with system noise gates will see worse accuracy; worth a note in the listing |
-| Your voice recordings in the repo | `test/fixtures/audio/real*` are your voice. Fine in a private repo; review before making it public |
+| Your voice recordings | Moved to the private submodule `personal/` (2026-10-04), and removed from the public repo's history by a rewrite. Voice tests skip without the submodule |
 | Shift-as-PTT clashes with typing capitals | Chords cancel, taps under 200 ms are ignored. Key is configurable |
 
 ---

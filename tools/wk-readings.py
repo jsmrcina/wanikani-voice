@@ -9,7 +9,7 @@ Dev-time only. The extension itself never calls the WaniKani API.
 By default 75% of the list has the hard sounds and 25% is ordinary readings.
 
 Needs a read-only WaniKani API token (https://www.wanikani.com/settings/personal_access_tokens)
-in ~/.config/wanikani-voice/api-token. Writes personal/words.json (git-ignored),
+in ~/.config/wanikani-voice/api-token. Writes personal/words.json (the private submodule),
 in the recorder's format, for:
     python3 tools/recorder/server.py --words personal/words.json --set personal
 """

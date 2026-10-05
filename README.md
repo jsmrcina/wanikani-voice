@@ -40,6 +40,19 @@ such as an EasyEffects input chain, cut off the start of words. The extension
 asks Firefox for raw audio, but EasyEffects captures every app's microphone
 stream unless Firefox is on its input blocklist. See PLAN.md (S5).
 
+### Private data (`personal/` submodule)
+
+`personal/` is the private repository
+[wanikani-voice-private](https://github.com/jsmrcina/wanikani-voice-private): voice
+recordings, the WaniKani word list and the fine-tuned model. Nothing in it is
+needed to build or test the add-on. Without access to it, leave the submodule
+uninitialised; tests that need real recordings are then skipped. With access:
+
+```bash
+git submodule update --init personal
+(cd personal && git lfs install --local && git lfs pull)
+```
+
 ## Tests
 
 ```bash
@@ -84,7 +97,7 @@ python tools/export-dual-ctc.py personal/models/distilhubert-hiragana/checkpoint
 npm run build -- --personal                      # build/ with your model; never publish it
 ```
 
-Everything under `personal/` is git-ignored.
+`personal/` is the private submodule (above), so none of this is in the public repository.
 
 Only models marked `"bundled": true` in `models/models.json` are committed
 and shipped. The others are evaluation candidates. The hiragana model is

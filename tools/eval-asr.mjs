@@ -5,7 +5,8 @@
 // Runs each model over the English fixtures with the same normalisation the
 // extension uses, and reports exact-match accuracy and decode time.
 // Default set: synthetic TTS clips (test/fixtures/audio/en); --real: the
-// recordings made with tools/recorder (test/fixtures/audio/real), including
+// recordings made with tools/recorder (personal/fixtures/<set>, in the private
+// submodule), including
 // the noise checks, which pass only if they produce no answer. Uses
 // transformers.js on Node (native onnxruntime), so absolute speed differs from
 // Firefox's WASM backend; accuracy should match.
@@ -62,7 +63,7 @@ let fixtures;
 let fixtureDir;
 if (real) {
   const words = JSON.parse(await readFile(join(ROOT, 'tools/recorder/words.json'), 'utf8'));
-  fixtureDir = join(ROOT, 'test/fixtures/audio', setName);
+  fixtureDir = join(ROOT, 'personal/fixtures', setName);
   fixtures = [...words[lang].map(w => ({ ...w, lang })), ...words.noise.map(w => ({ ...w, lang: 'noise' }))]
     .map(w => ({ file: `${w.lang}/${w.slug}.wav`, said: w.say, expected: w.expected }));
 } else {
