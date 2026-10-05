@@ -36,6 +36,7 @@ Version 0.1.2. The design notes, measurements and roadmap are in [PLAN.md](PLAN.
 - [Custom and fine-tuned models](#custom-and-fine-tuned-models)
 - [Development](#development)
 - [Licence](#licence)
+- [Support](#support)
 
 ## Screenshots
 
@@ -398,3 +399,8 @@ personal/          private submodule (not needed to build)
 
 [MIT](LICENSE). Bundled models and libraries keep their own licences: see
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## Support
+
+If Voice Answers for WaniKani helps your reviews, you can
+[buy me a coffee](https://buymeacoffee.com/jsmrcina).

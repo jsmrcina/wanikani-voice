@@ -3,11 +3,11 @@
 A Firefox extension that lets you answer WaniKani reviews by voice. Speech
 recognition runs entirely on-device.
 
-Status (2026-10-04): **Phase 3 done, pending a live check on WaniKani.**
-English answers are recognised by Whisper base.en, and Japanese readings by a
-small hiragana CTC model. For readings, the badge offers up to three kana
-readings it heard (keys 1–3). All of it runs on-device, from push-to-talk or
-hands-free speech, end to end in Firefox against the mock review page.
+Status (2026-10-05): **v0.1.2 submitted to addons.mozilla.org (listed, in
+review); v0.1.1 signed and released on GitHub.** English meanings and radical
+names are recognised by Whisper, and readings by a small hiragana CTC model,
+with up to three choices (keys 1–3). Everything runs on-device. Verified on
+the live site in reviews and lesson quizzes. Next steps are in §8.
 
 ---
 
@@ -287,12 +287,12 @@ off the review page.
 
 | Phase | Status |
 |---|---|
-| 0 — Spikes S1–S5 | S1 done except the live smoke test. **S2, S4 and S5 done** (findings below). S3 needs the live test |
+| 0 — Spikes S1–S5 | **Done** (findings below); S1 and S3 confirmed by live use |
 | **1 — Skeleton with fake ASR** | **Done 2026-10-04** |
-| **2 — Audio + English** | **Done 2026-10-04**, pending a live check on WaniKani |
-| **3 — Japanese** | **Done 2026-10-04**, pending a live check on WaniKani |
-| **4 — UX and robustness** | In progress: VAD, speed, retry limit, correct-only advance and panel position done; fine-tuning pipeline built, waiting on your recordings |
-| **5 — Privacy audit + packaging** | Done 2026-10-04, released as **v0.1.1** (signed by Mozilla, GitHub release): lessons and custom models verified live, automated privacy audit, packaging and signing, README, MIT licence, private data split out, repo recreated. Personal notes removed from the plan and from history (2026-10-05). Still open: an English fine-tuning pipeline |
+| **2 — Audio + English** | **Done 2026-10-04**, verified live |
+| **3 — Japanese** | **Done 2026-10-04**, verified live |
+| **4 — UX and robustness** | **Done 2026-10-04**: Silero VAD, speed (English speed setting), retry limit, correct-only advance, panel position, fine-tuning on your voice (right reading offered 24/31 vs 13/31) |
+| **5 — Privacy audit + packaging** | Done 2026-10-04, released as **v0.1.1** (signed by Mozilla, GitHub release): lessons and custom models verified live, automated privacy audit, packaging and signing, README, MIT licence, private data split out, repo recreated. Personal notes removed from the plan and from history (2026-10-05). Next steps in §8 |
 
 ### Spikes
 | Spike | Question | Exit criterion |
@@ -320,9 +320,8 @@ off the review page.
   events would be fragile, so events only trigger a re-check of the DOM.
 - The header statistics occupy the top-right ~35 px. The badge at 72 px
   clears them.
-- Still open: a live smoke test with the extension loaded (fill-only
-  default, so nothing is submitted without you), and seeing a wrong-type
-  warning.
+- Live use since then has confirmed filling, submitting, grading and the
+  next-question handling on the real page, in reviews and lesson quizzes.
 
 ### S2 findings: keeping the model loaded (2026-10-04)
 - **Firefox unloads an idle MV3 background page even while a content-script
@@ -431,12 +430,12 @@ the filled reading, but only while the box still holds an offered reading,
 so typing a correction works normally. Choices clear on grading. Test mode
 accepts `a|b|c` to simulate alternatives.
 
-### Phase 4 — UX and robustness (in progress, 2026-10-04)
+### Phase 4 — UX and robustness (done, 2026-10-04)
 Your decisions: the tuned model ships in a **personal build** only; the training
 list comes from **your WaniKani items**; VAD and speed are done while you
 record.
 
-- **Fine-tuning on your voice (pipeline built; waiting on recordings).**
+- **Fine-tuning on your voice (pipeline; results below).**
   - `tools/wk-readings.py` reads a read-only API token from
     `~/.config/wanikani-voice/api-token` and lists the accepted readings of
     your unlocked kanji and vocabulary. Readings with the hard sounds (small
@@ -474,8 +473,8 @@ record.
 
   - The full model gets りょうかい exactly, and offers がっこう, しゅくだい,
     しゅっぱつ and にん. Still missed: りょこう→よこう, びょういん→よういん.
-  - Both tuned models turn the "um" noise clip into kana (あんうん): a
-    Japanese hum filter is still needed.
+  - Both tuned models turn the "um" noise clip into kana (あんうん)
+    instead of rejecting it. Not pursued for now.
   - **Head-only**, which is what could train inside the extension in plain
     JS, gets a bit over half the full gain on the benchmark.
   - The full model is in your personal build (`npm run build -- --personal`),
@@ -532,31 +531,10 @@ Requested 2026-10-04, after Phase 4:
   - the recognition and normalisation rules
   - custom models and fine-tuning, development, testing, and packaging
     and signing
-- **Listed on AMO (submitted 2026-10-05):** v0.1.2 went to the listed
-  channel with the summary (crediting Claude Opus 5.5), description,
-  category and MIT licence applied. Status: *nominated*, waiting for
-  Mozilla's review. The slug is set to `voice-answers-for-wanikani`
-  (https://addons.mozilla.org/en-US/firefox/addon/voice-answers-for-wanikani/).
-  Screenshots and the icon (`store/screenshots/`, `store/icon-128.png`) are
-  uploaded in the Developer Hub.
-- **Store listing (prepared 2026-10-04):** `store/amo-metadata.json`
-  (summary, description, category Language Support, MIT) and
-  `store/LISTING.md` (the same text plus reviewer notes, a privacy
-  statement and a screenshot checklist at 1280×800). `npm run package --
-  --sign --listed` submits to the public store. Waiting on screenshots, a
-  version bump, and making the repo public first.
-- **Hardware (README → Requirements):** no GPU used: single-core WASM on
-  the CPU. On a fast desktop CPU, English takes 1.5–1.7 s (accurate) or
-  0.8–0.9 s (fast), readings ~0.4 s, and the models use ~650/420 MB of
-  memory. Slower CPUs scale roughly with single-core speed (estimated
-  1.5–2.5× on a typical laptop).
-- **Before making the repository public:** history was rewritten on
-  2026-10-04 (`git filter-repo`) to remove `test/fixtures/audio/real*`
-  (your voice), and a fresh clone has no trace of them. But GitHub keeps
-  LFS objects that are no longer referenced, so the old WAVs are still
-  stored there. To publish: delete the GitHub repository and push this
-  history to a new one (or ask GitHub Support to purge the LFS objects).
-  `personal/` stays a private submodule.
+- **Going public (done).** History was rewritten on 2026-10-04
+  (`git filter-repo`) to remove `test/fixtures/audio/real*` (your voice).
+  The GitHub repository was recreated, so no orphaned LFS objects remain,
+  and made public on 2026-10-05. `personal/` stays a private submodule.
 - **Custom model files (done, verified live 2026-10-04).** You loaded your
   fine-tuned reading model (`My voice (full fine-tune).wkv-model.zip`) into
   the signed v0.1.1 through the settings, and it works. Settings → *Custom models*
@@ -650,7 +628,7 @@ Sign as unlisted on AMO, or list publicly (§6).
 
 ---
 
-## 7. Release status (2026-10-04)
+## 7. Release status (2026-10-05)
 
 - **v0.1.1** is signed by Mozilla (unlisted channel) and published as a
   GitHub release (`v0.1.1`) with the signed `.xpi`, the source zip and
@@ -674,9 +652,10 @@ Sign as unlisted on AMO, or list publicly (§6).
 - **Store listing (prepared 2026-10-04):** `store/amo-metadata.json`
   (summary, description, category Language Support, MIT) and
   `store/LISTING.md` (the same text plus reviewer notes, a privacy
-  statement and a screenshot checklist at 1280×800). `npm run package --
-  --sign --listed` submits to the public store. Waiting on screenshots, a
-  version bump, and making the repo public first.
+  statement and screenshot captions). `npm run package -- --sign --listed`
+  submits to the public store. The listing has the icon, five captioned
+  screenshots, the homepage and support links (the GitHub repository) and
+  a contributions link (Buy Me a Coffee).
 - **Hardware (README → Requirements):** no GPU used: single-core WASM on
   the CPU. On a fast desktop CPU, English takes 1.5–1.7 s (accurate) or
   0.8–0.9 s (fast), readings ~0.4 s, and the models use ~650/420 MB of
@@ -690,8 +669,21 @@ Sign as unlisted on AMO, or list publicly (§6).
   - The submodule link to `wanikani-voice-private` will be visible once
     the repository is public, but its contents stay private.
 
-## 8. Open questions
+## 8. Next steps
 
-1. **Fine-tuning:** how to ship a voice-adapted model (personal build vs
-   in-browser adaptation), and when to record the training set.
-2. **Phase 4 order:** fine-tuning first, or Silero VAD / English alternatives.
+1. **English fine-tuning pipeline.** Only the hiragana model can be adapted
+   to a voice so far, though any exported Whisper model already works as a
+   custom model. Same approach as for readings:
+   - a word list of your WaniKani meanings
+   - recordings with `tools/recorder`
+   - full fine-tuning of whisper-base.en / tiny.en in PyTorch
+   - export via Optimum with int8 quantisation, packed with
+     `tools/pack-model.mjs` and chosen in settings → Custom models
+   - measured on held-out recordings, as in the Phase 4 results
+2. **Training inside the extension** (deferred 2026-10-04). Train only the
+   kana head (0.69M weights), in plain JS/WASM, from a recorder in the
+   settings page. Clips and weights stay in IndexedDB, and the CTC loss and
+   gradients are written by hand, since onnxruntime-web has no training. On
+   the benchmark, head-only gets 20/31 offered vs 24/31 for full
+   fine-tuning (13/31 generic). Most useful for other users once the add-on
+   is public, since they have no personal build.
