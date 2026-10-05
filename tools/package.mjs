@@ -247,8 +247,12 @@ async function main() {
     }
   }
 
-  console.log(`\nUpload ${relative(ROOT, xpi)} to https://addons.mozilla.org/developers/ and,`);
-  console.log(`when asked for sources, ${relative(ROOT, srcZip)}.`);
+  if (args.includes('--sign')) {
+    console.log(`\nSubmitted to AMO (unlisted) and signed: ${relative(ROOT, join(DIST, `${base}-signed.xpi`))}.`);
+  } else {
+    console.log(`\nUpload ${relative(ROOT, xpi)} to https://addons.mozilla.org/developers/ and,`);
+    console.log(`when asked for sources, ${relative(ROOT, srcZip)}. Or run with --sign.`);
+  }
 }
 
 main().catch(err => {
