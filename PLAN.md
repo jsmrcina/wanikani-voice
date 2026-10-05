@@ -532,6 +532,13 @@ Requested 2026-10-04, after Phase 4:
   - the recognition and normalisation rules
   - custom models and fine-tuning, development, testing, and packaging
     and signing
+- **Listed on AMO (submitted 2026-10-05):** v0.1.2 went to the listed
+  channel with the summary (crediting Claude Opus 5.5), description,
+  category and MIT licence applied. Status: *nominated*, waiting for
+  Mozilla's review. The slug is set to `voice-answers-for-wanikani`
+  (https://addons.mozilla.org/en-US/firefox/addon/voice-answers-for-wanikani/).
+  Screenshots and the icon (`store/screenshots/`, `store/icon-128.png`) are
+  uploaded in the Developer Hub.
 - **Store listing (prepared 2026-10-04):** `store/amo-metadata.json`
   (summary, description, category Language Support, MIT) and
   `store/LISTING.md` (the same text plus reviewer notes, a privacy
@@ -657,6 +664,13 @@ Sign as unlisted on AMO, or list publicly (§6).
     reading model (`2e8fdf1c…`)
   - your private data lives only in `wanikani-voice-private` (the
     `personal/` submodule) and in git-ignored `dist/models/`
+- **Listed on AMO (submitted 2026-10-05):** v0.1.2 went to the listed
+  channel with the summary (crediting Claude Opus 5.5), description,
+  category and MIT licence applied. Status: *nominated*, waiting for
+  Mozilla's review. The slug is set to `voice-answers-for-wanikani`
+  (https://addons.mozilla.org/en-US/firefox/addon/voice-answers-for-wanikani/).
+  Screenshots and the icon (`store/screenshots/`, `store/icon-128.png`) are
+  uploaded in the Developer Hub.
 - **Store listing (prepared 2026-10-04):** `store/amo-metadata.json`
   (summary, description, category Language Support, MIT) and
   `store/LISTING.md` (the same text plus reviewer notes, a privacy

@@ -81,6 +81,10 @@ Paste into "Notes to Reviewer" when submitting:
 > `data_collection_permissions` not being supported on Android (desktop
 > only).
 
+## Icon
+`store/icon-128.png` (128×128, rendered from `icons/icon.svg`) for the
+listing's icon in the Developer Hub (Edit Product Page → Images).
+
 ## Screenshots
 Ready in `store/screenshots/` (1280×800 PNG, upload in this order). They were
 made from real captures, cropped to leave out the header
