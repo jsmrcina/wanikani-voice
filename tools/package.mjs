@@ -102,7 +102,7 @@ function zip(entries) {
 // Tracked files a reviewer needs to rebuild: everything except tests,
 // the private submodule and generated output.
 function sourceFiles() {
-  const tracked = run('git', ['ls-files', '-z', '--recurse-submodules=no']).split('\0').filter(Boolean);
+  const tracked = run('git', ['ls-files', '-z'], { maxBuffer: 64 << 20 }).split('\0').filter(Boolean);
   return tracked.filter(f => !/^(test\/|personal(\/|$)|build\/|dist\/|\.gitmodules$)/.test(f));
 }
 
