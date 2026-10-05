@@ -1,11 +1,22 @@
 // Packages the add-on for addons.mozilla.org (AMO).
 //
-//   npm run package [-- --verify] [--allow-dirty]
+//   npm run package [-- --verify] [--sign] [--allow-dirty]
 //
 // Produces, in dist/:
-//   voice-answers-for-wanikani-<version>.xpi         the add-on to upload
+//   voice-answers-for-wanikani-<version>.xpi         the add-on (unsigned)
 //   voice-answers-for-wanikani-<version>-source.zip  sources for AMO review
+//   voice-answers-for-wanikani-<version>-signed.xpi  with --sign: installable in
+//                                                    release Firefox
 //   SHA256SUMS
+//
+// --sign submits the package to AMO on the *unlisted* channel (automated
+// review, then signed for self-distribution; not shown on the public store)
+// via `web-ext sign`, uploading the source zip with it. It needs AMO API
+// credentials (https://addons.mozilla.org/developers/addon/api/key/) in
+// ~/.config/wanikani-voice/amo-credentials as {"issuer": "...", "secret": "..."}
+// (mode 600). They go to web-ext through its environment variables, never on
+// a command line. AMO signs each version once: bump the version to re-sign.
+// Personal builds are never packaged, so a voice-tuned model is never uploaded.
 //
 // Steps: a clean normal build (never a personal one), the privacy policy
 // check, `web-ext lint` (any error fails), the size limit, then the two
@@ -18,7 +29,7 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { crc32, deflateRawSync } from 'node:zlib';
@@ -193,6 +204,29 @@ async function main() {
   const sums = [];
   for (const f of [xpi, srcZip]) sums.push(`${await sha256(f)}  ${relative(DIST, f)}`);
   await writeFile(join(DIST, 'SHA256SUMS'), `${sums.join('\n')}\n`);
+
+  if (args.includes('--sign')) {
+    step('sign (AMO, unlisted channel)');
+    const credFile = join(homedir(), '.config/wanikani-voice/amo-credentials');
+    const cred = JSON.parse(await readFile(credFile, 'utf8').catch(() => {
+      throw new Error(`no AMO credentials in ${credFile} (see the comment at the top of tools/package.mjs)`);
+    }));
+    if (((await stat(credFile)).mode & 0o077) !== 0) throw new Error(`${credFile} must not be readable by others (chmod 600)`);
+    const signedDir = join(DIST, 'signed');
+    execFileSync('npx', ['web-ext', 'sign', '-s', 'build', '-a', signedDir, '--channel', 'unlisted',
+      '--upload-source-code', srcZip, '--approval-timeout', String(30 * 60 * 1000)], {
+      cwd: ROOT, stdio: 'inherit',
+      env: { ...process.env, WEB_EXT_API_KEY: cred.issuer, WEB_EXT_API_SECRET: cred.secret },
+    });
+    const produced = (await readdir(signedDir)).filter(f => f.endsWith('.xpi'));
+    if (produced.length !== 1) throw new Error(`expected one signed .xpi in ${signedDir}, found ${produced.length}`);
+    const signed = join(DIST, `${base}-signed.xpi`);
+    await writeFile(signed, await readFile(join(signedDir, produced[0])));
+    await rm(signedDir, { recursive: true, force: true });
+    sums.push(`${await sha256(signed)}  ${relative(DIST, signed)}`);
+    await writeFile(join(DIST, 'SHA256SUMS'), `${sums.join('\n')}\n`);
+    console.log(`  ${relative(ROOT, signed)}: install it from about:addons (gear menu > Install Add-on From File)`);
+  }
 
   if (args.includes('--verify')) {
     step('verify: rebuild from the source archive');

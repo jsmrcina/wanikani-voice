@@ -17,5 +17,7 @@
   "devDependencies": {
     "esbuild": "0.28.2",
     "web-ext": "10.7.0"
-  }
+  },
+  "license": "MIT",
+  "author": "Jan Smrcina"
 }

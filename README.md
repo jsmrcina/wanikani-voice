@@ -1,11 +1,15 @@
 # Voice Answers for WaniKani
 
+> **This extension was written with Claude.** All of its code, tests, tools
+> and documentation were written by [Claude Code](https://claude.com/claude-code)
+> (Anthropic's Claude Opus 5.5), directed and tested by a human.
+
 A Firefox extension for answering WaniKani reviews by voice. Speech recognition
 runs on your device, inside Firefox: Whisper base.en for English, and a small
 hiragana model for readings. Nothing you say leaves your computer. See
 [PLAN.md](PLAN.md) for the design, findings and roadmap.
 
-**Status: Phase 3.** Meanings, radical names and readings all work by voice.
+**Status: v0.1.0.** Meanings, radical names and readings all work by voice.
 The panel also offers up to two other answers it heard (e.g. *hand* for
 *and*, にん for じん): press **1–3** to switch before you submit.
 
@@ -57,7 +61,16 @@ git submodule update --init personal
 
 ```bash
 npm run package              # add -- --verify to rebuild from the source zip and compare
+npm run package -- --sign    # also get it signed by Mozilla (unlisted), installable in release Firefox
 ```
+
+Signing needs AMO API credentials
+(<https://addons.mozilla.org/developers/addon/api/key/>) saved as
+`{"issuer": "user:…", "secret": "…"}` in `~/.config/wanikani-voice/amo-credentials`
+(`chmod 600`). On the unlisted channel Mozilla runs its automated review and
+signs the package for self-distribution; it isn't listed on the store. Each
+version can be signed only once. Personal builds are never signed, because
+signing uploads the add-on to Mozilla.
 
 This does a clean normal build (never a personal one), then runs the privacy
 policy check, `web-ext lint` (errors fail it) and the 200 MB size check. It
@@ -138,3 +151,8 @@ models/                        bundled model (Git LFS) + manifest
 tools/                         build, model fetch/eval, recorder, page inspector
 test/                          policy, unit, end-to-end tests and fixtures
 ```
+
+## Licence
+
+[MIT](LICENSE). Bundled models and libraries keep their own licences: see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
