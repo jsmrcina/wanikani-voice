@@ -292,7 +292,7 @@ off the review page.
 | **2 — Audio + English** | **Done 2026-10-04**, pending a live check on WaniKani |
 | **3 — Japanese** | **Done 2026-10-04**, pending a live check on WaniKani |
 | **4 — UX and robustness** | In progress: VAD, speed, retry limit, correct-only advance and panel position done; fine-tuning pipeline built, waiting on your recordings |
-| 5 — Privacy audit + packaging | |
+| **5 — Privacy audit + packaging** | Mostly done 2026-10-04: lessons (live check pending), automated privacy audit, packaging + signing (v0.1.0 signed), custom model files, README, MIT licence, private data split and repo recreated. Left: a live lesson-quiz check, an English fine-tuning pipeline, review personal notes before going public |
 
 ### Spikes
 | Spike | Question | Exit criterion |
@@ -523,8 +523,15 @@ Requested 2026-10-04, after Phase 4:
   and `SHA256SUMS`. `--verify` rebuilds from the source zip and compares
   every file. First package: **v0.1.0**; the manifest version was reset
   from the internal 0.4.0 phase numbering.
-- **README rewrite:** a detailed description of how the implementation works,
-  with an embedded Mermaid diagram of how data flows through the add-on.
+- **README rewrite (done, 2026-10-04):** what the add-on does, install
+  and use, the privacy guarantees and how each is enforced, and how it
+  works:
+  - a Mermaid data-flow flowchart and a sequence diagram of one answer
+    (both checked with the Mermaid parser)
+  - a components table
+  - the recognition and normalisation rules
+  - custom models and fine-tuning, development, testing, and packaging
+    and signing
 - **Before making the repository public:** history was rewritten on
   2026-10-04 (`git filter-repo`) to remove `test/fixtures/audio/real*`
   (your voice), and a fresh clone has no trace of them. But GitHub keeps

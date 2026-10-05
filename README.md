@@ -4,82 +4,260 @@
 > and documentation were written by [Claude Code](https://claude.com/claude-code)
 > (Anthropic's Claude Opus 5.5), directed and tested by a human.
 
-A Firefox extension for answering WaniKani reviews by voice. Speech recognition
-runs on your device, inside Firefox: Whisper base.en for English, and a small
-hiragana model for readings. Nothing you say leaves your computer. See
-[PLAN.md](PLAN.md) for the design, findings and roadmap.
+A Firefox extension for answering [WaniKani](https://www.wanikani.com) reviews
+and lesson quizzes by voice. Speech recognition runs entirely on your
+computer, inside Firefox. Nothing you say is sent anywhere.
 
-**Status: v0.1.0.** Meanings, radical names and readings all work by voice.
-The panel also offers up to two other answers it heard (e.g. *hand* for
-*and*, にん for じん): press **1–3** to switch before you submit.
+- **Meanings and radical names** in English: Whisper (base.en, or tiny.en for
+  speed).
+- **Readings** in hiragana: a small speech model that writes kana directly,
+  so it never has to guess a reading from kanji.
+- **Choices:** besides its best guess, the panel offers up to two other
+  answers it heard (*hand* for *and*, にん for じん). Press **1–3** to switch
+  before you submit.
+- **Your rules:** it never looks at the question, only whether a meaning or
+  a reading is asked for. A wrong answer goes in exactly as you said it.
 
-## Build and try it
+Version 0.1.0. The design notes, measurements and roadmap are in [PLAN.md](PLAN.md).
+
+## Contents
+- [Install](#install)
+- [Using it](#using-it)
+- [Privacy](#privacy)
+- [How it works](#how-it-works)
+- [Custom and fine-tuned models](#custom-and-fine-tuned-models)
+- [Development](#development)
+- [Licence](#licence)
+
+## Install
+
+**Signed package (release Firefox):** `npm run package -- --sign` (see
+[Packaging and signing](#packaging-and-signing)) produces
+`dist/voice-answers-for-wanikani-<version>-signed.xpi`. Install it from
+`about:addons` → gear menu → **Install Add-on From File…**.
+
+**From source (temporary, for development):**
 
 ```bash
-git lfs pull            # model files and audio fixtures live in Git LFS
+git lfs pull     # models and test audio live in Git LFS
 npm ci
-npm run build           # -> build/ (the loadable extension, ~150 MB)
+npm run build    # -> build/ (~185 MB: three speech models, a speech detector, the WASM runtime)
 ```
 
-1. In Firefox, open `about:debugging#/runtime/this-firefox` → **Load Temporary
-   Add-on…** → pick `build/manifest.json`.
-2. Open https://www.wanikani.com/subjects/review. A mic badge appears at the
-   top right and loads the speech model (about a second).
-3. Hold **Shift**, say the answer, release. The first press asks for
-   microphone permission. The answer is filled in; press Enter to submit
-   (default).
+Then `about:debugging#/runtime/this-firefox` → **Load Temporary Add-on…** →
+`build/manifest.json`. A temporary add-on is removed when Firefox restarts.
 
-Settings live in the toolbar button's popup (also under about:addons):
-- push-to-talk or hands-free
-- fill-only or auto-submit
-- auto-advance and its delay
-- the push-to-talk key
-- test mode, where typed text stands in for speech (`a|b|c` simulates
-  alternatives)
+## Using it
 
-Click the badge or press **Alt+Shift+V** to pause.
+Open a review session (`/subjects/review`) or a lesson quiz. A panel appears
+at the top right with the add-on's icon, a status message, an `EN` / `かな`
+tag for the kind of answer expected, and a mic button.
 
-**System audio processing hurts recognition.** Noise gates and suppressors,
-such as an EasyEffects input chain, cut off the start of words. The extension
-asks Firefox for raw audio, but EasyEffects captures every app's microphone
-stream unless Firefox is on its input blocklist. See PLAN.md (S5).
+1. **Hold Shift**, say the answer, release. The first press asks for the
+   microphone.
+2. The answer is filled in. If other answers were also likely, they appear
+   as numbered choices: **1–3** switch between them, as long as you haven't
+   started typing your own.
+3. **Enter** submits (default), and Enter again moves on, as usual on WaniKani.
 
-### Private data (`personal/` submodule)
+The panel border shows what's happening: red while listening, blue while
+recognising, green when an answer is filled in, amber for "didn't hear
+anything" and other problems. Click the mic button or press **Alt+Shift+V**
+to pause.
 
-`personal/` is the private repository
-[wanikani-voice-private](https://github.com/jsmrcina/wanikani-voice-private): voice
-recordings, the WaniKani word list and the fine-tuned model. Nothing in it is
-needed to build or test the add-on. Without access to it, leave the submodule
-uninitialised; tests that need real recordings are then skipped. With access:
+**Settings** (toolbar button, or about:addons → Preferences):
+
+| Setting | Options (default first) |
+|---|---|
+| Listening | push-to-talk · hands-free (listens on each question, stops after 3 misses in a row) |
+| Push-to-talk key | **Shift** (either side) · any other key |
+| After recognition | fill in only · fill in and submit |
+| After grading | stay · go to the next question after a delay (optionally only when correct) |
+| Panel position | top right · top left · bottom right · bottom left |
+| English speed | accurate (Whisper base.en, ~1.6 s) · fast (tiny.en, ~0.9 s) |
+| Speech recognition | on-device · test mode (type instead of speaking) |
+| Custom models | your own fine-tuned model per language (see below) |
+
+**Microphone tip:** system noise gates and suppressors (for example an
+EasyEffects input chain) cut off the start of words and noticeably hurt
+recognition: hand → "and", four → "or". The extension asks Firefox for
+raw audio, but tools like EasyEffects capture every app's microphone unless
+Firefox is excluded (EasyEffects: input blocklist).
+
+## Privacy
+
+| Guarantee | How it's enforced |
+|---|---|
+| Your voice never leaves the computer | Recognition runs in a WASM worker inside the extension. Models and runtime ship in the package. Remote model loading is disabled. The extension's CSP allows connections only to itself (`connect-src 'self'`) |
+| No network requests at all | `test/policy.py` fails on any network API or outside URL in `src/`. Every test run routes all traffic through a recording proxy and **fails if anything goes to a non-Mozilla host**: a full run sees only Firefox's own background traffic |
+| The question is never used | Only `page-reader.js` reads the page, and only the question-type labels. The recogniser's input is the audio plus `en` / `ja-kana`. WaniKani's quiz events are timing signals; their payloads (which contain the item) are never read. All of this is checked by `test/policy.py` |
+| Minimal permissions | `storage`, plus access to `www.wanikani.com` only. Settings live in `storage.local` (never synced). `data_collection_permissions: none` |
+| Custom models stay local | A chosen model file is read from disk into the extension's IndexedDB |
+
+## How it works
+
+### Data flow
+
+```mermaid
+flowchart LR
+  MICIN(("Microphone"))
+  subgraph TAB["wanikani.com tab (review or lesson quiz)"]
+    WK["WaniKani quiz UI"]
+    subgraph CS["Content script"]
+      PR["page-reader.js<br/>question type only"]
+      AU["audio.js<br/>capture, 16 kHz,<br/>end of speech"]
+      MAIN["main.js<br/>state machine"]
+      IO["answer-io.js<br/>fill, submit,<br/>graded?"]
+      IND["indicator.js<br/>panel"]
+    end
+  end
+  subgraph BGP["Background page"]
+    BG["background.js<br/>pick model, normalise,<br/>rank choices"]
+    subgraph WRK["Speech worker (WASM)"]
+      VAD["Silero VAD<br/>is it speech?"]
+      WH["Whisper<br/>English"]
+      CTC["Hiragana CTC model<br/>readings"]
+    end
+  end
+  MICIN --> AU
+  WK -- "category and<br/>meaning/reading label" --> PR
+  WK -- "graded state" --> IO
+  PR --> MAIN
+  IO --> MAIN
+  AU -- "clip" --> MAIN
+  MAIN -- "mode + audio" --> BG
+  BG --> VAD
+  VAD --> WH
+  VAD --> CTC
+  WH -- "candidates" --> BG
+  CTC -- "candidates" --> BG
+  BG -- "answer + choices" --> MAIN
+  MAIN -- "fill / submit" --> IO
+  IO --> WK
+  MAIN --> IND
+  PKG[("Models in<br/>the package")] -.-> WRK
+  IDB[("IndexedDB<br/>custom models")] -.-> WRK
+  ST[("storage.local<br/>settings")] -.-> BG
+```
+
+The only page content that crosses into the recogniser is the question
+**type**, reduced to a mode (`en` or `ja-kana`). The only thing written back
+is the answer box.
+
+### One answer, step by step
+
+```mermaid
+sequenceDiagram
+  actor You
+  participant P as WaniKani page
+  participant C as Content script
+  participant B as Background
+  participant W as Speech worker
+  P->>C: DOM changes: new question
+  C->>P: read category and meaning/reading label
+  You->>C: hold Shift, speak, release
+  C->>C: capture at device rate, resample to 16 kHz
+  C->>B: transcribe { mode, audio }
+  B->>W: transcribe { model, audio }
+  W->>W: Silero VAD: at least 96 ms of speech?
+  W->>W: Whisper or hiragana CTC: up to 3 candidates
+  W-->>B: candidates
+  B->>B: normalise, drop invalid, keep 3 distinct
+  B-->>C: { text, choices }
+  C->>P: fill the answer box
+  You->>P: 1–3 to switch (optional), Enter to submit
+  P->>C: correct="true" or "false" on the answer box
+```
+
+### Components
+
+| Part | File | What it does |
+|---|---|---|
+| Page reader | `src/content/page-reader.js` | Activates on `/subjects/review`, `/subject-lessons/<ids>/quiz` and `/subjects/lesson/quiz`. Reads the category (radical, kanji, vocabulary) and the meaning/reading label, and nothing else |
+| Answer I/O | `src/content/answer-io.js` | Sets the answer with the native value setter plus an `input` event (WaniKani's own input handling sees a normal edit), clicks the submit button, and reads only whether the answer was graded and whether it was correct |
+| State machine | `src/content/main.js` | ready → listening → processing → filled → waiting, re-derived from the DOM on every change, because WaniKani's events fire twice and their order isn't relied on. Handles push-to-talk (Shift chords and taps under 200 ms are ignored), hands-free, choices, auto-submit/advance, pausing and hidden tabs |
+| Audio | `src/content/audio.js` | Raw microphone (no browser noise suppression or auto-gain), captured at the device rate (Firefox can't mix sample rates) and box-filter resampled to 16 kHz. 300 ms pre-roll. An energy detector in 20 ms frames ends hands-free utterances. Anything audible is sent on |
+| Panel | `src/content/indicator.js` | A closed shadow root, so WaniKani's CSS and scripts can't touch it. The icon is inlined at build time, so the page loads nothing from the extension |
+| Background | `src/background/background.js` | Owns the worker, picks models (built-in or custom, with fallback), normalises and ranks candidates. Review tabs send a 5 s heartbeat, because Firefox otherwise unloads an idle background page and the loaded models with it |
+| Worker | `src/worker/` | transformers.js + onnxruntime-web (plain WASM build, single thread), bundled by esbuild. Remote models are off and the WASM runtime comes from the package |
+| Normalisation | `src/shared/normalize.js` | Turns recogniser output into an answer, without correcting it (below) |
+
+### Recognition
+
+**English (Whisper).**
+- Decoding starts from a fixed, question-independent prompt of
+  dictionary-style words, which nudges it towards short answers ("Hand."
+  rather than "And").
+- Alternatives come from the next most likely *first* tokens (within 5% of
+  the best), each completed greedily, because that's where Whisper's
+  confusions are (eye / I, hand / and).
+- The audio is encoded once and reused for every candidate.
+
+**Readings (hiragana CTC).**
+- `distilhubert-hiragana-ctc`, exported to ONNX with partial 8-bit
+  quantisation. It emits hiragana per 20 ms frame, with no language model
+  that could invent words.
+- The first choice is the greedy decode; a CTC prefix beam search
+  (`src/worker/ctc.js`) supplies alternatives within 5% of the best.
+
+**Speech gate.** Silero VAD (2 MB) runs on every clip first. Key clicks and
+silence are rejected before a recogniser ever sees them; Whisper would
+otherwise "hear" something in silence.
+
+**Normalisation** (no correction, nothing from the question):
+- **English:** lower-case and strip punctuation. Numbers become words up to
+  ten and numerals above (`4` → *four*, *twenty-one* → `21`).
+  Hesitations (*um*, *uh*) are rejected.
+- **Readings:**
+  - katakana → hiragana
+  - ー is spelled out: o- and u-rows take う, the e-row takes い, the a- and
+    i-rows repeat the vowel (きょー → きょう). The form with ー is offered as
+    a choice, since some readings really contain it (びーだま).
+  - kanji, romaji and readings starting with ん, っ or a small kana are
+    rejected, never converted.
+
+**Accuracy** on the author's own recordings, from [PLAN.md](PLAN.md):
+
+| Answers | Right reading among the choices |
+|---|---|
+| English: 25 words | 25/25 (first choice 22/25) |
+| Readings: 31 words, generic model | 13/31 |
+| Readings: 31 words, fine-tuned on the author's voice | 24/31 |
+
+### Custom and fine-tuned models
+
+Settings → **Custom models** lets you replace the built-in model for English
+or for readings with your own:
+- **Making the file:** `.wkv-model.zip` files are made by
+  `tools/pack-model.mjs MODEL_DIR --language en|ja-kana`. The file is checked
+  (language, model type, required files, vocabulary) and stored in the
+  extension's IndexedDB.
+- **Loading it:** the worker serves its files to transformers.js through its
+  cache hook.
+- **If it doesn't load:** that language falls back to the built-in model,
+  and the panel says so.
+
+Fine-tuning the reading model on your own voice (see PLAN.md, Phase 4).
+With a few hundred recordings this took first-choice accuracy from 13/31 to
+18/31 and choices from 13/31 to 24/31:
 
 ```bash
-git submodule update --init personal
-(cd personal && git lfs install --local && git lfs pull)
+mkdir -p ~/.config/wanikani-voice        # a read-only WaniKani API token goes in api-token
+python3 tools/wk-readings.py            # your unlocked readings -> personal/words.json
+python3 tools/recorder/server.py --words personal/words.json --set personal   # record at http://localhost:8765/
+python tools/finetune-hiragana.py       # needs torch + transformers; ~7 min on CPU for 400 clips
+python tools/export-dual-ctc.py personal/models/distilhubert-hiragana/checkpoint - personal/models/distilhubert-hiragana
+node tools/pack-model.mjs personal/models/distilhubert-hiragana --language ja-kana --name "My voice"
 ```
 
-## Packaging for addons.mozilla.org
+Then choose the `.wkv-model.zip` in the settings. (`npm run build -- --personal`
+builds it in instead; personal builds are never packaged or signed.) The
+WaniKani token is used only by `wk-readings.py`; the extension never calls the
+WaniKani API.
 
-```bash
-npm run package              # add -- --verify to rebuild from the source zip and compare
-npm run package -- --sign    # also get it signed by Mozilla (unlisted), installable in release Firefox
-```
+## Development
 
-Signing needs AMO API credentials
-(<https://addons.mozilla.org/developers/addon/api/key/>) saved as
-`{"issuer": "user:…", "secret": "…"}` in `~/.config/wanikani-voice/amo-credentials`
-(`chmod 600`). On the unlisted channel Mozilla runs its automated review and
-signs the package for self-distribution; it isn't listed on the store. Each
-version can be signed only once. Personal builds are never signed, because
-signing uploads the add-on to Mozilla.
-
-This does a clean normal build (never a personal one), then runs the privacy
-policy check, `web-ext lint` (errors fail it) and the 200 MB size check. It
-writes `dist/voice-answers-for-wanikani-<version>.xpi`, the source archive AMO
-asks for when a package contains bundled code (`…-source.zip`, with a
-`SOURCE-README.md` of build steps), and `SHA256SUMS`. The working tree must
-be committed.
-
-## Tests
+### Tests
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install selenium
@@ -87,69 +265,79 @@ python3 -m venv .venv && .venv/bin/pip install selenium
 npm run build && .venv/bin/python test/run_tests.py   # --headed to watch, -k name to filter
 ```
 
-This runs:
-- **`test/policy.py`:** static checks that:
-  - only `page-reader.js` and `answer-io.js` touch the page
-  - nothing references the question/item markup or event payloads
-  - there's no network code
-  - the manifest's host access is WaniKani only
-- **Unit tests** for answer normalisation (`test/unit/`).
+- **`test/policy.py`:** the static privacy and page-access checks above.
+- **Unit tests** for normalisation and the CTC beam search (`test/unit/`),
+  run in Firefox.
 - **End-to-end tests** in headless Firefox against a mock review page
-  (`test/mock/review.html`), including real speech:
-  - WAV clips are played into a fake microphone and recognised by the bundled
-    model.
-  - Every non-localhost request goes to a dead proxy, so any network
-    dependency fails the run.
-  - They use a test copy of `build/` that also matches `http://localhost` and
-    adds a bridge for settings, the fake mic and diagnostics
-    (`test/hooks/`).
+  (`test/mock/review.html`, modelled on the live page). They use a test copy
+  of `build/` that also matches `http://localhost`, with a bridge for
+  settings, a fake microphone, diagnostics and custom-model installs
+  (`test/hooks/`).
+  - **Real speech:** WAV clips are played into the fake microphone.
+  - **Also covered:** push-to-talk and hands-free, choices in both
+    languages, lesson quizzes, custom models (including fallback), the
+    settings page, and the background surviving Firefox's idle unloading.
+- **Privacy audit:** the run fails if any request goes to a non-Mozilla host.
 
-## Speech model work
+Tests that need real voice recordings are skipped unless the private
+`personal/` submodule is checked out.
 
-```bash
-node tools/fetch-models.mjs [name]                   # pinned, sha256-checked downloads (models/models.json)
-node tools/eval-asr.mjs [model ...] --set real-raw [--ja]   # accuracy on recordings, same pipeline as the extension
-python3 tools/recorder/server.py --set NAME          # record evaluation clips at http://localhost:8765/
-```
-
-### Fine-tuning the reading model on your voice (personal build)
+### Model tools
 
 ```bash
-mkdir -p ~/.config/wanikani-voice   # put a read-only WaniKani API token in api-token
-python3 tools/wk-readings.py                     # -> personal/words.json (your readings)
-python3 tools/recorder/server.py --words personal/words.json --set personal
-python tools/finetune-hiragana.py                # needs torch + transformers
-python tools/export-dual-ctc.py personal/models/distilhubert-hiragana/checkpoint - personal/models/distilhubert-hiragana
-npm run build -- --personal                      # build/ with your model; never publish it
+node tools/fetch-models.mjs [name]                       # pinned, sha256-checked downloads (models/models.json)
+node tools/eval-asr.mjs [model ...] --set real-raw [--ja]  # accuracy on recordings, same pipeline as the extension
+node tools/pack-model.mjs MODEL_DIR --language en|ja-kana  # custom model file for the settings
 ```
 
-`personal/` is the private submodule (above), so none of this is in the public repository.
+Only models marked `"bundled": true` in `models/models.json` ship. The
+hiragana model is exported locally (`"generatedBy"` has the exact command).
 
-Only models marked `"bundled": true` in `models/models.json` are committed
-and shipped. The others are evaluation candidates. The hiragana model is
-exported locally (`"generatedBy"` gives the exact command; needs PyTorch).
-`fetch-models` verifies its committed files instead of downloading them.
+### Packaging and signing
 
-Third-party models and libraries and their licences:
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+```bash
+npm run package                # dist/: .xpi, source zip for AMO review, SHA256SUMS
+npm run package -- --verify    # also rebuild from the source zip and compare every file
+npm run package -- --sign      # also get it signed by Mozilla (unlisted channel)
+```
 
-## Layout
+What the package script does:
+- **Checks first:** a clean normal build (never a personal one), the policy
+  check, `web-ext lint` (errors fail) and the 200 MB limit. The working tree
+  must be committed.
+- **Signing** submits the package with its source zip to addons.mozilla.org
+  on the unlisted channel: automated review, then signed for
+  self-distribution, not listed on the store.
+- **Credentials:** AMO API credentials go in
+  `~/.config/wanikani-voice/amo-credentials` as
+  `{"issuer": "user:…", "secret": "…"}` (`chmod 600`).
+- **Versions:** each version can be signed once.
+
+### Private data
+
+`personal/` is a private submodule (voice recordings, the WaniKani word list,
+fine-tuned models). Nothing in it is needed to build, test or package the
+add-on. With access:
+
+```bash
+git submodule update --init personal
+(cd personal && git lfs install --local && git lfs pull)
+```
+
+### Layout
 
 ```
 manifest.json
-src/background/background.js   speech worker lifecycle, transcribe + choices, model status, commands
-src/worker/                    transformers.js worker, Whisper and hiragana CTC decoding (bundled)
-src/content/page-reader.js     the ONLY reader of the page: question type
-src/content/answer-io.js       fill the answer box / press submit
-src/content/audio.js           microphone capture, resampling, speech detection
-src/content/indicator.js       top-right badge (closed shadow root)
-src/content/main.js            state machine
-src/shared/normalize.js        EN/JA answer normalisation
-src/shared/settings.js         defaults + storage.local
-src/options/                   settings page / toolbar popup
-models/                        bundled model (Git LFS) + manifest
-tools/                         build, model fetch/eval, recorder, page inspector
-test/                          policy, unit, end-to-end tests and fixtures
+src/content/       page-reader, answer-io, audio, indicator, main (content script)
+src/background/    background page: models, transcription, choices
+src/worker/        speech worker: transformers.js, Whisper + CTC decoding, Silero VAD
+src/shared/        settings, normalisation, zip reader, custom model store
+src/options/       settings page / toolbar popup
+models/            bundled models (Git LFS) + models.json
+icons/             icon (tools/make-icon.py)
+tools/             build, package, model fetch/eval/export/pack, fine-tuning, recorder
+test/              policy, unit and end-to-end tests, mock page, synthetic audio
+personal/          private submodule (not needed to build)
 ```
 
 ## Licence
