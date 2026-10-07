@@ -293,6 +293,7 @@ off the review page.
 | **3 — Japanese** | **Done 2026-10-04**, verified live |
 | **4 — UX and robustness** | **Done 2026-10-04**: Silero VAD, speed (English speed setting), retry limit, correct-only advance, panel position, fine-tuning on your voice (right reading offered 24/31 vs 13/31) |
 | **5 — Privacy audit + packaging** | Done 2026-10-04, released as **v0.1.1** (signed by Mozilla, GitHub release): lessons and custom models verified live, automated privacy audit, packaging and signing, README, MIT licence, private data split out, repo recreated. Personal notes removed from the plan and from history (2026-10-05). Next steps in §8 |
+| 6 — Firefox for Android | **Planned 2026-10-06** (below) |
 
 ### Spikes
 | Spike | Question | Exit criterion |
@@ -588,6 +589,98 @@ Requested 2026-10-04, after Phase 4:
 Network Monitor + `about:networking` audit over a full session. `web-ext lint`.
 Sign as unlisted on AMO, or list publicly (§6).
 
+### Phase 6 — Firefox for Android (planned 2026-10-06)
+
+**Goal:** the same add-on (one package; AMO no longer accepts per-platform
+files) works on Firefox for Android, with touch equivalents for every
+keyboard interaction, on recognition speed a phone can handle.
+
+**What Android supports** (MDN browser-compat-data 8.1.4, 2026-10-01):
+| Used by the add-on | Firefox for Android |
+|---|---|
+| MV3, background scripts, content scripts, `host_permissions`, `action` popup, `options_ui`, CSP | Yes |
+| `storage`, `runtime.connect`, `runtime.getPlatformInfo` | Yes |
+| `getUserMedia`, `AudioContext`, `ScriptProcessorNode`, module workers, IndexedDB, `DecompressionStream('deflate-raw')` | Yes |
+| WebAssembly with SIMD | Yes (ARM) |
+| `commands` (keyboard shortcuts, Alt+Shift+V) | **No** |
+| `data_collection_permissions` | From **142**: needs `browser_specific_settings.gecko_android.strict_min_version: "142.0"`. This is also the long-standing Android lint warning |
+| WebGPU | **No**, so CPU/WASM only, as on Linux desktop |
+
+So the technical core carries over unchanged. The work is input,
+layout, speed and memory.
+
+**Touch for every keyboard interaction** (inventory from the code):
+| # | Keyboard today | Touch equivalent |
+|---|---|---|
+| K1 | Hold Shift (or the chosen key) to talk; Shift chords and taps under 200 ms ignored | **Press and hold the mic button**: pointer events, so it works for touch, mouse and pen. The button gets ≥ 56 px on touch screens. Sliding off the button before release cancels, like a Shift chord. The same 200 ms minimum applies |
+| K2 | 1–3 switch between choices | Tap the choice chips (already clickable); ≥ 44 px tall on touch screens |
+| K3 | Enter to submit | A **Submit** button in the panel when an answer is filled in (calls the same `answerIO.submit`); auto-submit stays an option |
+| K4 | Enter for the next question | A **Next** button in the panel while graded; auto-advance stays an option |
+| K5 | Alt+Shift+V to pause; a click on the mic button also pauses | A separate small **pause** button in the panel, because the mic button becomes hold-to-talk. Same layout on desktop for consistency; `commands` stays for desktop |
+| K6 | "Click the page or press a key" to start audio or resume hands-free | Already pointer events, so a tap works; only the wording changes |
+| K7 | Enter in the test-mode field | A **Send** button next to the field |
+| K8 | Settings: press a key to choose the push-to-talk key | Hidden on touch-only devices (no keyboard to hold), with a note that the mic button is used |
+
+Plus:
+- **No `focus()` on the answer box after filling on touch devices**, so the
+  phone's keyboard doesn't pop up over the page.
+- **Messages adapt to the input method** ("Hold the mic to answer",
+  "Tap a reading", "Tap Submit"), chosen by `(hover: none) and
+  (pointer: coarse)`. Devices with both (tablets with keyboards, touch
+  laptops) keep every keyboard shortcut.
+
+**Layout:** on narrow screens (< 600 px) the panel becomes a full-width bar
+at the top or bottom (the position setting picks which), so it doesn't
+cover the question. The mic button sits where a thumb reaches it; check
+it against WaniKani's mobile review layout.
+
+**Speed and memory** (phones have slower single cores and less memory):
+- **Spike A1, measure first on a real phone:** latency per mode and the
+  memory with models loaded. Rough expectation, unmeasured: tiny.en 2–4×
+  the desktop's ~0.8 s, base.en likely too slow (4–8 s); readings ~1–2 s.
+- **Defaults on Android** (`runtime.getPlatformInfo().os === 'android'`):
+  English *fast* (tiny.en), and the reading model **loaded on the first
+  reading question** instead of at warm-up, to keep memory lower. The
+  settings still allow *accurate*.
+- **If too slow:** shorter decoding (no English alternatives on Android),
+  or a smaller reading model export.
+
+**Other Android specifics:**
+- Mic permission is asked twice the first time: by Firefox for the site,
+  and by Android for Firefox (RECORD_AUDIO).
+- Leaving the app hides the tab, which already releases the mic. Android
+  may also kill the background page, in which case models reload on
+  return (the panel shows "Loading speech model…").
+- The download is still ~120 MB, worth stating in the listing for mobile
+  data.
+
+**Testing:**
+- **Automated, desktop headless:** emulate a touch-only device (Firefox
+  prefs for a coarse primary pointer and no hover) and drive the panel with
+  W3C pointer actions of type `touch`. Covers K1–K8, no focus on fill, the
+  narrow-screen layout and the wording.
+- **Real phone:** `web-ext run -t firefox-android --adb-device …` over USB
+  debugging (needs `android-tools` for `adb`, and "Remote debugging via
+  USB" in Firefox for Android). about:debugging over USB for console and
+  timing. This is where A1 and the live WaniKani mobile check happen.
+- **An emulator** (Android SDK, x86) is possible but not representative
+  for ARM speed; not planned.
+
+**Release:**
+- Version 0.2.0 with `gecko_android` set. AMO then offers it to Firefox for
+  Android users; enable Android in the listing's compatibility settings if
+  AMO asks.
+- Mobile screenshots for the listing.
+- README: a requirements row for Android, and wording that doesn't assume
+  a keyboard.
+
+**Open questions for you:**
+1. Which Android phone (model or chip, RAM) can we test on, and can you
+   enable USB debugging?
+2. Default listening mode on Android: hold-to-talk on the mic button, or
+   hands-free?
+3. Default panel placement on phones: top bar or bottom bar?
+
 ---
 
 ## 5. Risks
@@ -687,3 +780,5 @@ Sign as unlisted on AMO, or list publicly (§6).
    the benchmark, head-only gets 20/31 offered vs 24/31 for full
    fine-tuning (13/31 generic). Most useful for other users once the add-on
    is public, since they have no personal build.
+3. **Firefox for Android (Phase 6).** Touch for every keyboard interaction,
+   mobile layout, speed and memory defaults; plan above.
