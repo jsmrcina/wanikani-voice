@@ -4,7 +4,7 @@
 //
 // Model file: a .wkv-model.zip (made by tools/pack-model.mjs) holding the
 // model's files plus wkv-model.json:
-//   { "format": 1, "language": "en" | "ja-kana", "kind": "whisper" | "ctc", "name": "..." }
+//   { "format": 1, "language": "en" | "ja-kana", "kind": "whisper" | "moonshine" | "ctc", "name": "..." }
 //
 // IndexedDB "wkv-custom-models", store "models", one record per language:
 //   { slot, id, name, kind, files: { path: ArrayBuffer }, size, addedAt }
@@ -16,13 +16,12 @@
 
   const DB = 'wkv-custom-models';
   const STORE = 'models';
-  const SLOTS = { en: 'whisper', 'ja-kana': 'ctc' };
+  // The kinds of model each language accepts.
+  const SLOTS = { en: ['whisper', 'moonshine'], 'ja-kana': ['ctc'] };
   // Files transformers.js loads for each kind (8-bit "q8" variants).
-  const REQUIRED = {
-    whisper: ['config.json', 'generation_config.json', 'preprocessor_config.json', 'tokenizer.json',
-      'tokenizer_config.json', 'onnx/encoder_model_quantized.onnx', 'onnx/decoder_model_merged_quantized.onnx'],
-    ctc: ['config.json', 'onnx/model_quantized.onnx'],
-  };
+  const SEQ2SEQ = ['config.json', 'generation_config.json', 'preprocessor_config.json', 'tokenizer.json',
+    'tokenizer_config.json', 'onnx/encoder_model_quantized.onnx', 'onnx/decoder_model_merged_quantized.onnx'];
+  const REQUIRED = { whisper: SEQ2SEQ, moonshine: SEQ2SEQ, ctc: ['config.json', 'onnx/model_quantized.onnx'] };
   const MAX_BYTES = 600 * 1024 * 1024;
 
   function open() {
@@ -62,12 +61,14 @@
     if (meta.language !== slot) {
       throw new Error(`this is a model for ${meta.language === 'en' ? 'English' : 'readings'}, not ${slot === 'en' ? 'English' : 'readings'}`);
     }
-    if (meta.kind !== SLOTS[slot]) throw new Error(`a ${meta.kind} model can't be used for ${slot}`);
+    if (!SLOTS[slot].includes(meta.kind)) throw new Error(`a ${meta.kind} model can't be used for ${slot}`);
     const missing = REQUIRED[meta.kind].filter(f => !files.has(f));
     if (missing.length) throw new Error(`missing ${missing.join(', ')}`);
     let config;
     try { config = JSON.parse(text('config.json')); } catch { throw new Error('config.json is not valid JSON'); }
-    if (meta.kind === 'whisper' && config.model_type !== 'whisper') throw new Error('config.json is not a Whisper model');
+    if (meta.kind !== 'ctc' && config.model_type !== meta.kind) {
+      throw new Error(`config.json is not a ${meta.kind === 'whisper' ? 'Whisper' : 'Moonshine'} model`);
+    }
     if (meta.kind === 'ctc' && !Array.isArray(config.kana_vocab?.tokens)) {
       throw new Error('config.json has no kana vocabulary (export with tools/export-dual-ctc.py)');
     }

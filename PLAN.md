@@ -5,7 +5,8 @@ recognition runs entirely on-device.
 
 Status (2026-10-06): **v0.2.0 adds Firefox for Android** (touch controls,
 tested on a Pixel 9 Pro XL) and makes Moonshine the default English model;
-signed in the unlisted channel. **v0.1.2 is in review on
+**v0.2.1** adds custom (fine-tuned) Moonshine models and better repeat
+collapsing; both signed in the unlisted channel. **v0.1.2 is in review on
 addons.mozilla.org (listed).** English meanings and radical names are
 recognised by Moonshine (*fast*) or Whisper (*accurate*), readings by a small
 hiragana CTC model, with up to three choices. Everything runs on-device.
@@ -839,9 +840,36 @@ raw audio.
 
 ## 8. Next steps
 
-1. **English fine-tuning pipeline.** Only the hiragana model can be adapted
-   to a voice so far, though any exported Whisper model already works as a
-   custom model. Same approach as for readings:
+1. **English fine-tuning pipeline: built 2026-10-06** (`tools/finetune-moonshine.py`,
+   `tools/export-moonshine.py`; custom English models may now be Moonshine).
+   On clips never trained on (first choice / offered):
+
+   | | stock Moonshine | **fine-tuned** | Whisper base.en |
+   |---|---|---|---|
+   | 60 held-out personal clips | 40 / 50 | **46 / 50** | 49 / 55 |
+   | 25 real-raw recordings (other words, other day) | 20 / 21 | **23 / 24** | 22 / 25 |
+   | decode time (Node) | ~115 ms | ~65 ms | ~320 ms |
+
+   - Training: everything but the encoder's conv stem, lr 1e-5, batch 8,
+     the hiragana script's augmentation. Validation peaked at epoch 2
+     (16/24 → 23/24) and later epochs overfit. The final model
+     (`personal/models/moonshine-base-ft`, packed in `dist/models/`) is
+     trained on all 300 clips for 2 epochs; real-raw 23/25 as above.
+   - **Trap:** transformers 4.57 gives Moonshine a causal-LM loss that
+     shifts the labels a second time (10.7 loss on a clip it gets right,
+     0.21 computed correctly). Training with it wrecked the model
+     (validation 16/24 → 6/24 in 4 epochs). The script computes the loss
+     itself.
+   - **Export:** Optimum's export adds attention-mask inputs that
+     onnx-community's files don't have and transformers.js doesn't send;
+     they become all-ones tensors in the graph. Quantising the merged
+     decoder needs `EnableSubgraph` (its layers sit in If branches). The
+     stock model exported this way scores within one clip of the shipped
+     one (226 vs 227 of 300).
+   - Remaining misses are near-homophones (tale/tail, to pour/poor, warm/
+     warn) and close sounds; several have the right word as choice 2.
+
+   Steps, as planned:
    - a word list of your WaniKani meanings: done 2026-10-06,
      `tools/wk-meanings.mjs`, 300 meanings (105 short words, 75 phrases,
      120 others), 240 for training and 60 held out

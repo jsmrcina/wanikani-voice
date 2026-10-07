@@ -703,6 +703,7 @@ def pack_test_models():
         ["node", "tools/pack-model.mjs", str(d), "--language", lang, "--name", name, "--out", str(TEST_MODELS / out)],
         cwd=ROOT, check=True, capture_output=True)
     pack(ROOT / "models/whisper-tiny.en", "en", "tiny.wkv-model.zip", "test tiny.en")
+    pack(ROOT / "models/moonshine-base", "en", "moonshine.wkv-model.zip", "test moonshine")
     pack(ROOT / "models/distilhubert-hiragana", "ja-kana", "hiragana.wkv-model.zip", "test hiragana")
     broken = Path(tempfile.mkdtemp(prefix="wkv-broken-"))
     shutil.copytree(ROOT / "models/whisper-tiny.en", broken, dirs_exist_ok=True)
@@ -736,6 +737,25 @@ def test_custom_model_english(b):
         b.speak(SPEECH_PREFIX + "fire.wav")
         b.wait_state("filled", timeout=20)
         assert b.input_value() == "fire", b.input_value()
+    assert custom(b, "en")["ok"]
+
+
+def test_custom_model_moonshine(b):
+    """A custom English model can be a Moonshine one (e.g. fine-tuned on your voice)."""
+    b.set_options(recognizer="local", englishSpeed="accurate")  # so the custom model is what loads Moonshine
+    res = custom(b, "en", "moonshine.wkv-model.zip")
+    assert res["ok"], res
+    assert res["meta"]["kind"] == "moonshine", res
+    model_id = res["meta"]["id"]
+    b.open_review()
+    b.wait_model_ready(timeout=90)
+    models = b.diag()["models"]
+    assert models.get(model_id, {}).get("status") == "ready", models
+    assert "whisper-base.en" not in models, models
+    if VOICE_FIXTURES.exists():
+        b.speak(SPEECH_PREFIX + "king.wav")
+        b.wait_state("filled", timeout=20)
+        assert b.input_value() == "king", b.input_value()
     assert custom(b, "en")["ok"]
 
 
@@ -923,7 +943,7 @@ TESTS = [test_unit, test_inactive_off_review_page, test_lesson_quiz, test_defaul
          test_mic_button_mouse, test_auto_submit_has_no_submit_button,
          test_options_page_saves,
          test_shift_chords_and_taps_ignored, test_custom_ptt_key,
-         test_reload_replaces_orphaned_badge, test_custom_model_english,
+         test_reload_replaces_orphaned_badge, test_custom_model_english, test_custom_model_moonshine,
          test_custom_model_wrong_language_rejected, test_custom_model_broken_falls_back,
          test_options_custom_models,
          test_auto_advance_only_correct,

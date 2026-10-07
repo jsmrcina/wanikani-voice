@@ -343,14 +343,24 @@ node tools/pack-model.mjs personal/models/distilhubert-hiragana --language ja-ka
 Then choose the `.wkv-model.zip` in the settings. (`npm run build -- --personal`
 builds it in instead; personal builds are never packaged or signed.)
 
-English recordings for testing (and, later, fine-tuning) English recognition
-on your voice work the same way. A share of the list is held out for testing:
+Fine-tuning the English model (Moonshine, the *fast* default) works the same
+way. A share of the list is held out to measure it. On 300 recordings this
+took held-out first-choice accuracy from 40/60 to 46/60, and from 20/25 to
+23/25 on older recordings of other words, close to or above Whisper base.en
+(49/60, 22/25) at a fifth of its decode time:
 
 ```bash
 node tools/wk-meanings.mjs              # 300 of your unlocked meanings -> personal/words.json (keeps the readings)
 python3 tools/recorder/server.py --words personal/words.json --set personal
 node tools/eval-asr.mjs moonshine-base whisper-base.en --personal   # held-out clips; "--personal all" for every clip
+python tools/finetune-moonshine.py      # train on the train split; picks the best epoch on 10% of it (~2 min on CPU)
+python tools/export-moonshine.py personal/models/moonshine-base-ft
+node tools/eval-asr.mjs moonshine-base-ft --models-root personal/models --personal
+python tools/finetune-moonshine.py --all --epochs 2   # final model: every recording, the epoch count found above
+node tools/pack-model.mjs personal/models/moonshine-base-ft --language en --name "My voice (English)"
 ```
+
+A custom English model can be a Moonshine or a Whisper one.
 
 The WaniKani token is used only by `wk-readings.py` and `wk-meanings.mjs`;
 the extension never calls the WaniKani API.
