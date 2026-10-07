@@ -783,8 +783,9 @@ raw audio.
 - AMO needs the source plus build instructions for review, because the
   worker is bundled: `npm ci && npm run build` (esbuild, not minified). `web-ext
   lint` on `build/`: 0 errors. Warnings are only `Function`/dynamic `import`
-  inside transformers.js and onnxruntime (unused paths; the CSP forbids eval)
-  and an Android min-version notice.
+  inside transformers.js and onnxruntime (unused paths; the CSP forbids eval).
+  Since 0.2.0 (`gecko_android` 142) the Android notice is gone; one warning
+  remains (onnxruntime-web's dynamic `import()` of its own WASM glue).
 - XPI size is ~148 MB, under AMO's 200 MB limit.
 - Model licences allow redistribution: Moonshine (MIT), Whisper (MIT),
   Silero VAD (MIT) and distilhubert-hiragana-ctc (Apache-2.0). All are

@@ -76,11 +76,10 @@ Paste into "Notes to Reviewer" when submitting:
 > push-to-talk key. `wasm-unsafe-eval` is needed for WebAssembly
 > inference.
 >
-> The remaining lint warnings: a dynamic `import()` with a computed URL
+> The one remaining lint warning: a dynamic `import()` with a computed URL
 > in the bundle (onnxruntime-web loading its own WASM glue file from inside
-> the package; remote URLs are blocked by the CSP), and
-> `data_collection_permissions` not being supported on Android (desktop
-> only).
+> the package; remote URLs are blocked by the CSP). Since 0.2.0 the add-on
+> also supports Firefox for Android (142+, `gecko_android`).
 
 ## Icon
 `store/icon-128.png` (128×128, rendered from `icons/icon.svg`) for the

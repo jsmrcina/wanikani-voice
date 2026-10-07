@@ -206,7 +206,8 @@ async function main() {
       execFileSync('unzip', ['-q', srcZip, '-d', tmp]);
       execFileSync('npm', ['ci', '--silent'], { cwd: tmp, stdio: 'inherit' });
       execFileSync('node', ['tools/build.mjs'], { cwd: tmp, stdio: 'inherit' });
-      const mine = (await walk(BUILD)).map(f => relative(BUILD, f)).sort();
+      // web-ext sign leaves its upload id in the source folder (not packaged).
+      const mine = (await walk(BUILD)).map(f => relative(BUILD, f)).filter(f => f !== '.amo-upload-uuid').sort();
       const theirs = (await walk(join(tmp, 'build'))).map(f => relative(join(tmp, 'build'), f)).sort();
       if (JSON.stringify(mine) !== JSON.stringify(theirs)) throw new Error('rebuilt file list differs');
       for (const f of mine) {
