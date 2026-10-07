@@ -842,8 +842,26 @@ raw audio.
 1. **English fine-tuning pipeline.** Only the hiragana model can be adapted
    to a voice so far, though any exported Whisper model already works as a
    custom model. Same approach as for readings:
-   - a word list of your WaniKani meanings
-   - recordings with `tools/recorder`
+   - a word list of your WaniKani meanings: done 2026-10-06,
+     `tools/wk-meanings.mjs`, 300 meanings (105 short words, 75 phrases,
+     120 others), 240 for training and 60 held out
+   - recordings with `tools/recorder`: done 2026-10-06, all 300, in the
+     private `personal/recordings/en/`
+   - **Baseline on those recordings** (`node tools/eval-asr.mjs
+     moonshine-base whisper-base.en --personal [all]`), counting where the
+     right answer lands among the three choices:
+
+     | | 1st | 2nd | 3rd | not offered |
+     |---|---|---|---|---|
+     | Moonshine base, all 300 | 223 | 23 | 9 | 45 |
+     | Whisper base.en, all 300 | 242 | 27 | 8 | 23 |
+     | Moonshine base, 60 held out | 40 | 7 | 3 | 10 |
+     | Whisper base.en, 60 held out | 49 | 6 | 0 | 5 |
+
+     Moonshine's gap is mostly short words (right word offered 78/105 vs
+     93/105). Unfixable without the question: homophones (tale/tail,
+     aid/eight, "to be which"). (Measured before 11 re-recorded clips, 4
+     of which then passed with both models.)
    - full fine-tuning of Moonshine base (the default) or whisper-base.en
      in PyTorch; custom English models are Whisper-only so far, so the
      model store needs a `moonshine` kind

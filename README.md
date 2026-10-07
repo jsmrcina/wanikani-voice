@@ -341,9 +341,19 @@ node tools/pack-model.mjs personal/models/distilhubert-hiragana --language ja-ka
 ```
 
 Then choose the `.wkv-model.zip` in the settings. (`npm run build -- --personal`
-builds it in instead; personal builds are never packaged or signed.) The
-WaniKani token is used only by `wk-readings.py`; the extension never calls the
-WaniKani API.
+builds it in instead; personal builds are never packaged or signed.)
+
+English recordings for testing (and, later, fine-tuning) English recognition
+on your voice work the same way. A share of the list is held out for testing:
+
+```bash
+node tools/wk-meanings.mjs              # 300 of your unlocked meanings -> personal/words.json (keeps the readings)
+python3 tools/recorder/server.py --words personal/words.json --set personal
+node tools/eval-asr.mjs moonshine-base whisper-base.en --personal   # held-out clips; "--personal all" for every clip
+```
+
+The WaniKani token is used only by `wk-readings.py` and `wk-meanings.mjs`;
+the extension never calls the WaniKani API.
 
 ## Development
 

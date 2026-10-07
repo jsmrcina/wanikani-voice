@@ -80,9 +80,12 @@ def main():
 
     out = ROOT / "personal/words.json"
     out.parent.mkdir(exist_ok=True)
+    # Keep the English list (tools/wk-meanings.mjs) if there is one.
+    existing = json.loads(out.read_text(encoding="utf-8")) if out.exists() else {}
     out.write_text(json.dumps({
-        "comment": "Personal fine-tuning list from your unlocked WaniKani readings (tools/wk-readings.py). Not committed.",
-        "en": [], "noise": [], "ja": chosen,
+        "comment": "Personal lists from your unlocked WaniKani items: readings (tools/wk-readings.py) "
+                   "and meanings (tools/wk-meanings.mjs).",
+        "en": existing.get("en", []), "noise": existing.get("noise", []), "ja": chosen,
     }, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     print(f"wrote {out.relative_to(ROOT)}")
 
