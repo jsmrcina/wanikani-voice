@@ -1,6 +1,13 @@
-// The status panel injected at the top right of the review page: icon,
-// status message, EN/かな mode tag and the mic button, plus reading choices
-// and the test-mode field when they apply.
+// The status panel injected into the review page: icon, status message,
+// EN/かな mode tag and the mic button, plus answer choices, Submit / Clear /
+// Next buttons and the test-mode field when they apply.
+//
+// Every keyboard action has a pointer (touch, mouse, pen) equivalent here:
+// press and hold the mic button to talk (let go well away from it to cancel), tap a choice,
+// tap Submit / Next. Clear (touch screens only) empties the answer box
+// without bringing up the on-screen keyboard. While voice answers are off
+// (paused in the settings), pressing the mic turns them back on. On narrow screens the panel is a full-width
+// bar at the bottom (or top) of the page.
 //
 // Lives in a closed shadow root so WaniKani's CSS can't restyle it and page
 // scripts can't reach inside. The host element mirrors the state in
@@ -29,7 +36,7 @@
       }
     }
     .wrap {
-      position: fixed; top: 72px; right: 16px; z-index: 2147483647;
+      position: fixed; top: calc(72px + var(--vv-top, 0px)); right: 16px; z-index: 2147483647;
       box-sizing: border-box; min-width: 220px; max-width: min(360px, calc(100vw - 32px));
       display: flex; flex-direction: column; gap: 8px; padding: 8px 8px 8px 10px;
       background: var(--panel); color: var(--fg); border: 1.5px solid var(--border);
@@ -37,7 +44,24 @@
       font: 13px/1.35 system-ui, sans-serif; transition: border-color .15s;
     }
     .wrap[data-pos$="left"] { right: auto; left: 16px; }
-    .wrap[data-pos^="bottom"] { top: auto; bottom: 16px; }
+    .wrap[data-pos^="bottom"] { top: auto; bottom: calc(16px + var(--vv-bottom, 0px)); }
+    /* Anchored at the bottom, rows that come and go (choices, Submit / Next)
+       go above the mic row, so the mic doesn't move under a finger pressing
+       it (Pixel 9 Pro XL, 2026-10-06). */
+    .wrap[data-pos^="bottom"] { flex-direction: column-reverse; }
+    /* Phones: a full-width bar at the bottom (default there) or the top. */
+    @media (max-width: 600px) {
+      .wrap, .wrap[data-pos$="left"] {
+        left: 8px; right: 8px; top: calc(8px + var(--vv-top, 0px)); min-width: 0; max-width: none;
+      }
+      .wrap[data-pos^="bottom"] {
+        top: auto; bottom: calc(8px + max(var(--vv-bottom, 0px), env(safe-area-inset-bottom, 0px)));
+      }
+    }
+    .wrap, .wrap button {
+      user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+    }
     .row { display: flex; align-items: center; gap: 8px; }
     .logo { flex: none; width: 24px; height: 24px; }
     .logo svg { display: block; width: 100%; height: 100%; }
@@ -53,7 +77,26 @@
       cursor: pointer; padding: 0; display: grid; place-items: center;
     }
     .badge svg { width: 20px; height: 20px; }
-    .badge:focus-visible { outline: 2px solid var(--busy); outline-offset: 2px; }
+    .badge:focus-visible, .actions button:focus-visible { outline: 2px solid var(--busy); outline-offset: 2px; }
+    /* Hold-to-talk: no scrolling, zooming or long-press menu while held. */
+    .badge { touch-action: none; }
+    .actions { display: none; gap: 6px; justify-content: flex-end; }
+    .actions.on { display: flex; }
+    .actions button {
+      font: 600 13px/1.3 system-ui, sans-serif; padding: 5px 14px; border-radius: 8px; cursor: pointer;
+      background: var(--chip); color: var(--fg); border: 1.5px solid var(--border);
+    }
+    .actions button.primary { background: var(--ok); border-color: var(--ok); color: #fff; }
+    .actions button[hidden] { display: none; }
+    /* Touch screens: finger-sized targets. */
+    @media (pointer: coarse) {
+      .badge { width: 56px; height: 56px; }
+      .badge svg { width: 28px; height: 28px; }
+      .choices button { min-height: 44px; padding: 6px 14px; font-size: 18px; }
+      .actions button { min-height: 44px; padding: 8px 18px; font-size: 15px; }
+      .dev button { min-height: 44px; }
+      .wrap { font-size: 14px; }
+    }
     .choices { display: none; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
     .choices.on { display: flex; }
     .choices button {
@@ -70,6 +113,12 @@
       border: 1px dashed var(--muted); background: var(--panel); color: var(--fg);
     }
     .dev small { color: var(--muted); font-size: 11px; }
+    .dev .devrow { display: flex; gap: 6px; }
+    .dev .devrow input { flex: 1; min-width: 0; }
+    .dev button {
+      font: inherit; padding: 4px 10px; border-radius: 8px; cursor: pointer;
+      border: 1px solid var(--border); background: var(--chip); color: var(--fg);
+    }
 
     [data-state="ready"] .badge, [data-state="filled"] .badge { color: var(--fg); }
     [data-state="listening"] { border-color: var(--listen); }
@@ -99,7 +148,7 @@
   `;
 
   const LABELS = {
-    off: 'Voice answers paused (click to resume)',
+    off: 'Voice answers are off: press the mic to turn them on',
     unsupported: "Can't read the question type on this page",
     waiting: 'Waiting for the next question',
     ready: 'Ready',
@@ -117,7 +166,7 @@
     return [...doc.body.childNodes].map(n => document.importNode(n, true));
   }
 
-  function create({ onToggle, onFakeUtterance, onPick }) {
+  function create({ onToggle, onFakeUtterance, onPick, onTalkStart, onTalkEnd, onTalkCancel, onSubmit, onNext, onClear }) {
     // An extension reload leaves the previous instance's badge orphaned in
     // the page; remove it. Only our own top-level elements are looked at.
     for (const el of [...document.documentElement.children]) {
@@ -136,8 +185,16 @@
           <button class="badge" type="button"></button>
         </div>
         <div class="choices" role="group" aria-label="Other answers heard"></div>
+        <div class="actions">
+          <button class="submit primary" type="button" hidden>Submit</button>
+          <button class="clear" type="button" hidden>Clear</button>
+          <button class="next" type="button" hidden>Next</button>
+        </div>
         <div class="dev">
-          <input type="text" placeholder="Type a test answer here" lang="ja" autocomplete="off" spellcheck="false">
+          <div class="devrow">
+            <input type="text" placeholder="Type a test answer here" lang="ja" autocomplete="off" spellcheck="false">
+            <button class="send" type="button">Send</button>
+          </div>
           <small>Test mode: no microphone is used. This text stands in for your voice.</small>
         </div>
       </div>`));
@@ -148,10 +205,51 @@
     const dev = root.querySelector('.dev');
     const devInput = dev.querySelector('input');
     const choices = root.querySelector('.choices');
+    const actions = root.querySelector('.actions');
+    const submitButton = root.querySelector('.submit');
+    const nextButton = root.querySelector('.next');
+    const clearButton = root.querySelector('.clear');
     if (ICON_SVG) root.querySelector('.logo').append(...parse(ICON_SVG));
     else root.querySelector('.logo').remove();
 
-    badge.addEventListener('click', () => onToggle());
+    // Press and hold the mic button to talk. Pointer events cover touch,
+    // mouse and pen. The press stays with the button while held (pointer
+    // capture), since a thumb drifts while talking: on the Pixel 9 Pro XL
+    // (2026-10-06) half the holds ended just outside the 56 px button. Only
+    // letting go well away from where the press started cancels (not from
+    // the button: the panel may change size while held), like typing a
+    // capital with Shift does for the keyboard push-to-talk.
+    const CANCEL_DISTANCE_PX = 72;
+    let held = null; // pointerId while held
+    let downAt = null; // { x, y } of the press
+    badge.addEventListener('pointerdown', e => {
+      if (e.button !== 0 || held !== null) return;
+      e.preventDefault(); // no focus change, text selection or emulated mouse events
+      if (host.dataset.state === 'off') {
+        onToggle();
+        return;
+      }
+      held = e.pointerId;
+      downAt = { x: e.clientX, y: e.clientY };
+      badge.setPointerCapture(e.pointerId);
+      onTalkStart?.();
+    });
+    const release = (e, cancel) => {
+      if (held !== e.pointerId) return;
+      held = null;
+      (cancel ? onTalkCancel : onTalkEnd)?.();
+    };
+    badge.addEventListener('pointerup', e => {
+      const away = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > CANCEL_DISTANCE_PX;
+      release(e, away);
+    });
+    badge.addEventListener('pointercancel', e => release(e, true));
+    badge.addEventListener('lostpointercapture', e => release(e, true));
+    badge.addEventListener('contextmenu', e => e.preventDefault()); // Android long press
+    submitButton.addEventListener('click', () => onSubmit?.());
+    nextButton.addEventListener('click', () => onNext?.());
+    clearButton.addEventListener('click', () => onClear?.());
+    root.querySelector('.send').addEventListener('click', () => onFakeUtterance());
     // Keys typed in the test field must not reach WaniKani's hotkeys.
     for (const type of ['keydown', 'keypress', 'keyup']) {
       devInput.addEventListener(type, e => {
@@ -171,7 +269,7 @@
       host.dataset.mode = m || '';
       mode.textContent = m === 'ja-kana' ? 'かな' : m === 'en' ? 'EN' : '';
       badge.replaceChildren(...parse(['off', 'unsupported', 'manual'].includes(state) ? MIC_OFF : MIC));
-      badge.title = LABELS[state] || state;
+      badge.title = state === 'off' ? LABELS.off : 'Hold to talk';
       badge.setAttribute('aria-label', badge.title);
       bubble.textContent = message ?? '';
       host.dataset.message = message ?? '';
@@ -196,6 +294,35 @@
       host.dataset.selected = list.length > 1 ? String(selected) : '';
     }
 
+    // Which on-panel action buttons are offered: Submit and Clear (an answer
+    // is filled in) and Next (the answer has been graded).
+    function setActions({ submit = false, clear = false, next = false } = {}) {
+      submitButton.hidden = !submit;
+      clearButton.hidden = !clear;
+      nextButton.hidden = !next;
+      actions.classList.toggle('on', submit || clear || next);
+      host.dataset.actions = [submit && 'submit', clear && 'clear', next && 'next'].filter(Boolean).join(' ');
+    }
+
+    // Keep the panel in the visible part of the page. Firefox for Android
+    // shrinks only the visual viewport for the on-screen keyboard, so a fixed
+    // panel at the bottom would sit under the keyboard: lift it by the part of
+    // the layout viewport the keyboard covers (and follow the visible area
+    // down when it's scrolled or zoomed).
+    const vv = window.visualViewport;
+    function followViewport() {
+      const layoutHeight = document.documentElement.clientHeight;
+      const top = Math.max(0, vv.offsetTop);
+      const bottom = Math.max(0, layoutHeight - (vv.offsetTop + vv.height));
+      wrap.style.setProperty('--vv-top', `${Math.round(top)}px`);
+      wrap.style.setProperty('--vv-bottom', `${Math.round(bottom)}px`);
+    }
+    if (vv) {
+      vv.addEventListener('resize', followViewport);
+      vv.addEventListener('scroll', followViewport);
+      followViewport();
+    }
+
     const POSITIONS = ['top-right', 'top-left', 'bottom-right', 'bottom-left'];
     function setPosition(pos) {
       wrap.dataset.pos = POSITIONS.includes(pos) ? pos : 'top-right';
@@ -205,13 +332,18 @@
       set,
       setChoices,
       setPosition,
+      setActions,
       setDevMode(on) { dev.classList.toggle('on', on); },
       fakeUtterance() { return devInput.value; },
       ownsEvent(e) { return e.composedPath().includes(host); },
       ownsNode(node) { return node === host || host.contains(node); },
       isAttached() { return host.isConnected; },
       reattach() { if (!host.isConnected) document.documentElement.appendChild(host); },
-      destroy() { host.remove(); },
+      destroy() {
+        vv?.removeEventListener('resize', followViewport);
+        vv?.removeEventListener('scroll', followViewport);
+        host.remove();
+      },
     };
   }
 

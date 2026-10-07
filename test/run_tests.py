@@ -23,6 +23,9 @@ from pathlib import Path
 
 from selenium import webdriver
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.actions import interaction
+from selenium.webdriver.common.actions.action_builder import ActionBuilder
+from selenium.webdriver.common.actions.pointer_input import PointerInput
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.firefox.service import Service
@@ -129,11 +132,16 @@ def build_test_extension() -> Path:
 # ---- browser helpers ----------------------------------------------------------
 
 class Browser:
-    def __init__(self, base, ext_dir, headed=False, proxy_port=9):
+    def __init__(self, base, ext_dir, headed=False, proxy_port=9, touch=False):
         self.base = base
         opts = webdriver.FirefoxOptions()
         if not headed:
             opts.add_argument("-headless")
+        if touch:
+            # A phone, as far as CSS and matchMedia can tell: coarse pointer,
+            # no hover (LookAndFeel bits: 1 coarse, 2 fine, 4 hover).
+            opts.set_preference("ui.primaryPointerCapabilities", 1)
+            opts.set_preference("ui.allPointerCapabilities", 1)
         opts.set_preference("extensions.webextensions.uuids", json.dumps({ADDON_ID: ADDON_UUID}))
         if os.environ.get("WKV_THEME"):  # screenshots: force light or dark
             opts.set_preference("layout.css.prefers-color-scheme.content-override",
@@ -153,6 +161,8 @@ class Browser:
         self.d = webdriver.Firefox(options=opts, service=service)
         # Install by path (no zip upload): the build is ~100 MB.
         self.d.execute("INSTALL_ADDON", {"path": str(ext_dir), "temporary": True})
+        if touch:
+            self.d.set_window_size(412, 915)  # Pixel 9 Pro XL, CSS pixels
 
     def quit(self):
         self.d.quit()
@@ -221,6 +231,10 @@ class Browser:
         self.d.get(self.base + "/subjects/review/")
         self.wait(lambda: self.state() not in (None, "off", "unsupported"), what="indicator ready")
 
+    def open_review_off(self):
+        self.d.get(self.base + "/subjects/review/")
+        self.wait(lambda: self.state() == "off", what="indicator off")
+
     def host(self):
         return self.d.find_element(By.CSS_SELECTOR, "wkv-indicator")
 
@@ -256,6 +270,19 @@ class Browser:
 
     def say_hands_free(self, text):
         self.set_utterance(text).send_keys(Keys.ENTER)
+
+    def panel(self, selector):
+        return self.host().shadow_root.find_element(By.CSS_SELECTOR, selector)
+
+    def touch(self, el, hold=0.05, slide_to=None):
+        """A finger on el: press, hold, optionally slide to another element, lift."""
+        finger = PointerInput(interaction.POINTER_TOUCH, "finger")
+        ab = ActionBuilder(self.d, mouse=finger)
+        ab.pointer_action.move_to(el).pointer_down().pause(hold)
+        if slide_to is not None:
+            ab.pointer_action.move_to(slide_to)
+        ab.pointer_action.pointer_up()
+        ab.perform()
 
     def press_enter(self):
         ActionChains(self.d).send_keys(Keys.ENTER).perform()
@@ -368,16 +395,48 @@ def test_hands_free(b):
 
 
 def test_pause_toggle(b):
-    b.set_options()
-    b.open_review()
-    badge = lambda: b.host().shadow_root.find_element(By.CSS_SELECTOR, ".badge")
-    badge().click()
-    b.wait_state("off")
+    """Off in the settings: PTT does nothing; pressing the panel's mic turns it back on."""
+    b.set_options(enabled=False)
+    b.open_review_off()
     b.say("fire")
     time.sleep(0.3)
     assert b.state() == "off" and b.input_value() == "", "paused: PTT does nothing"
-    badge().click()
+    assert b.message().startswith("Voice answers are off"), b.message()
+    b.panel(".badge").click()
     b.wait_state("ready")
+    stored = b.settings()
+    assert stored.get("enabled") is True, stored
+
+
+def test_mic_button_mouse(b):
+    """The panel's mic button is hold-to-talk with a mouse too; Send and Submit work."""
+    b.set_options()
+    b.open_review()
+    b.set_utterance("fire")
+    ActionChains(b.d).click_and_hold(b.panel(".badge")).pause(0.3).release().perform()
+    b.wait_state("filled")
+    assert b.input_value() == "fire", b.input_value()
+    assert b.host().get_attribute("data-actions") == "submit", "no Clear with a keyboard"
+    assert b.message() == "fire — Enter to submit, or Shift to retry", b.message()
+    b.panel(".submit").click()
+    b.wait(lambda: b.mock_log(), what="submission via the panel")
+    b.wait_state("waiting")
+    assert b.host().get_attribute("data-actions") == "next"
+    b.panel(".next").click()
+    b.wait(lambda: b.mode() == "ja-kana" and b.state() == "ready", what="reading question")
+    assert not b.host().get_attribute("data-actions")
+    b.set_utterance("じん")
+    b.panel(".send").click()
+    b.wait_state("filled")
+    assert b.input_value() == "じん", b.input_value()
+
+
+def test_auto_submit_has_no_submit_button(b):
+    b.set_options(submitMode="auto-submit")
+    b.open_review()
+    b.say("fire")
+    b.wait_state("waiting")
+    assert b.host().get_attribute("data-actions") == "next"
 
 
 def test_options_page_saves(b):
@@ -448,7 +507,7 @@ def needs_voice(test):
 
 @needs_voice
 def test_speech_push_to_talk(b):
-    b.set_options(recognizer="local")
+    b.set_options(recognizer="local", englishSpeed="accurate")
     b.open_review()
     b.wait_model_ready()
     # The first press opens the microphone; with the fake mic there's no
@@ -457,6 +516,7 @@ def test_speech_push_to_talk(b):
     b.wait_state("filled", timeout=20)
     assert b.input_value() == "fire", b.input_value()
     assert b.mock_log() == [], "fill-only must not submit"
+    assert b.diag()["models"].get("whisper-base.en", {}).get("status") == "ready"
 
 
 @needs_voice
@@ -535,15 +595,21 @@ def test_speech_japanese(b):
 
 @needs_voice
 def test_speech_fast_english(b):
-    """The 'fast' English setting uses whisper-tiny.en."""
+    """The 'fast' English setting (the default) uses Moonshine; a repeated word is collapsed."""
     b.set_options(recognizer="local", englishSpeed="fast")
     b.open_review()
     b.wait_model_ready()
-    b.speak(SPEECH_PREFIX + "fire.wav")
-    b.wait_state("filled", timeout=20)
-    assert b.input_value() == "fire", b.input_value()
+    for clip, want in (("fire.wav", "fire"), ("king.wav", "king")):
+        b.d.execute_script("document.getElementById('user-response').value = ''")
+        b.speak(SPEECH_PREFIX + clip)
+        try:
+            b.wait_state("filled", timeout=20)
+        except AssertionError:
+            raise AssertionError(f"{clip}: {b.state()} {b.message()!r}")
+        assert b.input_value() == want, (clip, b.input_value())
     models = b.diag()["models"]
-    assert models.get("whisper-tiny.en", {}).get("status") == "ready", models
+    assert models.get("moonshine-base", {}).get("status") == "ready", models
+    return f"last decode {b.diag()['lastDecodeMs']} ms"
 
 
 @needs_voice
@@ -581,7 +647,7 @@ def test_background_survives_idle(b):
     time.sleep(20)
     after = b.diag()
     assert before["startedAt"] == after["startedAt"], (before, after)
-    assert after["workerAlive"] and after["models"]["whisper-base.en"]["status"] == "ready", after
+    assert after["workerAlive"] and after["models"]["moonshine-base"]["status"] == "ready", after
     b.speak(SPEECH_PREFIX + "fire.wav")
     b.wait_state("filled", timeout=20)
 
@@ -687,7 +753,7 @@ def test_custom_model_broken_falls_back(b):
     b.open_review()
     b.wait(lambda: "failed to load" in (b.message() or "") and b.message().startswith("Hold"), 90,
            "fallback notice")
-    assert b.diag()["models"].get("whisper-base.en", {}).get("status") == "ready"
+    assert b.diag()["models"].get("moonshine-base", {}).get("status") == "ready"
     assert custom(b, "en")["ok"]
 
 
@@ -721,9 +787,140 @@ def test_custom_ptt_key(b):
     assert b.mock_log()[-1]["answer"] == "fire"
 
 
+# ---- touch-only device (second browser: coarse pointer, no hover, phone size)
+
+def test_touch_detected(b):
+    assert b.d.execute_script("return matchMedia('(hover: none) and (pointer: coarse)').matches"), \
+        "touch emulation prefs not honoured"
+
+
+def test_touch_review_flow(b):
+    """A whole review by touch: hold the mic, tap a choice, Submit, Next."""
+    b.set_options()
+    b.open_review()
+    assert b.message() == "Test mode (no mic): type below, then tap Send", b.message()
+    b.settings(replace={"recognizer": "local"})  # wording with a real recognizer...
+    b.open_review()
+    b.wait(lambda: b.message().startswith("Hold the mic to answer") or b.message().startswith("Loading"),
+           what="touch wording")
+    b.set_options()
+    b.open_review()
+    b.set_utterance("fire")
+    b.touch(b.panel(".badge"), hold=0.3)
+    b.wait_state("filled")
+    assert b.input_value() == "fire", b.input_value()
+    assert b.d.execute_script("return document.activeElement?.id") != "user-response", \
+        "filling must not focus the answer box (on-screen keyboard)"
+    assert b.message() == "fire — tap Submit, or hold the mic to retry", b.message()
+    b.touch(b.panel(".submit"))
+    b.wait(lambda: b.mock_log(), what="submission by touch")
+    b.wait_state("waiting")
+    assert b.message() == "Tap Next for the next question", b.message()
+    b.touch(b.panel(".next"))
+    b.wait(lambda: b.mode() == "ja-kana" and b.state() == "ready", what="reading question")
+    time.sleep(0.2)  # the page focuses the answer box on a new question
+    assert b.d.execute_script("return document.activeElement?.id") != "user-response", \
+        "Next must not leave the on-screen keyboard up"
+    b.set_utterance("ジン|ニン|ヒト")
+    b.touch(b.panel(".badge"), hold=0.3)
+    b.wait_state("filled")
+    assert b.message().startswith("Tap another reading"), b.message()
+    b.touch(b.host().shadow_root.find_elements(By.CSS_SELECTOR, ".choices button")[2])
+    b.wait(lambda: b.input_value() == "ひと", 3, "third choice by touch")
+
+
+def test_touch_slide_off_cancels(b):
+    b.set_options()
+    b.open_review()
+    b.set_utterance("fire")
+    b.touch(b.panel(".badge"), hold=0.3, slide_to=b.d.find_element(By.ID, "user-response"))
+    time.sleep(0.3)
+    assert b.state() == "ready" and b.input_value() == "", (b.state(), b.input_value())
+    b.touch(b.panel(".badge"), hold=0.05)  # a tap is not speech
+    time.sleep(0.3)
+    assert b.state() == "ready" and b.input_value() == "", (b.state(), b.input_value())
+
+
+def test_touch_clear(b):
+    """Clear empties the answer box without the on-screen keyboard."""
+    b.set_options()
+    b.open_review()
+    b.set_utterance("fire")
+    b.touch(b.panel(".badge"), hold=0.3)
+    b.wait_state("filled")
+    assert b.host().get_attribute("data-actions") == "submit clear"
+    b.touch(b.panel(".clear"))
+    b.wait_state("ready")
+    assert b.input_value() == ""
+    assert b.d.execute_script("return document.activeElement?.id") != "user-response"
+
+
+def test_touch_drift_still_records(b):
+    """A thumb drifting just off the mic while talking doesn't cancel."""
+    b.set_options()
+    b.open_review()
+    b.set_utterance("fire")
+    badge = b.panel(".badge")
+    finger = PointerInput(interaction.POINTER_TOUCH, "finger")
+    ab = ActionBuilder(b.d, mouse=finger)
+    ab.pointer_action.move_to(badge).pointer_down().pause(0.2).move_to(badge, 30, 0).pause(0.2).pointer_up()
+    ab.perform()
+    b.wait_state("filled")
+    assert b.input_value() == "fire"
+
+
+def test_touch_mic_stays_put(b):
+    """With choices and Submit showing at the bottom, pressing the mic hides
+    them; the mic must not move, and letting go where it was still records."""
+    b.set_options(indicatorPosition="bottom-right")
+    b.open_review()
+    b.set_utterance("And|Hand")
+    b.touch(b.panel(".badge"), hold=0.3)
+    b.wait_state("filled")
+    before = b.d.execute_script("return arguments[0].getBoundingClientRect().toJSON()", b.panel(".badge"))
+    b.set_utterance("Fire|Fir")
+    finger = PointerInput(interaction.POINTER_TOUCH, "finger")
+    ab = ActionBuilder(b.d, mouse=finger)
+    ab.pointer_action.move_to_location(int(before["x"] + before["width"] / 2), int(before["y"] + before["height"] / 2))
+    ab.pointer_action.pointer_down().pause(0.3)
+    ab.perform()
+    during = b.d.execute_script("return arguments[0].getBoundingClientRect().toJSON()", b.panel(".badge"))
+    ab = ActionBuilder(b.d, mouse=finger)
+    ab.pointer_action.pointer_up()
+    ab.perform()
+    assert abs(during["y"] - before["y"]) < 2, (before, during)
+    b.wait(lambda: b.input_value() == "fire", what="second recording kept")
+
+
+def test_touch_layout(b):
+    """Phone-sized screens get a full-width bar with finger-sized buttons."""
+    width = b.d.execute_script("return innerWidth")
+    height = b.d.execute_script("return innerHeight")
+    rect = lambda sel: b.d.execute_script("return arguments[0].getBoundingClientRect().toJSON()", b.panel(sel))
+    b.set_options(indicatorPosition="bottom-right")
+    b.open_review()
+    wrap = rect(".wrap")
+    assert wrap["left"] <= 10 and width - wrap["right"] <= 10, (wrap, width)
+    assert height - wrap["bottom"] <= 12, (wrap, height)
+    assert rect(".badge")["width"] >= 56
+    b.set_options(indicatorPosition="top-left")
+    b.open_review()
+    assert rect(".wrap")["top"] <= 10
+
+
+def test_touch_options_hide_ptt_key(b):
+    b.d.get(b.base + "/test/options/index.html")
+    b.wait(lambda: b.d.find_element(By.ID, "ptt-row"), what="options page")
+    assert not b.d.find_element(By.ID, "ptt-row").is_displayed(), "no key to pick on a phone"
+
+
+TOUCH_TESTS = [test_touch_detected, test_touch_review_flow, test_touch_slide_off_cancels,
+               test_touch_clear, test_touch_drift_still_records, test_touch_mic_stays_put, test_touch_layout, test_touch_options_hide_ptt_key]
+
 TESTS = [test_unit, test_inactive_off_review_page, test_lesson_quiz, test_defaults_fill_only_push_to_talk,
          test_wrong_answer_not_corrected, test_auto_submit_and_advance,
          test_kanji_rejected_for_reading, test_hands_free, test_pause_toggle,
+         test_mic_button_mouse, test_auto_submit_has_no_submit_button,
          test_options_page_saves,
          test_shift_chords_and_taps_ignored, test_custom_ptt_key,
          test_reload_replaces_orphaned_badge, test_custom_model_english,
@@ -754,22 +951,30 @@ def main():
     server, base = start_server()
     proxy = RefusingProxy()
     ext = build_test_extension()
-    b = Browser(base, ext, headed=args.headed, proxy_port=proxy.port)
+    def run(tests, touch=False):
+        nonlocal failed
+        tests = [t for t in tests if args.k in t.__name__]
+        if not tests:
+            return
+        b = Browser(base, ext, headed=args.headed, proxy_port=proxy.port, touch=touch)
+        try:
+            for t in tests:
+                if getattr(t, "needs_voice", False) and not VOICE_FIXTURES.exists():
+                    print(f"skip {t.__name__} (private voice fixtures not checked out)")
+                    continue
+                try:
+                    note = t(b)
+                    print(f"ok   {t.__name__}" + (f" ({note})" if note else ""))
+                except Exception as e:  # report and keep going
+                    failed += 1
+                    print(f"FAIL {t.__name__}: {type(e).__name__}: {e}")
+        finally:
+            b.quit()
+
     try:
-        for t in TESTS:
-            if args.k not in t.__name__:
-                continue
-            if getattr(t, "needs_voice", False) and not VOICE_FIXTURES.exists():
-                print(f"skip {t.__name__} (private voice fixtures not checked out)")
-                continue
-            try:
-                note = t(b)
-                print(f"ok   {t.__name__}" + (f" ({note})" if note else ""))
-            except Exception as e:  # report and keep going
-                failed += 1
-                print(f"FAIL {t.__name__}: {type(e).__name__}: {e}")
+        run(TESTS)
+        run(TOUCH_TESTS, touch=True)
     finally:
-        b.quit()
         server.shutdown()
         shutil.rmtree(ext, ignore_errors=True)
     # Privacy audit: Firefox's own background traffic goes to Mozilla's

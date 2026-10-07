@@ -10,7 +10,15 @@ import { ctcBeamSearch } from './ctc.js';
 export const PROMPT = ' Rain. Old man. Dog. To run. Heart. Seven. Leaf. Blue.';
 const promptCache = new WeakMap(); // pipeline -> decoder_input_ids
 
+const isWhisper = asr => asr.model.config.model_type === 'whisper';
+
+// Decoder start: Whisper gets the fixed prompt above; Moonshine (no prompt
+// support) starts from its decoder start token alone.
 function decoderPrompt(asr) {
+  if (!promptCache.has(asr) && !isWhisper(asr)) {
+    const start = asr.model.generation_config?.decoder_start_token_id ?? asr.model.config.decoder_start_token_id ?? 1;
+    promptCache.set(asr, [[start]]);
+  }
   if (!promptCache.has(asr)) {
     const tok = asr.tokenizer;
     const special = t => tok.encode(t, { add_special_tokens: false })[0];
@@ -40,12 +48,17 @@ export async function recognize(asr, audio, { alternatives = 0, LogitsProcessorC
   const inputs = await asr.processor(audio);
   const prompt = decoderPrompt(asr);
   const promptLen = prompt[0].length;
+  // Whisper takes log-mel features; Moonshine takes the raw audio.
+  const inputName = 'input_features' in inputs ? 'input_features' : 'input_values';
   // generate() returns the prompt too; keep only what follows it.
   const textOf = ids => asr.tokenizer.decode(ids.slice(promptLen), { skip_special_tokens: true });
+  // Moonshine often ends before its first word on short clips (an empty
+  // answer); Silero VAD has already found speech, so it must say something.
+  const minTokens = isWhisper(asr) ? {} : { min_new_tokens: 1 };
   const generate = async (decoderIds, extra) =>
-    (await asr.model.generate({ ...extra, decoder_input_ids: decoderIds, max_new_tokens: 24 })).tolist()[0].map(Number);
+    (await asr.model.generate({ ...extra, ...minTokens, decoder_input_ids: decoderIds, max_new_tokens: 24 })).tolist()[0].map(Number);
 
-  if (!alternatives || !LogitsProcessorClass) return [textOf(await generate(prompt, inputs))];
+  if (!alternatives || !LogitsProcessorClass) return tidy(asr, [textOf(await generate(prompt, inputs))]);
 
   // Encode once and reuse it for every decode: the encoder is most of the
   // cost (~1.3 s of ~1.6 s in Firefox's single-threaded WASM). Two
@@ -61,9 +74,9 @@ export async function recognize(asr, audio, { alternatives = 0, LogitsProcessorC
   }
   if (typeof prepare === 'function') {
     const prepared = await prepare.call(asr.model, {
-      inputs_tensor: inputs.input_features,
-      model_inputs: { input_features: inputs.input_features },
-      model_input_name: 'input_features',
+      inputs_tensor: inputs[inputName],
+      model_inputs: { [inputName]: inputs[inputName] },
+      model_input_name: inputName,
       generation_config: asr.model.generation_config,
     });
     if (prepared?.encoder_outputs) shared = { ...inputs, encoder_outputs: prepared.encoder_outputs };
@@ -80,19 +93,30 @@ export async function recognize(asr, audio, { alternatives = 0, LogitsProcessorC
   const out = [textOf(best)];
   if (!firstStep || best.length <= promptLen) return out;
 
-  // Ordinary text tokens only (special tokens start at <|endoftext|>).
-  const eot = asr.tokenizer.encode('<|endoftext|>', { add_special_tokens: false })[0];
+  // Ordinary text tokens only: special ones (end of text, Whisper's
+  // timestamps) decode to nothing once special tokens are skipped.
   const chosen = best[promptLen];
   const floor = firstStep[chosen] + Math.log(MIN_RELATIVE);
   const others = [];
-  for (let id = 0; id < eot; id++) {
-    if (id !== chosen && firstStep[id] >= floor) others.push(id);
+  for (let id = 0; id < firstStep.length; id++) {
+    if (id !== chosen && firstStep[id] >= floor &&
+      asr.tokenizer.decode([id], { skip_special_tokens: true }).trim()) others.push(id);
   }
   others.sort((x, y) => firstStep[y] - firstStep[x]);
   for (const id of others.slice(0, alternatives)) {
     out.push(textOf(await generate([[...prompt[0], id]], shared)));
   }
-  return out;
+  return tidy(asr, out);
+}
+
+// Moonshine tends to repeat a short answer ("king king", "21 21"): collapse
+// a phrase said twice in a row. Measured on real recordings 2026-10-06:
+// moonshine-base 16/25 -> 20/25 first choice. A WaniKani meaning is never
+// the same words twice, so nothing right is lost.
+const REPEATED = /^\s*(.+?)[\s,.!?]+\1[\s.!?]*$/i;
+function tidy(asr, texts) {
+  if (isWhisper(asr)) return texts;
+  return texts.map(t => REPEATED.exec(t)?.[1] ?? t);
 }
 
 

@@ -19,27 +19,28 @@ them from here.
 | Tags (optional) | `japanese`, `wanikani`, `speech recognition`, `voice`, `language learning`, `accessibility` |
 
 ## Summary (max 250 characters)
-Answer WaniKani reviews and lesson quizzes by voice. Speech recognition runs entirely on your computer; nothing is sent anywhere. Hiragana readings and English meanings. Created with AI: Anthropic's Claude Opus 5.5.
+Answer WaniKani reviews and lesson quizzes by voice, on desktop or Android. Speech recognition runs entirely on your device; nothing is sent anywhere. Hiragana readings and English meanings. Created with AI: Anthropic's Claude Opus 5.5.
 
 ## Description
-Say your WaniKani answers instead of typing them. Hold Shift, say the meaning or the reading, and release: the answer is filled into WaniKani's answer box, ready for you to press Enter.
+Say your WaniKani answers instead of typing them. Hold Shift (or, on a phone, the mic button), say the meaning or the reading, and release: the answer is filled into WaniKani's answer box, ready for you to submit.
 
 <b>Private by design</b>
-• Speech recognition runs inside Firefox on your own computer. Your voice is never sent anywhere: the extension makes no network requests at all, and its speech models ship inside the add-on.
+• Speech recognition runs inside Firefox on your own computer or phone. Your voice is never sent anywhere: the extension makes no network requests at all, and its speech models ship inside the add-on.
 • It never reads the question. It only checks whether WaniKani is asking for a meaning or a reading, so a wrong answer goes in exactly as you said it.
 • No account, no tracking, no data collection. Permissions: WaniKani pages and local storage only.
 
 <b>Features</b>
-• English meanings and radical names (OpenAI Whisper; "accurate" or "fast" mode).
+• English meanings and radical names (Moonshine, fast, by default; or OpenAI Whisper, accurate).
 • Readings in hiragana, from a speech model that writes kana directly, so it never has to guess a reading from kanji.
-• Alternatives: if it also heard something else (hand / and, じん / にん), press 1–3 to switch before submitting.
+• Alternatives: if it also heard something else (hand / and, じん / にん), press 1–3 (or tap) to switch before submitting.
 • Push-to-talk (Shift, configurable) or hands-free.
 • Fill only, or fill and submit; optional auto-advance (or only after a correct answer).
 • Works in reviews and lesson quizzes.
+• Firefox for Android: everything works by touch (hold the mic button to talk; Submit, Clear and Next buttons), and the panel stays above the on-screen keyboard.
 • Advanced: load your own fine-tuned model per language. Tools to fine-tune on your own voice are in the source repository.
 
 <b>Requirements</b>
-No GPU needed: everything runs on the CPU. Answers take about 1.5 s (English, accurate), 0.8 s (English, fast) and 0.4 s (readings) on a fast desktop, longer on slower machines. The models use about 400–650 MB of memory while a review is open. Avoid system noise gates or suppressors on the microphone (e.g. EasyEffects): they cut off the start of words.
+No GPU needed: everything runs on the CPU. On a fast desktop answers take about 0.1 s (English, fast), 1.5 s (English, accurate) and 0.4 s (readings); on a Pixel 9 Pro XL about 0.3 s, 4 s and 0.5 s. The models use about 430 MB of memory while a review is open (720 MB with accurate English). Firefox 140+ on desktop, 142+ on Android; the download is about 150 MB. Avoid system noise gates or suppressors on the microphone (e.g. EasyEffects): they cut off the start of words.
 
 <b>Notes</b>
 Not affiliated with WaniKani or Tofugu. Open source (MIT). This extension was created with AI: all of its code was written by Anthropic's Claude Opus 5.5 (in Claude Code), directed and tested by a human.
@@ -65,7 +66,7 @@ Paste into "Notes to Reviewer" when submitting:
 > SOURCE-README.md.
 >
 > `vendor/ort/` is onnxruntime-web's WASM runtime, unmodified. `models/`
-> holds ONNX speech models (Whisper base.en/tiny.en, MIT; a hiragana
+> holds ONNX speech models (Moonshine base and Whisper base.en, MIT; a hiragana
 > speech model, Apache-2.0; Silero VAD, MIT), loaded from inside the
 > package. Remote loading is disabled and the CSP is `connect-src 'self'`.
 >
@@ -98,6 +99,11 @@ the real settings page.
 | `3-filled-in.png` | The answer is filled in; check it and press Enter |
 | `4-reading-choices.png` | Readings in hiragana; press 1–3 if it heard a different reading |
 | `5-settings.png` | Push-to-talk or hands-free, auto-submit, auto-advance, English speed, custom models |
+| `6-phone-ready.png` | On a phone: hold the mic button and say the answer |
+| `7-phone-choices.png` | On a phone: tap a reading, then Submit (or Clear) |
+
+The two phone screenshots (1008×2244, portrait, uncropped, taken on a Pixel 9
+Pro XL on 2026-10-06) are for the Android release.
 
 ## Before submitting a listed version
 - **Make the GitHub repository public** first (see PLAN.md: personal notes

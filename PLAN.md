@@ -3,11 +3,14 @@
 A Firefox extension that lets you answer WaniKani reviews by voice. Speech
 recognition runs entirely on-device.
 
-Status (2026-10-05): **v0.1.2 submitted to addons.mozilla.org (listed, in
-review); v0.1.1 signed and released on GitHub.** English meanings and radical
-names are recognised by Whisper, and readings by a small hiragana CTC model,
-with up to three choices (keys 1–3). Everything runs on-device. Verified on
-the live site in reviews and lesson quizzes. Next steps are in §8.
+Status (2026-10-06): **v0.2.0 adds Firefox for Android** (touch controls,
+tested on a Pixel 9 Pro XL) and makes Moonshine the default English model;
+signed in the unlisted channel. **v0.1.2 is in review on
+addons.mozilla.org (listed).** English meanings and radical names are
+recognised by Moonshine (*fast*) or Whisper (*accurate*), readings by a small
+hiragana CTC model, with up to three choices. Everything runs on-device.
+Verified on the live site in reviews and lesson quizzes, on desktop and
+phone. Next steps are in §8.
 
 ---
 
@@ -55,7 +58,8 @@ selects the model.
 
 | Mode | Model (initial pick) | Why |
 |---|---|---|
-| **English** (meaning, radical name) | **Whisper `base.en`, 8-bit (77 MB)** via transformers.js 4.3 + onnxruntime-web (WASM) — **chosen in S5** | Best accuracy on real recordings; bigger variants were no better (S5) |
+| **English** (meaning, radical name), *fast* — **the default since 2026-10-06** | **Moonshine base, 8-bit (64 MB)** via transformers.js 4.3 + onnxruntime-web (WASM) | Encodes only the clip, not Whisper's fixed 30 s window: ~0.1 s per answer on a desktop, ~0.3 s on a Pixel 9 Pro XL. 20–21/25 first choice on real recordings (Phase 6) |
+| **English**, *accurate* | **Whisper `base.en`, 8-bit (77 MB)** — **chosen in S5** | Best accuracy on real recordings (22/25 first, 25/25 offered); bigger variants were no better (S5). ~1.5 s desktop, ~4 s phone |
 | **Japanese reading** | **distilhubert-hiragana-ctc** (Apache-2.0), exported to ONNX by `tools/export-dual-ctc.py`, MatMul-only int8 (51 MB) — **chosen in S4** | Emits hiragana directly, so there's no kanji to convert and no language model inventing words. Best first-choice accuracy, tiny and fast (~20 ms). Up to 3 alternatives from beam search, which you pick between |
 
 **Why not Whisper for Japanese:** it writes kanji (人), and converting back is
@@ -293,7 +297,7 @@ off the review page.
 | **3 — Japanese** | **Done 2026-10-04**, verified live |
 | **4 — UX and robustness** | **Done 2026-10-04**: Silero VAD, speed (English speed setting), retry limit, correct-only advance, panel position, fine-tuning on your voice (right reading offered 24/31 vs 13/31) |
 | **5 — Privacy audit + packaging** | Done 2026-10-04, released as **v0.1.1** (signed by Mozilla, GitHub release): lessons and custom models verified live, automated privacy audit, packaging and signing, README, MIT licence, private data split out, repo recreated. Personal notes removed from the plan and from history (2026-10-05). Next steps in §8 |
-| 6 — Firefox for Android | **Planned 2026-10-06** (below) |
+| 6 — Firefox for Android | **Built 2026-10-06** (below): touch controls, phone layout, Android mic gain, Moonshine as the default English model. Tested on a Pixel 9 Pro XL. v0.2.0 signed (unlisted) |
 
 ### Spikes
 | Spike | Question | Exit criterion |
@@ -589,7 +593,7 @@ Requested 2026-10-04, after Phase 4:
 Network Monitor + `about:networking` audit over a full session. `web-ext lint`.
 Sign as unlisted on AMO, or list publicly (§6).
 
-### Phase 6 — Firefox for Android (planned 2026-10-06)
+### Phase 6 — Firefox for Android (built 2026-10-06; release pending)
 
 **Goal:** the same add-on (one package; AMO no longer accepts per-platform
 files) works on Firefox for Android, with touch equivalents for every
@@ -612,11 +616,11 @@ layout, speed and memory.
 **Touch for every keyboard interaction** (inventory from the code):
 | # | Keyboard today | Touch equivalent |
 |---|---|---|
-| K1 | Hold Shift (or the chosen key) to talk; Shift chords and taps under 200 ms ignored | **Press and hold the mic button**: pointer events, so it works for touch, mouse and pen. The button gets ≥ 56 px on touch screens. Sliding off the button before release cancels, like a Shift chord. The same 200 ms minimum applies |
+| K1 | Hold Shift (or the chosen key) to talk; Shift chords and taps under 200 ms ignored | **Press and hold the mic button**: pointer events, so it works for touch, mouse and pen. The button gets ≥ 56 px on touch screens and keeps the pointer captured while held. Letting go more than 72 px from where the press started cancels (see the findings below for why not "sliding off the button"). The same 200 ms minimum applies |
 | K2 | 1–3 switch between choices | Tap the choice chips (already clickable); ≥ 44 px tall on touch screens |
 | K3 | Enter to submit | A **Submit** button in the panel when an answer is filled in (calls the same `answerIO.submit`); auto-submit stays an option |
 | K4 | Enter for the next question | A **Next** button in the panel while graded; auto-advance stays an option |
-| K5 | Alt+Shift+V to pause; a click on the mic button also pauses | A separate small **pause** button in the panel, because the mic button becomes hold-to-talk. Same layout on desktop for consistency; `commands` stays for desktop |
+| K5 | Alt+Shift+V to pause; a click on the mic button also pauses | **No pause button** (tried, then removed at the user's request): pause with *Enabled* in the settings (or Alt+Shift+V on desktop). While paused, pressing the mic button turns voice answers back on |
 | K6 | "Click the page or press a key" to start audio or resume hands-free | Already pointer events, so a tap works; only the wording changes |
 | K7 | Enter in the test-mode field | A **Send** button next to the field |
 | K8 | Settings: press a key to choose the push-to-talk key | Hidden on touch-only devices (no keyboard to hold), with a note that the mic button is used |
@@ -624,6 +628,8 @@ layout, speed and memory.
 Plus:
 - **No `focus()` on the answer box after filling on touch devices**, so the
   phone's keyboard doesn't pop up over the page.
+- **A Clear button** (touch screens only) next to Submit, to empty the
+  answer box without the on-screen keyboard.
 - **Messages adapt to the input method** ("Hold the mic to answer",
   "Tap a reading", "Tap Submit"), chosen by `(hover: none) and
   (pointer: coarse)`. Devices with both (tablets with keyboards, touch
@@ -631,19 +637,68 @@ Plus:
 
 **Layout:** on narrow screens (< 600 px) the panel becomes a full-width bar,
 at the **bottom by default** (the position setting can move it to the top),
-so it doesn't cover the question. The mic button sits where a thumb reaches it; check
-it against WaniKani's mobile review layout.
+so it doesn't cover the question, with the mic button where a thumb reaches
+it. Anchored at the bottom, the rows that come and go (choices, buttons) sit
+*above* the mic row, and the panel follows `visualViewport` so it stays
+above the on-screen keyboard.
 
-**Speed and memory** (phones have slower single cores and less memory):
-- **Spike A1, measure first on a real phone:** latency per mode and the
-  memory with models loaded. Rough expectation, unmeasured: tiny.en 2–4×
-  the desktop's ~0.8 s, base.en likely too slow (4–8 s); readings ~1–2 s.
-- **Defaults on Android** (`runtime.getPlatformInfo().os === 'android'`):
-  English *fast* (tiny.en), and the reading model **loaded on the first
-  reading question** instead of at warm-up, to keep memory lower. The
-  settings still allow *accurate*.
-- **If too slow:** shorter decoding (no English alternatives on Android),
-  or a smaller reading model export.
+**Speed and memory: spike A1, measured on the Pixel 9 Pro XL (2026-10-06)**
+over the debugging protocol (decode time in the worker, per answer):
+| Model | Phone | Desktop (Ryzen 9 9950X3D) |
+|---|---|---|
+| Whisper base.en (*accurate*) | 3.9–5.0 s | ~1.5 s |
+| Whisper tiny.en (old *fast*) | 1.9–2.3 s | ~0.8 s |
+| **Moonshine base (new *fast*, default)** | **0.25–0.4 s** | ~0.1 s |
+| distilhubert-hiragana (readings) | 0.35–0.6 s | ~0.4 s end to end |
+- Whisper's cost is its encoder, which always processes a 30 s window; the
+  decode is a few tokens. Dropping English alternatives would not have
+  helped. Moonshine and the CTC model process only the clip.
+- Memory on desktop (growth of the whole Firefox process tree with a review
+  open and models loaded): +426 MB with *fast*, +723 MB with *accurate*.
+- Android loads the reading model lazily, on the first reading question
+  (a `prepare` message from the tab); it loaded in ~0.65 s on the phone.
+
+**Moonshine (2026-10-06).** S5 had rejected `moonshine-base` at 10/25, but
+that run fed it Whisper's decoder prompt and input format. With its own
+start token and raw-audio input it scored 16/25. Two generic fixes, neither
+using the question, brought it to 20–21/25 first choice (21–22 offered) on
+clips padded like the mic path:
+- `min_new_tokens: 1`: on short clips it often ended before its first word.
+  Silero VAD has already found speech, so it must say something. This was
+  also what made it fail in Firefox at first (the mic path adds 0.3 s of
+  pre-roll).
+- Collapse a phrase repeated back to back ("king king", "21 21").
+- Remaining misses: moon→"no", eye→"I", ground→"crowned".
+- `moonshine-tiny` was too weak (9–14/25). Padding clips to 2–3 s made both
+  worse.
+- **Decision (user, 2026-10-06):** Moonshine base replaces tiny.en as
+  *fast* and becomes the default on desktop and Android; tiny.en is no
+  longer bundled (kept in `models/` for the custom-model tests). Package
+  ~148 MB zipped, 206 MB installed.
+
+**Microphone on Android (2026-10-06).** Every answer came back "Didn't hear
+anything". A probe on the live page showed audio flowing (48 kHz, no
+zeros) but speech peaking at ~0.005 (RMS ~0.0005), ~25 dB quieter than a
+desktop mic and under the 0.006 silence floor. With `autoGainControl: true`
+speech is at RMS 0.05–0.08. Android now asks for auto-gain; noise
+suppression and echo cancellation stay off everywhere, and desktop keeps
+raw audio.
+
+**Touch findings on the phone (2026-10-06):**
+- Half the holds were cancelled mid-sentence: the thumb drifted just off
+  the 56 px button (release landed on a neighbouring `div`). The button now
+  keeps pointer capture, and only letting go far from the press point
+  cancels.
+- Pressing the mic hid the choices and Submit row, the bottom-anchored bar
+  shrank, and the mic moved out from under the finger, which then counted as
+  "let go elsewhere". Fixed by the row order above and by measuring from the
+  press point.
+- WaniKani focuses the answer box on every new question, which brings up
+  the keyboard. After the panel's own Next / Submit (and auto-advance or
+  auto-submit) a 2.5 s guard takes that focus away again, unless the user
+  taps the box. It still comes up sometimes, which the user is fine with as
+  long as the panel stays above the keyboard (it does).
+- Press to "Listening…" took 4 ms; the felt delay was the cancellations.
 
 **Other Android specifics:**
 - Mic permission is asked twice the first time: by Firefox for the site,
@@ -651,18 +706,30 @@ it against WaniKani's mobile review layout.
 - Leaving the app hides the tab, which already releases the mic. Android
   may also kill the background page, in which case models reload on
   return (the panel shows "Loading speech model…").
-- The download is still ~120 MB, worth stating in the listing for mobile
-  data.
+- The download is ~150 MB, stated in the listing for mobile data.
+- `commands` doesn't exist there; the background guards the call.
 
 **Testing:**
 - **Automated, desktop headless:** emulate a touch-only device (Firefox
   prefs for a coarse primary pointer and no hover) and drive the panel with
   W3C pointer actions of type `touch`. Covers K1–K8, no focus on fill, the
   narrow-screen layout and the wording.
-- **Real phone:** `web-ext run -t firefox-android --adb-device …` over USB
-  debugging (needs `android-tools` for `adb`, and "Remote debugging via
-  USB" in Firefox for Android). about:debugging over USB for console and
-  timing. This is where A1 and the live WaniKani mobile check happen.
+- **Real phone:** `web-ext run -t firefox-android --adb-device … -s build`
+  over USB debugging (needs `android-tools` for `adb`, and "Remote debugging
+  via USB" in Firefox for Android). It installs into the phone's normal
+  Firefox profile (so the WaniKani login is there) as a temporary add-on,
+  which loses its data, including a custom model, on every reinstall or
+  Firefox restart.
+- **Measuring on the phone:** web-ext forwards the Firefox debugging
+  protocol to a local TCP port (printed at startup). A small client
+  evaluated code in the background page (`listAddons` → `getWatcher` →
+  `watchTargets("frame")`, then `evaluateJSAsync`) and in the tab
+  (`listTabs` → `getTarget`) to log worker round trips and pointer timings.
+  Top-level `await` isn't supported there; store the result in a global and
+  read it back.
+- **Automated:** 9 touch tests run in a second headless Firefox with
+  `ui.primaryPointerCapabilities` / `ui.allPointerCapabilities` = 1 (coarse,
+  no hover) and a 412×915 window, using W3C `touch` pointer actions.
 - **An emulator** (Android SDK, x86) is possible but not representative
   for ARM speed; not planned.
 
@@ -670,9 +737,9 @@ it against WaniKani's mobile review layout.
 - Version 0.2.0 with `gecko_android` set. AMO then offers it to Firefox for
   Android users; enable Android in the listing's compatibility settings if
   AMO asks.
-- Mobile screenshots for the listing.
-- README: a requirements row for Android, and wording that doesn't assume
-  a keyboard.
+- Mobile screenshots: `store/screenshots/6-phone-ready.png`,
+  `7-phone-choices.png` (also in the README). Done.
+- README and store text updated for Android and Moonshine. Done.
 
 **Decisions (2026-10-06):**
 - **Test device: Pixel 9 Pro XL** (Google Tensor G4, 16 GB RAM). Memory is
@@ -681,6 +748,9 @@ it against WaniKani's mobile review layout.
   reference, not a worst case.
 - **Default listening on Android: hold-to-talk** on the mic button.
   Hands-free stays available in the settings.
+- **English: Moonshine base as *fast*, the default everywhere** (replacing
+  tiny.en); Whisper base.en stays as *accurate*.
+- **No pause button; a Clear button on touch screens.**
 - **Default panel placement on phones: bottom bar.** The position setting
   still allows the top.
 
@@ -693,7 +763,7 @@ it against WaniKani's mobile review layout.
 | Misheard answer counts against you | Default is fill-only: you see it before pressing Enter |
 | Japanese readings misheard (accent, short readings) | Fill-only default plus up to 3 alternatives to pick from; typing still works. Model accuracy measured in S4 |
 | WaniKani DOM changes | Selectors live in two files. If the type can't be read, the badge shows "unsupported" and does nothing |
-| Model size vs 200 MB XPI limit | ~152 MB today (77 + 51 MB models, 27 MB runtime) |
+| Model size vs 200 MB XPI limit | ~148 MB zipped since 2026-10-06 (Moonshine 64, Whisper base.en 77, hiragana 51 MB, runtime) |
 | Background unloaded mid-session | Heartbeat (S2); verified by test |
 | System noise filters (e.g. EasyEffects) degrade recognition | Extension asks for raw audio. Users with system noise gates will see worse accuracy; worth a note in the listing |
 | Your voice recordings | Moved to the private submodule `personal/` (2026-10-04), and removed from the public repo's history by a rewrite. Voice tests skip without the submodule |
@@ -715,10 +785,11 @@ it against WaniKani's mobile review layout.
   lint` on `build/`: 0 errors. Warnings are only `Function`/dynamic `import`
   inside transformers.js and onnxruntime (unused paths; the CSP forbids eval)
   and an Android min-version notice.
-- XPI size today is ~152 MB, under AMO's 200 MB limit.
-- Model licences allow redistribution: Whisper (MIT) and
-  distilhubert-hiragana-ctc (Apache-2.0). Both are listed with the libraries
-  in `THIRD_PARTY_NOTICES.md`.
+- XPI size is ~148 MB, under AMO's 200 MB limit.
+- Model licences allow redistribution: Moonshine (MIT), Whisper (MIT),
+  Silero VAD (MIT) and distilhubert-hiragana-ctc (Apache-2.0). All are
+  listed with the libraries in `THIRD_PARTY_NOTICES.md` (Silero was missing
+  until 2026-10-06).
 - The add-on ID `wanikani-voice@jsmrcina` is permanent once published. Change
   it now if you'd prefer something else.
 
@@ -753,9 +824,9 @@ it against WaniKani's mobile review layout.
   screenshots, the homepage and support links (the GitHub repository) and
   a contributions link (Buy Me a Coffee).
 - **Hardware (README → Requirements):** no GPU used: single-core WASM on
-  the CPU. On a fast desktop CPU, English takes 1.5–1.7 s (accurate) or
-  0.8–0.9 s (fast), readings ~0.4 s, and the models use ~650/420 MB of
-  memory. Slower CPUs scale roughly with single-core speed (estimated
+  the CPU. Updated 2026-10-06: on a fast desktop CPU English takes ~0.1 s
+  (*fast*, Moonshine) or 1.5–1.7 s (*accurate*), readings ~0.4 s, memory
+  +430 / +720 MB; on a Pixel 9 Pro XL 0.25–0.4 s, 4–5 s and ~0.5 s. Slower CPUs scale roughly with single-core speed (estimated
   1.5–2.5× on a typical laptop).
 - **Personal notes removed (2026-10-05).** Details of the developer's own
   hardware, audio setup and pronunciation were taken out of this file and
@@ -772,7 +843,9 @@ it against WaniKani's mobile review layout.
    custom model. Same approach as for readings:
    - a word list of your WaniKani meanings
    - recordings with `tools/recorder`
-   - full fine-tuning of whisper-base.en / tiny.en in PyTorch
+   - full fine-tuning of Moonshine base (the default) or whisper-base.en
+     in PyTorch; custom English models are Whisper-only so far, so the
+     model store needs a `moonshine` kind
    - export via Optimum with int8 quantisation, packed with
      `tools/pack-model.mjs` and chosen in settings → Custom models
    - measured on held-out recordings, as in the Phase 4 results
@@ -783,5 +856,7 @@ it against WaniKani's mobile review layout.
    the benchmark, head-only gets 20/31 offered vs 24/31 for full
    fine-tuning (13/31 generic). Most useful for other users once the add-on
    is public, since they have no personal build.
-3. **Firefox for Android (Phase 6).** Touch for every keyboard interaction,
-   mobile layout, speed and memory defaults; plan above.
+3. **List v0.2.0 (Android) on AMO** once Mozilla has reviewed v0.1.2:
+   `npm run package -- --sign --listed` with a new version, the phone
+   screenshots and captions (`store/LISTING.md`), and Android enabled in
+   the listing's compatibility settings if AMO asks.

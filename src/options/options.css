@@ -38,3 +38,11 @@ select { font: inherit; margin: 2px 0 4px; padding: 2px 4px; }
   border: 1px solid var(--border); background: var(--bg); color: var(--fg);
 }
 code { font-size: 11px; }
+
+/* Touch-only devices (Firefox for Android): no push-to-talk key to pick; the
+   panel's mic button is held instead. */
+.touch-only { display: none; }
+@media (hover: none) and (pointer: coarse) {
+  .touch-only { display: inline; }
+  .kbd-only, #ptt-row { display: none; }
+}

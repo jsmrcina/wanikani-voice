@@ -25,11 +25,22 @@
     // { id, name, kind, size, addedAt }; the files are in IndexedDB
     // (src/shared/model-store.js).
     customModels: {},
-    // English model: 'accurate' (Whisper base.en) or 'fast' (tiny.en).
-    englishSpeed: 'accurate',
+    // English model: 'fast' (Moonshine base, the default since 2026-10-06:
+    // ~0.1 s per answer on a desktop, ~0.3 s on a phone) or 'accurate'
+    // (Whisper base.en: ~1.6 s and ~4 s, offers the right answer slightly
+    // more often).
+    englishSpeed: 'fast',
     // 'local': the bundled on-device speech model.
     // 'fake': test mode; text typed into the indicator stands in for speech.
     recognizer: 'local',
+  });
+
+  // Different first-run defaults on Firefox for Android (touch, small
+  // screen). Applied once, at install, and only to settings the user hasn't
+  // set; see background.js.
+  const ANDROID_DEFAULTS = Object.freeze({
+    indicatorPosition: 'bottom-right',
+    inputMode: 'push-to-talk',
   });
 
   async function load() {
@@ -50,5 +61,5 @@
     });
   }
 
-  WKV.settings = { DEFAULTS, load, save, onChange };
+  WKV.settings = { DEFAULTS, ANDROID_DEFAULTS, load, save, onChange };
 })(globalThis.WKV = globalThis.WKV || {});

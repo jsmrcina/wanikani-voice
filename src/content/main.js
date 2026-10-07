@@ -49,12 +49,28 @@
     return code;
   }
 
+  // Touch-only devices (phones, tablets): no hover, coarse pointer. They get
+  // panel buttons for everything a key does, and wording to match.
+  const TOUCH_ONLY = matchMedia('(hover: none) and (pointer: coarse)');
+  const touchOnly = () => TOUCH_ONLY.matches;
+  // What to hold to talk, and how to address the page: "hold Shift" /
+  // "hold the mic", "click" / "tap".
+  const holdWhat = () => (touchOnly() ? 'the mic' : keyLabel(settings.pttKey));
+  const tapWord = () => (touchOnly() ? 'tap' : 'click');
+
+  const OFF_MESSAGE = 'Voice answers are off: press the mic to turn them on';
+
   const isFake = () => settings.recognizer === 'fake';
   const handsFree = () => settings.inputMode === 'voice-activity';
 
   function setState(next, message) {
     state = next;
     indicator.set(next, { mode: question?.mode, message });
+    indicator.setActions({
+      submit: next === 'filled' && settings.submitMode !== 'auto-submit',
+      clear: next === 'filled' && touchOnly(),
+      next: next === 'waiting',
+    });
     if (next !== 'filled' && choices.length) {
       choices = [];
       indicator.setChoices([]);
@@ -63,13 +79,14 @@
 
   function choicesMessage() {
     const what = question?.mode === 'ja-kana' ? 'reading' : 'answer';
+    if (touchOnly()) return `Tap another ${what} if that's not it, then Submit`;
     return `Press 1–${choices.length} for another ${what}, Enter to submit`;
   }
 
   // Swaps the filled answer for another one the recogniser offered.
   function pick(i) {
     if (state !== 'filled' || i < 0 || i >= choices.length) return false;
-    if (!answerIO.fill(choices[i])) return false;
+    if (!answerIO.fill(choices[i], { focus: !touchOnly() })) return false;
     chosen = i;
     indicator.setChoices(choices, chosen, question?.mode === 'ja-kana' ? 'ja' : 'en');
     return true;
@@ -92,8 +109,8 @@
 
   // Message for the idle state, given model availability.
   function readyMessage() {
-    const key = keyLabel(settings.pttKey);
-    if (isFake()) return `Test mode (no mic): type below, then hold ${key}`;
+    const key = holdWhat();
+    if (isFake()) return touchOnly() ? 'Test mode (no mic): type below, then tap Send' : `Test mode (no mic): type below, then hold ${key}`;
     const s = modelStatus.get(modeModel());
     if (s?.status === 'loading') {
       const pct = s.total ? ` ${Math.floor((100 * s.loaded) / s.total)}%` : '';
@@ -128,14 +145,14 @@
     if (handsFree() && misses >= HANDS_FREE_MAX_MISSES) {
       handsFreePaused = true;
       setState('ready', `${reason}. Stopped listening after ${misses} tries: ` +
-        `click the page or hold ${keyLabel(settings.pttKey)} to try again`);
+        `${tapWord()} the page or hold ${holdWhat()} to try again`);
       resumeOnGesture();
       return;
     }
     setState('error', reason);
     followUpTimer = setTimeout(() => {
       if (gen !== generation || state !== 'error') return;
-      enterReady(handsFree() ? undefined : `${reason} — hold ${keyLabel(settings.pttKey)} to retry`);
+      enterReady(handsFree() ? undefined : `${reason} — hold ${holdWhat()} to retry`);
     }, retryMs);
   }
 
@@ -161,6 +178,9 @@
     question = q;
     pttHeld = false;
     cancelCapture();
+    // Lets the background load this mode's model if it isn't yet (on Android
+    // the reading model loads only once a reading question comes up).
+    port?.postMessage({ type: 'prepare', mode: q.mode });
     enterReady();
   }
 
@@ -170,14 +190,19 @@
     cancelCapture();
     clearFollowUp();
     if (settings.autoAdvance && settings.autoAdvanceOnlyCorrect && !answerIO.isCorrect()) {
-      setState('waiting', 'Not quite. Press Enter for the next question when you\'re ready');
+      setState('waiting', touchOnly()
+        ? 'Not quite. Tap Next when you\'re ready'
+        : 'Not quite. Press Enter for the next question when you\'re ready');
     } else if (settings.autoAdvance) {
       setState('waiting', 'Next question shortly…');
       followUpTimer = setTimeout(() => {
-        if (active && settings.enabled && answerIO.isGraded()) answerIO.advance();
+        if (active && settings.enabled && answerIO.isGraded()) {
+          guardKeyboard();
+          answerIO.advance();
+        }
       }, settings.autoAdvanceDelayMs);
     } else {
-      setState('waiting', 'Press Enter for the next question');
+      setState('waiting', touchOnly() ? 'Tap Next for the next question' : 'Press Enter for the next question');
     }
   }
 
@@ -195,7 +220,9 @@
 
   function micErrorMessage(err) {
     if (err?.name === 'AudioBlockedError') {
-      return `Click the page or press ${keyLabel(settings.pttKey)} to start listening`;
+      return touchOnly()
+        ? 'Tap the page, then hold the mic to start listening'
+        : `Click the page or press ${keyLabel(settings.pttKey)} to start listening`;
     }
     if (err?.name === 'NotAllowedError') {
       return 'Microphone blocked: allow it for wanikani.com (icon in the address bar)';
@@ -235,7 +262,7 @@
     // prompt; don't record the tail end of it.
     if (firstOpen && !handsFree() && !pttHeld) {
       mic.cancel();
-      enterReady(`Microphone ready: hold ${keyLabel(settings.pttKey)} and speak`);
+      enterReady(`Microphone ready: hold ${holdWhat()} and speak`);
       return;
     }
     setState('listening', 'Listening…');
@@ -282,12 +309,14 @@
       showError(result?.reason ?? "Didn't catch that");
       return;
     }
-    if (!answerIO.fill(result.text)) {
+    // No focus on touch screens: it would pop up the on-screen keyboard.
+    if (!answerIO.fill(result.text, { focus: !touchOnly() })) {
       setState('error', "Couldn't fill the answer box");
       return;
     }
     if (settings.submitMode === 'auto-submit') {
       setState('filled', result.text);
+      guardKeyboard();
       answerIO.submit();
     } else if (result.choices?.length > 1) {
       choices = result.choices;
@@ -295,7 +324,9 @@
       setState('filled', choicesMessage());
       indicator.setChoices(choices, chosen, question?.mode === 'ja-kana' ? 'ja' : 'en');
     } else {
-      setState('filled', `${result.text} — Enter to submit, or ${keyLabel(settings.pttKey)} to retry`);
+      setState('filled', touchOnly()
+        ? `${result.text} — tap Submit, or hold the mic to retry`
+        : `${result.text} — Enter to submit, or ${keyLabel(settings.pttKey)} to retry`);
     }
   }
 
@@ -322,7 +353,7 @@
         cancelCapture();
         mic?.close();
         question = null;
-        setState('off', 'Paused');
+        setState('off', OFF_MESSAGE);
       }
       return;
     }
@@ -443,7 +474,18 @@
       return;
     }
     swallow(e);
-    if (e.repeat || pttHeld) return;
+    if (!e.repeat) pttStart();
+  }
+
+  function onKeyUp(e) {
+    if (!settings.enabled || !isPttEvent(e)) return;
+    swallow(e);
+    pttEnd();
+  }
+
+  // Push-to-talk, shared by the PTT key and holding the panel's mic button.
+  function pttStart() {
+    if (!settings.enabled || pttHeld) return;
     if (['ready', 'filled', 'error', 'listening'].includes(state)) {
       pttHeld = true;
       pttDownAt = performance.now();
@@ -454,9 +496,7 @@
     }
   }
 
-  function onKeyUp(e) {
-    if (!settings.enabled || !isPttEvent(e)) return;
-    swallow(e);
+  function pttEnd() {
     if (!pttHeld) return;
     if (performance.now() - pttDownAt < MIN_HOLD_MS) {
       cancelListening();
@@ -466,11 +506,53 @@
     finishListening();
   }
 
+  // Finger slid off the mic button (or the system took the touch over).
+  function pttCancel() {
+    if (pttHeld) cancelListening();
+  }
+
+  // WaniKani focuses the answer box when a question loads (and on grading);
+  // on a touch screen that pops up the on-screen keyboard over the page and
+  // the panel. After the panel's own actions, undo that focus for a moment,
+  // unless the user taps the box themselves.
+  const KEYBOARD_GUARD_MS = 2500;
+  let keyboardGuardUntil = 0;
+  function guardKeyboard() {
+    if (!touchOnly()) return;
+    keyboardGuardUntil = performance.now() + KEYBOARD_GUARD_MS;
+    answerIO.blur();
+  }
+  function onFocusIn(e) {
+    if (performance.now() < keyboardGuardUntil && answerIO.isInput(e.target)) e.target.blur();
+  }
+  function onPointerDownForKeyboard(e) {
+    if (answerIO.isInput(e.target)) keyboardGuardUntil = 0; // the user wants to type
+  }
+
+  // The panel's Submit / Next buttons: what Enter does on the page.
+  function onSubmit() {
+    if (state !== 'filled') return;
+    guardKeyboard();
+    answerIO.submit();
+  }
+  // Clear: empties the answer box for another try (touch screens, where the
+  // on-screen keyboard would otherwise be needed).
+  function onClear() {
+    if (state !== 'filled') return;
+    answerIO.fill('', { focus: false });
+    enterReady();
+  }
+  function onNext() {
+    if (state !== 'waiting' || !answerIO.isGraded()) return;
+    guardKeyboard();
+    answerIO.advance();
+  }
+
   function onKeyPress(e) {
     if (settings.enabled && isPttEvent(e)) swallow(e);
   }
 
-  // Enter in the indicator's test field = "I just said this".
+  // Enter (or Send) in the indicator's test field = "I just said this".
   function onFakeUtterance() {
     if (['ready', 'filled', 'error'].includes(state)) startListening();
     finishListening();
@@ -498,18 +580,24 @@
 
   function activate() {
     active = true;
-    indicator = WKV.indicator.create({ onToggle, onFakeUtterance, onPick: pick });
+    indicator = WKV.indicator.create({
+      onToggle, onFakeUtterance, onPick: pick, onSubmit, onNext, onClear,
+      onTalkStart: pttStart, onTalkEnd: pttEnd, onTalkCancel: pttCancel,
+    });
     indicator.setDevMode(isFake());
     indicator.setPosition(settings.indicatorPosition);
     mic = WKV.audio.createMic();
     state = 'off';
     question = null;
     lastGraded = false;
-    setState(settings.enabled ? 'unsupported' : 'off');
+    if (settings.enabled) setState('unsupported');
+    else setState('off', OFF_MESSAGE);
     window.addEventListener('keydown', onKeyDown, true);
     window.addEventListener('keyup', onKeyUp, true);
     window.addEventListener('keypress', onKeyPress, true);
     window.addEventListener('blur', onBlur);
+    window.addEventListener('focusin', onFocusIn, true);
+    window.addEventListener('pointerdown', onPointerDownForKeyboard, true);
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('didAnswerQuestion', scheduleEvaluate);
     window.addEventListener('willShowNextQuestion', scheduleEvaluate);
@@ -536,6 +624,8 @@
     window.removeEventListener('keyup', onKeyUp, true);
     window.removeEventListener('keypress', onKeyPress, true);
     window.removeEventListener('blur', onBlur);
+    window.removeEventListener('focusin', onFocusIn, true);
+    window.removeEventListener('pointerdown', onPointerDownForKeyboard, true);
     document.removeEventListener('visibilitychange', onVisibility);
     window.removeEventListener('didAnswerQuestion', scheduleEvaluate);
     window.removeEventListener('willShowNextQuestion', scheduleEvaluate);

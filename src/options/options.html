@@ -17,7 +17,7 @@
 
     <fieldset>
       <legend>Listening</legend>
-      <label><input type="radio" name="inputMode" value="push-to-talk"> Push-to-talk: hold a key while speaking</label>
+      <label><input type="radio" name="inputMode" value="push-to-talk"> Push-to-talk: hold <span class="kbd-only">a key</span><span class="touch-only">the panel's mic button</span> while speaking</label>
       <div class="sub" id="ptt-row">
         Key: <button type="button" id="pttKey" aria-describedby="ptt-help"></button>
         <span id="ptt-help" class="help">Click, then press the key to use</span>
@@ -27,7 +27,7 @@
 
     <fieldset>
       <legend>After your answer is recognised</legend>
-      <label><input type="radio" name="submitMode" value="fill-only"> Fill in the answer box; I press Enter</label>
+      <label><input type="radio" name="submitMode" value="fill-only"> Fill in the answer box; I <span class="kbd-only">press Enter</span><span class="touch-only">tap Submit</span></label>
       <label><input type="radio" name="submitMode" value="auto-submit"> Fill in and submit it</label>
     </fieldset>
 
@@ -56,10 +56,10 @@
 
     <fieldset>
       <legend>Speech recognition</legend>
-      <label><input type="radio" name="recognizer" value="local"> On-device (Whisper for English, a hiragana model for readings)</label>
+      <label><input type="radio" name="recognizer" value="local"> On-device (Moonshine or Whisper for English, a hiragana model for readings)</label>
       <div class="sub sub-col">
-        <label><input type="radio" name="englishSpeed" value="accurate"> English: accurate (about 1.5 s)</label>
-        <label><input type="radio" name="englishSpeed" value="fast"> English: fast (about 0.8 s, slightly less accurate)</label>
+        <label><input type="radio" name="englishSpeed" value="fast"> English: fast (Moonshine; about 0.1 s on a desktop, 0.3 s on a phone)</label>
+        <label><input type="radio" name="englishSpeed" value="accurate"> English: accurate (Whisper; about 1.5 s on a desktop, 4 s on a phone; offers the right answer a little more often)</label>
       </div>
       <label><input type="radio" name="recognizer" value="fake"> Test mode: type text into the panel instead of speaking</label>
       <p class="help">Recognition runs inside Firefox on this computer. Your voice is never sent anywhere.

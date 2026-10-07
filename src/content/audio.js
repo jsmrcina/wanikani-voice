@@ -11,6 +11,7 @@
   'use strict';
 
   const TARGET_RATE = 16000;
+  const ANDROID = /Android/.test(navigator.userAgent);
   const PREROLL_SEC = 0.3;
   const MAX_SEC = 10;
 
@@ -118,8 +119,11 @@
       // Raw audio: noise suppression and auto-gain gate soft word onsets
       // (the h of "hand", the f of "four"), which speech models need; they
       // cope with room noise far better than with missing consonants.
+      // Except auto-gain on Android: a phone's raw mic is ~25 dB quieter
+      // (Pixel 9 Pro XL, 2026-10-06: speech peaks ~0.005, RMS ~0.0005, all
+      // below the silence floor; with auto-gain RMS 0.05-0.08).
       return navigator.mediaDevices.getUserMedia({
-        audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+        audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: ANDROID },
         video: false,
       });
     }

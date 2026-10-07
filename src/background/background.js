@@ -7,11 +7,15 @@
   'use strict';
 
   // Which bundled model handles each mode, and what kind of model it is.
-  // English has two, chosen by the englishSpeed setting: base.en is the more
-  // accurate (~1.6 s per answer in Firefox), tiny.en about twice as fast.
-  const ENGLISH_MODELS = { accurate: 'whisper-base.en', fast: 'whisper-tiny.en' };
+  // English has two, chosen by the englishSpeed setting: Whisper base.en is
+  // the more accurate (~1.6 s per answer in Firefox on a desktop, ~4 s on a
+  // Pixel 9 Pro XL), Moonshine base the fast one. Whisper always encodes a
+  // 30 s window; Moonshine encodes only the clip, so it's far faster on short
+  // answers, a little less accurate on single words. It replaced Whisper
+  // tiny.en, which was both slower and less reliable in use (2026-10-06).
+  const ENGLISH_MODELS = { accurate: 'whisper-base.en', fast: 'moonshine-base' };
   const JAPANESE_MODEL = 'distilhubert-hiragana';
-  const KINDS = { 'whisper-base.en': 'whisper', 'whisper-tiny.en': 'whisper', 'distilhubert-hiragana': 'ctc' };
+  const KINDS = { 'whisper-base.en': 'whisper', 'moonshine-base': 'moonshine', 'distilhubert-hiragana': 'ctc' };
   const MAX_CHOICES = 3;
   const MODES = new Set(['en', 'ja-kana']);
 
@@ -44,12 +48,35 @@
     return null;
   }
 
+  // On Android the reading model is loaded only when the first reading
+  // question appears (the tab sends 'prepare'), to keep memory down on
+  // phones; on desktop everything loads at warm-up.
+  const platform = browser.runtime.getPlatformInfo().then(info => info.os);
+
   async function announce(ports = sessions) {
     const settings = await WKV.settings.load();
     const modes = modelsFor(settings);
-    for (const port of ports) port.postMessage({ type: 'capabilities', modes, notice: noticeFor(settings) });
-    if (settings.recognizer !== 'fake') for (const model of Object.values(modes)) loadModel(model);
+    const os = await platform;
+    for (const port of ports) port.postMessage({ type: 'capabilities', modes, notice: noticeFor(settings), os });
+    if (settings.recognizer === 'fake') return;
+    for (const [mode, model] of Object.entries(modes)) {
+      if (os !== 'android' || mode === 'en' || modelState.has(model)) loadModel(model);
+    }
   }
+
+  async function prepare(mode) {
+    const settings = await WKV.settings.load();
+    const model = modelsFor(settings)[mode];
+    if (model && settings.recognizer !== 'fake') loadModel(model);
+  }
+
+  // First run on Android: phone-friendly defaults for anything not yet set.
+  browser.runtime.onInstalled.addListener(async ({ reason }) => {
+    if (reason !== 'install' || (await platform) !== 'android') return;
+    const stored = await browser.storage.local.get(Object.keys(WKV.settings.ANDROID_DEFAULTS));
+    const missing = Object.fromEntries(Object.entries(WKV.settings.ANDROID_DEFAULTS).filter(([k]) => !(k in stored)));
+    if (Object.keys(missing).length) await WKV.settings.save(missing);
+  });
 
   // ---- worker ---------------------------------------------------------------
 
@@ -186,6 +213,7 @@
     port.onDisconnect.addListener(() => sessions.delete(port));
     port.onMessage.addListener(msg => {
       if (msg?.type === 'warmup') announce([port]);
+      else if (msg?.type === 'prepare' && MODES.has(msg.mode)) prepare(msg.mode);
     });
   });
 
@@ -195,7 +223,8 @@
     if (sessions.size) announce();
   });
 
-  browser.commands.onCommand.addListener(async command => {
+  // Keyboard shortcuts don't exist on Firefox for Android (no commands API).
+  browser.commands?.onCommand.addListener(async command => {
     if (command !== 'toggle-enabled') return;
     const { enabled } = await WKV.settings.load();
     await WKV.settings.save({ enabled: !enabled });

@@ -8,8 +8,10 @@ A Firefox extension for answering [WaniKani](https://www.wanikani.com) reviews
 and lesson quizzes by voice. Speech recognition runs entirely on your
 computer, inside Firefox. Nothing you say is sent anywhere.
 
-- **Meanings and radical names** in English: Whisper (base.en, or tiny.en for
-  speed).
+- **Meanings and radical names** in English: Moonshine base (*fast*, the
+  default) or Whisper base.en (*accurate*).
+- **Desktop and Android:** Firefox on Windows, macOS and Linux, and Firefox
+  for Android, where everything works by touch.
 - **Readings** in hiragana: a small speech model that writes kana directly,
   so it never has to guess a reading from kanji.
 - **Choices:** besides its best guess, the panel offers up to two other
@@ -49,6 +51,13 @@ Version 0.1.2. The design notes, measurements and roadmap are in [PLAN.md](PLAN.
 | <img src="store/screenshots/5-settings.png" width="400" alt="The settings popup"> | |
 | Settings: push-to-talk or hands-free, auto-submit, custom models | |
 
+On a phone (Firefox for Android, Pixel 9 Pro XL):
+
+| | |
+|---|---|
+| <img src="store/screenshots/6-phone-ready.png" width="260" alt="On a phone: the panel is a bar at the bottom with a large mic button"> | <img src="store/screenshots/7-phone-choices.png" width="260" alt="On a phone: tap a reading choice (ゆがた, ゆうがた, ゆがあた), then Submit or Clear"> |
+| Hold the mic button and speak | Tap a choice, then Submit (or Clear) |
+
 ## Demo
 
 A muted, full-screen recording of real reviews: answering meanings and a
@@ -83,20 +92,26 @@ the add-on runs its speech models on the **CPU**, on a single core,
 in WebAssembly (extension pages can't use WASM threads in Firefox). What
 matters is one core's speed and some memory:
 
-| | Measured on an AMD Ryzen 9 9950X3D (2026-10-04) |
-|---|---|
-| English, *accurate* (Whisper base.en) | 1.5–1.7 s from releasing the key to the answer |
-| English, *fast* (Whisper tiny.en) | 0.8–0.9 s |
-| Readings | ~0.4 s |
-| Extra memory with the models loaded | ~650 MB (*accurate*), ~420 MB (*fast*) |
-| Download / installed size | ~120 MB / ~185 MB |
+| Recognition time per answer | Desktop: AMD Ryzen 9 9950X3D | Phone: Pixel 9 Pro XL |
+|---|---|---|
+| English, *fast* (Moonshine base, default) | ~0.1 s | 0.25–0.4 s |
+| English, *accurate* (Whisper base.en) | 1.5–1.7 s | 4–5 s |
+| Readings | ~0.4 s | ~0.5 s |
+| Extra memory with the models loaded | ~430 MB (*fast*), ~720 MB (*accurate*) | |
 
-That CPU has one of the fastest single cores available, so treat these as
-best-case numbers. Time scales roughly with single-core speed. On a typical
-laptop CPU expect about **1.5–2.5× longer** (an estimate, not measured): about
-2.5–4 s for English on *accurate*, which is why *fast* exists. Any 64-bit
-desktop CPU from the last decade runs it. Firefox 140 or newer on desktop is
-required; Android isn't supported.
+Measured 2026-10-06 (desktop *accurate* and readings 2026-10-04), from the
+end of recording to the recognised answer. Whisper always processes a 30 s
+window, however short the answer, while Moonshine and the readings model
+process only what you said, which is why *fast* is so much faster. On 25
+recorded meanings, *fast* got 20–21 right first time (the right answer among
+its choices: 21–22), *accurate* 22 (25). The download is ~150 MB (about
+205 MB installed).
+
+That desktop CPU has one of the fastest single cores available, so treat
+its numbers as best case. Time scales roughly with single-core speed: on a
+typical laptop expect about **1.5–2.5× longer** (an estimate, not measured).
+Any 64-bit desktop CPU from the last decade runs it. Firefox 140 or newer is
+required on desktop, Firefox 142 or newer on Android.
 
 A GPU only matters for the optional fine-tuning tools (PyTorch). Even there
 the CPU is enough: ~7 minutes for 400 recordings on the CPU above.
@@ -116,19 +131,36 @@ tag for the kind of answer expected, and a mic button.
 
 The panel border shows what's happening: red while listening, blue while
 recognising, green when an answer is filled in, amber for "didn't hear
-anything" and other problems. Click the mic button or press **Alt+Shift+V**
-to pause.
+anything" and other problems. You can also **hold the panel's mic button**
+instead of Shift, and use its **Submit** and **Next** buttons. **Alt+Shift+V**
+pauses and resumes (or untick *Enabled* in the settings); while paused,
+pressing the mic button turns voice answers back on.
+
+### On a phone (Firefox for Android)
+
+Everything works by touch. The panel is a bar at the bottom of the screen
+(it moves above the on-screen keyboard when that's open):
+
+- **Hold the mic button**, speak, let go. Letting go well away from where you
+  pressed cancels.
+- **Tap** a choice to switch to it, **Submit** to submit, **Clear** to empty
+  the answer box without bringing up the keyboard, **Next** for the next
+  question.
+- The microphone uses Android's automatic gain: a phone's raw microphone
+  signal is far quieter than a desktop's.
+- A custom model (below) is installed the same way: copy the
+  `.wkv-model.zip` to the phone and choose it in the settings.
 
 **Settings** (toolbar button, or about:addons → Preferences):
 
 | Setting | Options (default first) |
 |---|---|
 | Listening | push-to-talk · hands-free (listens on each question, stops after 3 misses in a row) |
-| Push-to-talk key | **Shift** (either side) · any other key |
+| Push-to-talk key | **Shift** (either side) · any other key (not shown on touch-only devices) |
 | After recognition | fill in only · fill in and submit |
 | After grading | stay · go to the next question after a delay (optionally only when correct) |
-| Panel position | top right · top left · bottom right · bottom left |
-| English speed | accurate (Whisper base.en, ~1.6 s) · fast (tiny.en, ~0.9 s) |
+| Panel position | top right (bottom right on Android) · top left · bottom right · bottom left |
+| English speed | fast (Moonshine base) · accurate (Whisper base.en, slower) |
 | Speech recognition | on-device · test mode (type instead of speaking) |
 | Custom models | your own fine-tuned model per language (see below) |
 
@@ -169,7 +201,7 @@ flowchart LR
     BG["background.js<br/>pick model, normalise,<br/>rank choices"]
     subgraph WRK["Speech worker (WASM)"]
       VAD["Silero VAD<br/>is it speech?"]
-      WH["Whisper<br/>English"]
+      WH["Moonshine or Whisper<br/>English"]
       CTC["Hiragana CTC model<br/>readings"]
     end
   end
@@ -214,7 +246,7 @@ sequenceDiagram
   C->>B: transcribe { mode, audio }
   B->>W: transcribe { model, audio }
   W->>W: Silero VAD: at least 96 ms of speech?
-  W->>W: Whisper or hiragana CTC: up to 3 candidates
+  W->>W: Moonshine / Whisper or hiragana CTC: up to 3 candidates
   W-->>B: candidates
   B->>B: normalise, drop invalid, keep 3 distinct
   B-->>C: { text, choices }
@@ -238,14 +270,18 @@ sequenceDiagram
 
 ### Recognition
 
-**English (Whisper).**
-- Decoding starts from a fixed, question-independent prompt of
+**English (Moonshine base or Whisper base.en).**
+- Alternatives come from the next most likely *first* tokens (within 5% of
+  the best), each completed greedily, because that's where the confusions
+  are (eye / I, hand / and). The audio is encoded once and reused for every
+  candidate.
+- **Whisper** decoding starts from a fixed, question-independent prompt of
   dictionary-style words, which nudges it towards short answers ("Hand."
   rather than "And").
-- Alternatives come from the next most likely *first* tokens (within 5% of
-  the best), each completed greedily, because that's where Whisper's
-  confusions are (eye / I, hand / and).
-- The audio is encoded once and reused for every candidate.
+- **Moonshine** has no prompt. On single words it tends to stop before
+  saying anything or to say the word twice ("king king"), so it must produce
+  at least one token (the speech gate has already found speech), and a
+  phrase repeated back to back is collapsed. Neither looks at the question.
 
 **Readings (hiragana CTC).**
 - `distilhubert-hiragana-ctc`, exported to ONNX with partial 8-bit
@@ -385,7 +421,7 @@ git submodule update --init personal
 manifest.json
 src/content/       page-reader, answer-io, audio, indicator, main (content script)
 src/background/    background page: models, transcription, choices
-src/worker/        speech worker: transformers.js, Whisper + CTC decoding, Silero VAD
+src/worker/        speech worker: transformers.js, Moonshine/Whisper + CTC decoding, Silero VAD
 src/shared/        settings, normalisation, zip reader, custom model store
 src/options/       settings page / toolbar popup
 models/            bundled models (Git LFS) + models.json

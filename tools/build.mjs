@@ -83,7 +83,11 @@ export async function build() {
   }
   const { models } = JSON.parse(await readFile(join(ROOT, 'models/models.json'), 'utf8'));
   for (const [name, model] of Object.entries(models)) {
-    if (!model.bundled) continue;
+    // A model that's no longer bundled mustn't linger from an earlier build.
+    if (!model.bundled) {
+      await rm(join(OUT, 'models', name), { recursive: true, force: true });
+      continue;
+    }
     for (const file of Object.keys(model.files)) {
       await copyIfChanged(join(ROOT, 'models', name, file), join(OUT, 'models', name, file));
     }

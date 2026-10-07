@@ -5,7 +5,7 @@ web-ext-artifacts/
 build/
 node_modules/
 # Evaluation-only model candidates (re-fetch with tools/fetch-models.mjs).
-models/moonshine-base/
+models/moonshine-tiny/
 models/distil-small.en/
 models/whisper-small.en/
 models/whisper-small/

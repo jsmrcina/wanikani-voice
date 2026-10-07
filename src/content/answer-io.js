@@ -24,15 +24,16 @@
 
   // Sets the value the way a user's typing would, so WaniKani's controllers
   // (and WanaKana, on reading questions) see an ordinary input event. Kana
-  // passes through WanaKana unchanged.
-  function fill(text) {
+  // passes through WanaKana unchanged. focus: false leaves focus alone (on
+  // touch screens focusing the box pops up the on-screen keyboard).
+  function fill(text, { focus = true } = {}) {
     const el = input();
     // WaniKani locks the input with enabled="false" while an answer is graded.
     if (!el || el.disabled || el.getAttribute('enabled') === 'false') return false;
     nativeValueSetter.call(el, text);
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
-    el.focus();
+    if (focus) el.focus();
     return true;
   }
 
@@ -73,5 +74,13 @@
     return document.querySelector(SELECTORS.inputContainer)?.getAttribute('correct') === 'true';
   }
 
-  WKV.answerIO = { isPresent, fill, value, submit: pressSubmit, advance: pressSubmit, isGraded, isCorrect };
+  // Whether el is the answer box, and taking focus away from it (on touch
+  // screens, a focused box means the on-screen keyboard covers the page).
+  const isInput = el => !!el && el === input();
+  function blur() {
+    const el = input();
+    if (el && document.activeElement === el) el.blur();
+  }
+
+  WKV.answerIO = { isPresent, fill, value, submit: pressSubmit, advance: pressSubmit, isGraded, isCorrect, isInput, blur };
 })(globalThis.WKV = globalThis.WKV || {});

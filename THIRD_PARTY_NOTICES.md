@@ -8,7 +8,9 @@ remains under its own licence. Versions and pinned revisions are in
 |---|---|---|---|
 | Transformers.js (`@huggingface/transformers` 4.3.0) | Model loading and inference in the worker | Apache-2.0 | https://github.com/huggingface/transformers.js |
 | ONNX Runtime Web (`onnxruntime-web`) | WASM inference runtime (`vendor/ort/`) | MIT | https://github.com/microsoft/onnxruntime |
-| Whisper base.en (ONNX export by onnx-community) | English speech recognition | MIT (OpenAI) | https://huggingface.co/onnx-community/whisper-base.en |
+| Moonshine base (ONNX export by onnx-community) | English speech recognition (*fast*, the default) | MIT (Useful Sensors) | https://huggingface.co/onnx-community/moonshine-base-ONNX |
+| Whisper base.en (ONNX export by onnx-community) | English speech recognition (*accurate*) | MIT (OpenAI) | https://huggingface.co/onnx-community/whisper-base.en |
+| Silero VAD (ONNX export by onnx-community) | Speech detection (is there speech in a clip?) | MIT (Silero Team) | https://huggingface.co/onnx-community/silero-vad |
 | distilhubert-hiragana-ctc by TylorShine (ONNX export made by `tools/export-dual-ctc.py`, kana head only, partly int8) | Japanese reading recognition | Apache-2.0 | https://huggingface.co/TylorShine/distilhubert-hiragana-ctc |
 | DistilHuBERT (base of the above) | | Apache-2.0 | https://huggingface.co/ntu-spml/distilhubert |
 | Noto Sans CJK JP Black (the あ in `icons/icon.svg`, as an outline) | Icon artwork | SIL Open Font License 1.1 | https://github.com/notofonts/noto-cjk |

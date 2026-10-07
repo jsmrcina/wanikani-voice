@@ -20,6 +20,7 @@
       "repo": "onnx-community/moonshine-base-ONNX",
       "revision": "b1e9b6aae3c3c7298f10c3798393fdf38e8fbbad",
       "license": "MIT (Useful Sensors Moonshine)",
+      "bundled": true,
       "files": {
         "config.json": "fab7241d1e9fc6c2370c4c6dfb5da79bb54d67ed9ab6b507ac51d29d2abe01d1",
         "generation_config.json": "f9b3f711b57be7def2e50a8942f64f36ee0a55fad5b84ff93a687b6c5bcc1d44",
@@ -28,8 +29,7 @@
         "tokenizer_config.json": "edaee394565d428ea98a663ae7209cdcfeefc5585c42d7a570ff7c986df2cd15",
         "onnx/encoder_model_quantized.onnx": "1dd9ab0a7f987113d30affcba5a068d11c8f90fa0223caa3e491ade431ad9751",
         "onnx/decoder_model_merged_quantized.onnx": "cc9f3cd6698a369c6008b41aa60aa3fb3322e7f03c9bdf19d8e6b7200afca4f3"
-      },
-      "bundled": false
+      }
     },
     "distil-small.en": {
       "repo": "onnx-community/distil-small.en",
@@ -115,7 +115,7 @@
       "repo": "onnx-community/whisper-tiny.en",
       "revision": "2575352d61be1bf7225cf8f8b268a4678025fc58",
       "license": "MIT (OpenAI Whisper)",
-      "bundled": true,
+      "bundled": false,
       "files": {
         "config.json": "251ea843b5901a99efa58c0b99b8052c6019aa3e7d2baf46693a1128ff606233",
         "generation_config.json": "7b2e8451ed5f118e75fdd991409d72119d21d2fef1eba9723f68fb9c57fe5dc9",
@@ -124,6 +124,21 @@
         "tokenizer_config.json": "93879c3dccdd4b976f709acd85b44778873f30c275e67026f30ca1e4c975230c",
         "onnx/encoder_model_quantized.onnx": "e93ec822f16a8fd264e7de972ad17d615ea7334b75a52d54c50c2e18dd503a25",
         "onnx/decoder_model_merged_quantized.onnx": "c0592d0749413c960569e1c7fb806b060d5d18f3ebad4a95cbf9a77dc6e9be52"
+      }
+    },
+    "moonshine-tiny": {
+      "repo": "onnx-community/moonshine-tiny-ONNX",
+      "revision": "a6da1241cd305dcd64eab1edbd615f2bb9aabb95",
+      "license": "MIT (Useful Sensors Moonshine)",
+      "bundled": false,
+      "files": {
+        "config.json": "558e1e02069137c796ace1e50c48d8fe451f04a295929138e6bea885517f0edb",
+        "generation_config.json": "f9b3f711b57be7def2e50a8942f64f36ee0a55fad5b84ff93a687b6c5bcc1d44",
+        "preprocessor_config.json": "fa43a7017ef85cd1d0fba0d9aae77c8adb16990ae6f11115631f41ec5d8aa679",
+        "tokenizer.json": "7b913404bdd039af4756783218af4440bc07fb7d6d8258d677e34f95b3ec416f",
+        "tokenizer_config.json": "edaee394565d428ea98a663ae7209cdcfeefc5585c42d7a570ff7c986df2cd15",
+        "onnx/encoder_model_quantized.onnx": "c6fc4b7bc5af75c0591fd157a1f3829b533d18e9769a888fd95a62e470dd4f4a",
+        "onnx/decoder_model_merged_quantized.onnx": "eed87831c3a6103534aae7d47a5d485025c659a1323901513961c39fe8a1a367"
       }
     }
   }
