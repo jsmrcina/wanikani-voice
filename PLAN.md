@@ -629,9 +629,9 @@ Plus:
   (pointer: coarse)`. Devices with both (tablets with keyboards, touch
   laptops) keep every keyboard shortcut.
 
-**Layout:** on narrow screens (< 600 px) the panel becomes a full-width bar
-at the top or bottom (the position setting picks which), so it doesn't
-cover the question. The mic button sits where a thumb reaches it; check
+**Layout:** on narrow screens (< 600 px) the panel becomes a full-width bar,
+at the **bottom by default** (the position setting can move it to the top),
+so it doesn't cover the question. The mic button sits where a thumb reaches it; check
 it against WaniKani's mobile review layout.
 
 **Speed and memory** (phones have slower single cores and less memory):
@@ -674,12 +674,15 @@ it against WaniKani's mobile review layout.
 - README: a requirements row for Android, and wording that doesn't assume
   a keyboard.
 
-**Open questions for you:**
-1. Which Android phone (model or chip, RAM) can we test on, and can you
-   enable USB debugging?
-2. Default listening mode on Android: hold-to-talk on the mic button, or
-   hands-free?
-3. Default panel placement on phones: top bar or bottom bar?
+**Decisions (2026-10-06):**
+- **Test device: Pixel 9 Pro XL** (Google Tensor G4, 16 GB RAM). Memory is
+  unlikely to be the limit on it; for lower-end phones, still keep the lazy
+  reading-model load. Speed numbers from it are an upper-mid-range
+  reference, not a worst case.
+- **Default listening on Android: hold-to-talk** on the mic button.
+  Hands-free stays available in the settings.
+- **Default panel placement on phones: bottom bar.** The position setting
+  still allows the top.
 
 ---
 
