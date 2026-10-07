@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Voice Answers for WaniKani",
   "short_name": "WK Voice",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Answer WaniKani reviews by voice. Speech recognition runs entirely on your device.",
   "browser_specific_settings": {
     "gecko": {
@@ -54,7 +54,7 @@
   "action": {
     "default_title": "Voice Answers for WaniKani",
     "default_icon": "icons/icon.svg",
-    "default_popup": "src/options/options.html"
+    "default_popup": "src/options/options.html?popup"
   },
   "options_ui": {
     "page": "src/options/options.html",

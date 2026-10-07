@@ -542,7 +542,8 @@ Requested 2026-10-04, after Phase 4:
   The GitHub repository was recreated, so no orphaned LFS objects remain,
   and made public on 2026-10-05. `personal/` stays a private submodule.
 - **Custom model files (done, verified live 2026-10-04).** You loaded your
-  fine-tuned reading model (`My voice (full fine-tune).wkv-model.zip`) into
+  fine-tuned reading model (`My voice (full fine-tune).wkv-model.zip`, repacked
+  as `My voice (readings)` on 2026-10-07 so it isn't mistaken for the English one) into
   the signed v0.1.1 through the settings, and it works. Settings → *Custom models*
   has *Choose file…* and *Reset to built-in* for English and for readings.
   - **Model file:** a `.wkv-model.zip` made by `tools/pack-model.mjs

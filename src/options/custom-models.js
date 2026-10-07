@@ -2,8 +2,13 @@
 (function (WKV) {
   'use strict';
 
-  const BUILT_IN = { en: 'built-in (Whisper)', 'ja-kana': 'built-in (hiragana model)' };
+  const BUILT_IN = { en: 'built-in (Moonshine or Whisper, by English speed)', 'ja-kana': 'built-in (hiragana model)' };
   const mb = n => `${(n / 1024 / 1024).toFixed(0)} MB`;
+  // Opened from the toolbar button, this page is a popup, and Firefox closes
+  // a popup as soon as a file chooser opens: the chosen file never arrives,
+  // with no error (seen 2026-10-07). There, "Choose file…" opens the
+  // settings in a tab instead.
+  const IN_POPUP = new URLSearchParams(location.search).has('popup');
 
   function render(settings) {
     for (const row of document.querySelectorAll('.model-row')) {
@@ -25,6 +30,15 @@
       status.textContent = text;
       status.className = `model-status ${kind}`;
     };
+    if (IN_POPUP) {
+      const picker = row.querySelector('label.button');
+      picker.title = 'Opens the settings in a tab, where a file can be chosen';
+      picker.addEventListener('click', async e => {
+        e.preventDefault();
+        await browser.tabs.create({ url: browser.runtime.getURL('src/options/options.html#custom-models') });
+        window.close();
+      });
+    }
     row.querySelector('input[type=file]').addEventListener('change', async e => {
       const file = e.target.files[0];
       e.target.value = '';

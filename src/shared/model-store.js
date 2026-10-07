@@ -59,7 +59,8 @@
     try { meta = JSON.parse(text('wkv-model.json')); } catch { throw new Error('wkv-model.json is not valid JSON'); }
     if (meta.format !== 1) throw new Error(`unsupported model file format ${meta.format}`);
     if (meta.language !== slot) {
-      throw new Error(`this is a model for ${meta.language === 'en' ? 'English' : 'readings'}, not ${slot === 'en' ? 'English' : 'readings'}`);
+      const name = lang => (lang === 'en' ? 'English' : 'readings');
+      throw new Error(`this is a model for ${name(meta.language)}, not ${name(slot)}: choose it under ${name(meta.language)[0].toUpperCase()}${name(meta.language).slice(1)}`);
     }
     if (!SLOTS[slot].includes(meta.kind)) throw new Error(`a ${meta.kind} model can't be used for ${slot}`);
     const missing = REQUIRED[meta.kind].filter(f => !files.has(f));
