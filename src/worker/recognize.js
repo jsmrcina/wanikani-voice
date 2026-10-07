@@ -53,10 +53,17 @@ export async function recognize(asr, audio, { alternatives = 0, LogitsProcessorC
   // generate() returns the prompt too; keep only what follows it.
   const textOf = ids => asr.tokenizer.decode(ids.slice(promptLen), { skip_special_tokens: true });
   // Moonshine often ends before its first word on short clips (an empty
-  // answer); Silero VAD has already found speech, so it must say something.
-  const minTokens = isWhisper(asr) ? {} : { min_new_tokens: 1 };
+  // answer); Silero VAD has already found speech, so it must say something
+  // (min_new_tokens below).
+  // Moonshine can also keep repeating itself to the token limit, so its
+  // limit follows the clip's length (6.5 tokens per second, Moonshine's own
+  // guidance; at least 8 for a short clip).
+  const lengthLimits = isWhisper(asr) ? { max_new_tokens: 24 } : {
+    min_new_tokens: 1,
+    max_new_tokens: Math.min(24, Math.max(8, Math.ceil((audio.length / 16000) * 6.5))),
+  };
   const generate = async (decoderIds, extra) =>
-    (await asr.model.generate({ ...extra, ...minTokens, decoder_input_ids: decoderIds, max_new_tokens: 24 })).tolist()[0].map(Number);
+    (await asr.model.generate({ ...extra, decoder_input_ids: decoderIds, ...lengthLimits })).tolist()[0].map(Number);
 
   if (!alternatives || !LogitsProcessorClass) return tidy(asr, [textOf(await generate(prompt, inputs))]);
 
@@ -109,14 +116,36 @@ export async function recognize(asr, audio, { alternatives = 0, LogitsProcessorC
   return tidy(asr, out);
 }
 
-// Moonshine tends to repeat a short answer ("king king", "21 21"): collapse
-// a phrase said twice in a row. Measured on real recordings 2026-10-06:
-// moonshine-base 16/25 -> 20/25 first choice. A WaniKani meaning is never
-// the same words twice, so nothing right is lost.
-const REPEATED = /^\s*(.+?)[\s,.!?]+\1[\s.!?]*$/i;
+// Moonshine tends to repeat a short answer: "king king", "21 21", "north
+// country north country north country", "barbarbar", "barbar barbar".
+// Collapse a phrase repeated back to back, comparing without spaces and
+// punctuation. Two copies must be separated ("king king"): run together
+// they're usually a real word (murmur, tutu). Hyphens count as letters, so
+// "so-so" stays. A WaniKani meaning is otherwise never the same words over
+// again. Measured on real recordings 2026-10-06: moonshine-base 16/25 ->
+// 20/25 first choice; the 3+ and unseparated cases were seen in use.
+const SEPARATOR = /[\s,.!?]/u;
+export function collapseRepeats(text) {
+  const trimmed = text.trim();
+  const chars = [...trimmed];
+  // Positions (in chars) of the letters, separators left out.
+  const letters = [];
+  chars.forEach((c, i) => { if (!SEPARATOR.test(c)) letters.push(i); });
+  const core = letters.map(i => chars[i].toLowerCase()).join('');
+  const n = letters.length;
+  for (let len = 1; len <= n / 2; len++) {
+    const copies = n / len;
+    if (!Number.isInteger(copies) || core !== core.slice(0, len).repeat(copies)) continue;
+    const separated = SEPARATOR.test(chars[letters[len - 1] + 1] ?? '');
+    if (copies === 2 && !separated) continue;
+    return chars.slice(0, letters[len - 1] + 1).join('');
+  }
+  return text;
+}
+
 function tidy(asr, texts) {
   if (isWhisper(asr)) return texts;
-  return texts.map(t => REPEATED.exec(t)?.[1] ?? t);
+  return texts.map(collapseRepeats);
 }
 
 

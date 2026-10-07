@@ -293,7 +293,7 @@ class Browser:
 def test_unit(b):
     b.d.get(b.base + "/test/unit/index.html")
     total = 0
-    for el in ("results", "ctc-results"):
+    for el in ("results", "ctc-results", "repeat-results"):
         res = json.loads(b.wait(lambda: (t := b.d.find_element(By.ID, el).text) != "running" and t,
                                 what=f"{el}"))
         assert not res["failures"], json.dumps(res["failures"], ensure_ascii=False, indent=1)
