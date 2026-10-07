@@ -904,7 +904,8 @@ raw audio.
    the benchmark, head-only gets 20/31 offered vs 24/31 for full
    fine-tuning (13/31 generic). Most useful for other users once the add-on
    is public, since they have no personal build.
-3. **List v0.2.0 (Android) on AMO** once Mozilla has reviewed v0.1.2:
-   `npm run package -- --sign --listed` with a new version, the phone
-   screenshots and captions (`store/LISTING.md`), and Android enabled in
-   the listing's compatibility settings if AMO asks.
+3. **Android on the public listing: submitted 2026-10-07 as v0.2.3**
+   (the same code as the unlisted v0.2.2, tested on the Pixel), with release
+   notes, the Android description and the combined phone screenshot
+   (`store/screenshots/6-android.png`). Waiting for Mozilla's review, which
+   also covers the still-pending v0.1.2.

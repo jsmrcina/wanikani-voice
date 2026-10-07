@@ -98,11 +98,13 @@ the real settings page.
 | `3-filled-in.png` | The answer is filled in; check it and press Enter |
 | `4-reading-choices.png` | Readings in hiragana; press 1–3 if it heard a different reading |
 | `5-settings.png` | Push-to-talk or hands-free, auto-submit, auto-advance, English speed, custom models |
-| `6-phone-ready.png` | On a phone: hold the mic button and say the answer |
-| `7-phone-choices.png` | On a phone: tap a reading, then Submit (or Clear) |
+| `6-android.png` | Firefox for Android: hold the mic button to answer, then tap a reading and Submit |
 
-The two phone screenshots (1008×2244, portrait, uncropped, taken on a Pixel 9
-Pro XL on 2026-10-06) are for the Android release.
+`6-android.png` (1280×800, uploaded 2026-10-07) combines the two phone
+screenshots `6-phone-ready.png` and `7-phone-choices.png` (1008×2244, Pixel 9
+Pro XL, 2026-10-06; the README uses these) side by side, without Android's
+status and navigation bars and with WaniKani's header statistics painted
+over, like the desktop shots.
 
 ## Before submitting a listed version
 - **Make the GitHub repository public** first (see PLAN.md: personal notes
