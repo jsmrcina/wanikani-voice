@@ -3,6 +3,7 @@ __pycache__/
 *.xpi
 web-ext-artifacts/
 build/
+build-chrome/
 node_modules/
 # Evaluation-only model candidates (re-fetch with tools/fetch-models.mjs).
 models/moonshine-tiny/

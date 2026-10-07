@@ -299,6 +299,7 @@ off the review page.
 | **4 — UX and robustness** | **Done 2026-10-04**: Silero VAD, speed (English speed setting), retry limit, correct-only advance, panel position, fine-tuning on your voice (right reading offered 24/31 vs 13/31) |
 | **5 — Privacy audit + packaging** | Done 2026-10-04, released as **v0.1.1** (signed by Mozilla, GitHub release): lessons and custom models verified live, automated privacy audit, packaging and signing, README, MIT licence, private data split out, repo recreated. Personal notes removed from the plan and from history (2026-10-05). Next steps in §8 |
 | 6 — Firefox for Android | **Built 2026-10-06** (below): touch controls, phone layout, Android mic gain, Moonshine as the default English model. Tested on a Pixel 9 Pro XL. v0.2.0 signed (unlisted) |
+| 7 — Chrome Web Store (desktop) | **Built 2026-10-07** (below): Chrome build target, offscreen speech worker, the whole suite on Chromium. Store submission waits for the developer account |
 
 ### Spikes
 | Spike | Question | Exit criterion |
@@ -755,6 +756,136 @@ raw audio.
 - **No pause button; a Clear button on touch screens.**
 - **Default panel placement on phones: bottom bar.** The position setting
   still allows the top.
+
+### Phase 7 — Chrome Web Store, desktop (built 2026-10-07; store submission pending)
+
+**Goal:** the same add-on on desktop Chrome (and Chromium-based browsers),
+from the same repository: one codebase, a `--target chrome` build, the same
+privacy guarantees (nothing leaves the device, never read the question) and
+the same tests. Chrome on Android has no extensions, so desktop only.
+
+**What changes** (checked against Chrome's documentation on 2026-10-07):
+| Area | Firefox today | Chrome | Plan |
+|---|---|---|---|
+| Background | Event page (`background.scripts`) that owns the speech `Worker` | MV3 allows only a **service worker**, which can't create dedicated workers and is stopped after ~30 s idle | An **offscreen document** (reason `WORKERS`) hosts the speech worker and keeps the models loaded; offscreen documents with that reason aren't closed automatically. The service worker keeps settings, routing, commands and model choice. Offscreen documents get only the `runtime` API, so they talk to the service worker by messages. The model state moves to the offscreen side, so a restarted service worker loses nothing |
+| API namespace | `browser.*` | `chrome.*`, promise-based since Chrome 99; `runtime.onMessage` listeners may return a Promise | A one-line shim (`globalThis.browser ??= chrome`) in each context. No polyfill: the 12 APIs used (`storage`, `runtime.*`, `tabs.create`, `commands`) are all promise-capable in Chrome |
+| Manifest | One file, Firefox keys | No `browser_specific_settings` / `data_collection_permissions`; **no SVG icons** | Generated per target by `tools/build.mjs`: `background.service_worker`, an `offscreen` permission, PNG icons (16/32/48/128), `minimum_chrome_version`. Same CSP (`wasm-unsafe-eval`), same host permission |
+| Keep-alive | 5 s port heartbeat keeps the event page (and models) alive | Not needed for the models (offscreen); harmless | Kept; it also keeps the service worker warm between answers |
+| Microphone | Content script, raw constraints, ScriptProcessor | Same APIs; Chrome applies its own audio processing unless disabled, which our constraints do | Verify raw capture and levels on Chrome (as the Android mic gain was) |
+| Custom models | IndexedDB in the extension origin | Same; quota rules differ | Check an 85 MB model installs; add `unlimitedStorage` (no install warning) if needed |
+| Toolbar popup | Closes on file chooser; settings open in a tab instead | Popups also close when they lose focus | Same workaround; verify |
+| Speed | Single-threaded WASM (no cross-origin isolation in Firefox extensions) | Extension pages can be **cross-origin isolated** (`cross_origin_embedder_policy` / `cross_origin_opener_policy` manifest keys, Chrome 93+) → SharedArrayBuffer → **multi-threaded WASM**. WebGPU on most desktop platforms | Spikes C3/C4: optional speed-ups, Chrome only. Could make Whisper *accurate* fast. Docs don't say whether isolation reaches offscreen documents: measure |
+
+**Decisions (2026-10-07):**
+- **Developer account:** you register it when we're ready to list, with a
+  walkthrough then.
+- **Unlisted first**, then public.
+- **No speed work for Chrome** (C3/C4 dropped): Moonshine is already fast
+  enough, and both browsers stay on the same single-threaded WASM.
+- **Microsoft Edge Add-ons too**, from the same Chrome package.
+- **Chromium (with chromedriver) installed** for testing.
+
+**Result (2026-10-07):** built as planned; the whole suite (40 tests)
+passes on Firefox and on Chromium 153.
+- **C1 passed:** real speech goes content script → service worker →
+  offscreen document → speech worker and back. Moonshine decodes in ~160 ms
+  in Chromium (~100 ms in Firefox).
+- **C2 passed:** `test_service_worker_restart` stops the service worker
+  (DevTools `ServiceWorker.stopAllWorkers`); the restarted one finds the
+  models still loaded (ready at once) and the next answer works.
+- **Design:** `background.js` is unchanged except for one seam: its
+  `Worker` comes from `WKV.createSpeechWorker` when present
+  (`src/background/offscreen-host.js`, Chrome only), a stand-in that relays
+  to the real worker in `src/offscreen/`. `src/background/service-worker.js`
+  `importScripts` the same files as Firefox's background page.
+- **Found on the way:**
+  - Chrome sends extension messages as JSON, which mangles a
+    `Float32Array`; audio now travels as base64 in both browsers
+    (`src/shared/wire.js`).
+  - The background replies with `sendResponse` (returning a Promise only
+    works in newer Chrome).
+  - Chrome caps a message at 64 MB, too small for the test hook that
+    installed custom models by message; it now fetches them itself (test
+    build only).
+  - Chromium still talks to Google (update, time, accounts) with background
+    networking off; the privacy audit allows only those hosts, as it allows
+    Mozilla's for Firefox.
+  - Chromedriver doesn't keep a touch pointer down across separate action
+    calls: one test now does its press in a single action.
+  - The settings page said "inside Firefox"; now "inside your browser".
+- **Store material:** `store/CHROME-LISTING.md` (listing text, privacy-tab
+  answers, reviewer notes, Edge specifics), `PRIVACY.md`, the 440×280 promo
+  tile and Edge's 300×300 logo, and a re-rendered settings screenshot
+  (`tools/make-store-images.py`; the old one showed tiny.en).
+- **Next:** your test of `build-chrome/` (unpacked) in Chromium; then the
+  developer account, an unlisted upload, public, and Edge.
+
+**Spikes first** (each a yes/no before building on it):
+- **C1. Offscreen speech worker:** offscreen document + transformers.js
+  worker + bundled models in Chromium; transcribe a clip from a content
+  script; latency and memory vs Firefox.
+- **C2. Lifecycle:** stop the service worker (chrome://serviceworker-internals)
+  mid-session: next answer still works, models stay loaded, ports reconnect.
+- ~~C3. Threads~~ and ~~C4. WebGPU~~: dropped (decision above).
+
+**Build and packaging:**
+- `tools/build.mjs --target chrome` → `build-chrome/`: the Chrome manifest,
+  the shim, the offscreen page, PNG icons (rendered from `icons/icon.svg`
+  like `store/icon-128.png`). Firefox output unchanged.
+- `npm run package -- --target chrome` → `dist/…-<version>-chrome.zip`.
+  Same policy check (extended to the offscreen page), no signing (the store
+  signs). Same version numbers in both stores.
+- Optional later: upload through the Chrome Web Store API (OAuth client and
+  refresh token, kept in `~/.config/wanikani-voice/`, like the AMO
+  credentials).
+
+**Tests:**
+- Chromium plus chromedriver from the Arch repos (`chromium` 153). Branded
+  Chrome no longer loads unpacked extensions from the command line, so
+  Chromium (or Chrome for Testing) is the test browser.
+- `test/run_tests.py --browser chrome`: the `Browser` class gets a Chrome
+  variant (load the build, preferences, fake mic). The page-level tests
+  (state machine, choices, speech, custom models, options) run unchanged;
+  Firefox-only ones (idle timeout pref, Android touch emulation) are skipped
+  or ported via DevTools touch emulation.
+- **Privacy audit on Chrome:** the same refusing proxy, with Chrome's own
+  background traffic switched off (`--disable-background-networking`,
+  `--disable-component-update`, no pings), so any remaining request would
+  have come from the add-on.
+
+**Store listing** (Chrome Web Store, verified 2026-10-07):
+- **Developer account:** registered by you (one-time fee, identity details;
+  trader or non-trader declaration for the EU).
+- **Images:** icon 128×128 PNG (have), **small promo tile 440×280
+  (required, new; no text, works on light grey)**, 1–5 screenshots
+  1280×800, full bleed. Retake the five desktop shots in Chrome, since the
+  settings page renders slightly differently. Marquee 1400×560 optional.
+- **Text:** name, a ≤132-character summary (the manifest description),
+  the description adapted from the AMO one (Chrome wording, no Android, same
+  AI credit), category (Education or Tools), language.
+- **Privacy practices tab:**
+  - single purpose: "answer WaniKani reviews and lesson quizzes by voice"
+  - a justification for each permission (`storage`, `offscreen`, `www.wanikani.com`)
+  - remote code: none
+  - data usage: nothing collected
+  - a **privacy policy URL**: a new `PRIVACY.md` in the repository, which
+    AMO can link to as well
+- **Distribution:** unlisted first (your own testing on a signed store
+  build), then public.
+
+**Phases:**
+1. C1 + C2 (the architecture question), then the Chrome build target and shim.
+2. Test harness on Chromium; the whole suite green on both browsers.
+3. Your test on desktop Chrome, unpacked, then unlisted from the store.
+4. Listing assets and privacy policy; submit to the Chrome Web Store
+   (unlisted, then public) and to Microsoft Edge Add-ons.
+
+**Risks:**
+- Service worker ↔ offscreen messaging adds a hop and lifecycle edge cases (C2).
+- Chrome's microphone defaults differ.
+- Chrome Web Store review of a 140 MB package with WebAssembly may take longer
+  or ask questions; the reviewer notes prepared for AMO apply.
+- Two builds to keep in step: one codebase and one test suite run on both.
 
 ---
 

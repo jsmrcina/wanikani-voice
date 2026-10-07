@@ -1,7 +1,12 @@
 // Assembles the loadable extension in build/ (load build/manifest.json in
 // about:debugging, or package it with `npx web-ext build -s build`).
 //
-//   node tools/build.mjs [--personal]
+//   node tools/build.mjs [--target firefox|chrome] [--personal]
+//
+// --target chrome writes build-chrome/ instead (load it as an unpacked
+// extension in chrome://extensions): the same code with a Chrome manifest
+// (service worker, offscreen document for the speech worker, PNG icons), see
+// chromeManifest() below and PLAN.md, Phase 7.
 //
 // - copies manifest, src/, icons/ (and inlines the icon into the indicator)
 // - bundles the speech worker (transformers.js + onnxruntime-web) with esbuild
@@ -16,7 +21,32 @@ import { fileURLToPath } from 'node:url';
 import * as esbuild from 'esbuild';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const OUT = join(ROOT, 'build');
+const argTarget = process.argv.indexOf('--target');
+export const TARGET = argTarget >= 0 ? process.argv[argTarget + 1] : 'firefox';
+if (!['firefox', 'chrome'].includes(TARGET)) throw new Error(`unknown --target ${TARGET}`);
+const OUT = join(ROOT, TARGET === 'chrome' ? 'build-chrome' : 'build');
+// Files only one browser needs (paths relative to the repository root).
+const ONLY = {
+  chrome: ['src/offscreen', 'src/background/service-worker.js', 'src/background/offscreen-host.js',
+    'icons/icon-16.png', 'icons/icon-32.png', 'icons/icon-48.png', 'icons/icon-128.png'],
+  firefox: [],
+};
+const OTHER = TARGET === 'chrome' ? 'firefox' : 'chrome';
+const skipped = path => ONLY[OTHER].some(f => path === join(ROOT, f) || path.startsWith(join(ROOT, f) + '/'));
+
+// The Chrome manifest, derived from the Firefox one so the two can't drift.
+function chromeManifest(manifest) {
+  const m = structuredClone(manifest);
+  delete m.browser_specific_settings; // gecko id, data_collection_permissions
+  m.background = { service_worker: 'src/background/service-worker.js' };
+  m.permissions = [...m.permissions, 'offscreen'];
+  // runtime.getContexts (used to find the offscreen document) needs 116.
+  m.minimum_chrome_version = '116';
+  const icons = Object.fromEntries([16, 32, 48, 128].map(s => [String(s), `icons/icon-${s}.png`]));
+  m.icons = icons;
+  m.action.default_icon = icons;
+  return m;
+}
 const ORT = join(ROOT, 'node_modules/onnxruntime-web/dist');
 // Only onnxruntime's plain WASM build (14 MB) ships. transformers.js imports
 // the WebGPU-capable entry, whose "asyncify" runtime is 27 MB; Firefox here
@@ -42,12 +72,14 @@ export async function build() {
   // Sources are small: always replace them so deleted files don't linger.
   for (const dir of ['src', 'icons']) await rm(join(OUT, dir), { recursive: true, force: true });
   await mkdir(OUT, { recursive: true });
-  await cp(join(ROOT, 'manifest.json'), join(OUT, 'manifest.json'));
+  const manifest = JSON.parse(await readFile(join(ROOT, 'manifest.json'), 'utf8'));
+  await writeFile(join(OUT, 'manifest.json'),
+    `${JSON.stringify(TARGET === 'chrome' ? chromeManifest(manifest) : manifest, null, 2)}\n`);
   // src/worker is bundled below rather than copied.
   await cp(join(ROOT, 'src'), join(OUT, 'src'), {
-    recursive: true, filter: p => !p.startsWith(join(ROOT, 'src/worker')),
+    recursive: true, filter: p => !p.startsWith(join(ROOT, 'src/worker')) && !skipped(p),
   });
-  await cp(join(ROOT, 'icons'), join(OUT, 'icons'), { recursive: true });
+  await cp(join(ROOT, 'icons'), join(OUT, 'icons'), { recursive: true, filter: p => !skipped(p) });
 
   // Inline the icon into the indicator, so the page never has to load a
   // file from the extension (that would need web_accessible_resources).
@@ -64,7 +96,7 @@ export async function build() {
     bundle: true,
     format: 'esm',
     platform: 'browser',
-    target: 'firefox140',
+    target: TARGET === 'chrome' ? 'chrome116' : 'firefox140',
     // Readable output: AMO reviewers must be able to compare it with the
     // published library sources.
     minify: false,

@@ -2,6 +2,10 @@
 
     python tools/make-icon.py [--font PATH]   (needs fontTools)
 
+Chrome needs PNG icons (it doesn't accept SVG in the manifest); after
+changing the SVG, re-render them:
+    for s in 16 32 48 128; do rsvg-convert -w $s -h $s icons/icon.svg -o icons/icon-$s.png; done
+
 The あ is converted to an outline (no font needed at render time). It comes
 from Noto Sans CJK JP Black (SIL Open Font License 1.1, which permits using
 glyph outlines in a logo). A stroke painted with the background gradient

@@ -1,7 +1,7 @@
 // TEST BUILD ONLY (added by test/run_tests.py, never shipped).
 //
 // - lets the test page read/write extension settings, since WebDriver can't
-//   drive moz-extension:// pages
+//   drive moz-extension:// (or chrome-extension://) pages
 // - replaces the microphone with a stream the test can play WAV clips into
 // - forwards a diagnostics request to the background page
 //
@@ -45,8 +45,9 @@ window.addEventListener('message', async e => {
     } else if (e.data.type === 'wkv-test:diag') {
       result = await browser.runtime.sendMessage({ type: 'wkv:diag' });
     } else if (e.data.type === 'wkv-test:install-custom') {
-      const bytes = await (await fetch(e.data.url)).arrayBuffer();
-      result = await browser.runtime.sendMessage({ type: 'wkv-test:install-custom', slot: e.data.slot, bytes, name: e.data.name });
+      // The background fetches the file itself: model files are too big for
+      // an extension message in Chrome (64 MB, JSON).
+      result = await browser.runtime.sendMessage({ type: 'wkv-test:install-custom', slot: e.data.slot, url: e.data.url, name: e.data.name });
     } else if (e.data.type === 'wkv-test:remove-custom') {
       result = await browser.runtime.sendMessage({ type: 'wkv-test:remove-custom', slot: e.data.slot });
     }

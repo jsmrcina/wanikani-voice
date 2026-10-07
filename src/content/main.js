@@ -294,7 +294,7 @@
         showError("Didn't hear anything");
         return;
       }
-      request.audio = clip.audio;
+      request.audio = WKV.wire.packAudio(clip.audio);
     }
     setState('processing');
     let result;

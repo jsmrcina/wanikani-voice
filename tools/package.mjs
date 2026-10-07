@@ -1,6 +1,14 @@
-// Packages the add-on for addons.mozilla.org (AMO).
+// Packages the add-on for addons.mozilla.org (AMO), or with --target chrome
+// for the Chrome Web Store and Microsoft Edge Add-ons.
 //
 //   npm run package [-- --verify] [--sign [--listed]] [--allow-dirty]
+//   npm run package -- --target chrome [--allow-dirty]
+//
+// --target chrome: a clean `tools/build.mjs --target chrome`, the privacy
+// policy check (which also checks the generated Chrome manifest), then
+// dist/voice-answers-for-wanikani-<version>-chrome.zip and SHA256SUMS-chrome.
+// Both stores sign uploads themselves and need no source archive; upload the
+// zip in their developer dashboards (store/CHROME-LISTING.md).
 //
 // Produces, in dist/:
 //   voice-answers-for-wanikani-<version>.xpi         the add-on (unsigned)
@@ -44,6 +52,7 @@ const BUILD = join(ROOT, 'build');
 const DIST = join(ROOT, 'dist');
 const AMO_LIMIT = 200 * 1024 * 1024;
 const args = process.argv.slice(2);
+const TARGET = args.includes('--target') ? args[args.indexOf('--target') + 1] : 'firefox';
 
 const run = (cmd, argv, opts = {}) => execFileSync(cmd, argv, { cwd: ROOT, stdio: 'pipe', encoding: 'utf8', ...opts });
 const step = msg => console.log(`\n== ${msg}`);
@@ -101,6 +110,34 @@ The add-on is written to \`build/\`; it is identical to the submitted package.
 `;
 }
 
+// Chrome Web Store / Edge Add-ons: the zip of build-chrome/.
+async function packageChrome(version, base) {
+  for (const flag of ['--sign', '--listed', '--verify']) {
+    if (args.includes(flag)) throw new Error(`${flag} is for Firefox (AMO) only`);
+  }
+  const out = join(ROOT, 'build-chrome');
+  step(`clean Chrome build of ${version}`);
+  await rm(out, { recursive: true, force: true });
+  run('node', ['tools/build.mjs', '--target', 'chrome'], { stdio: 'inherit' });
+  if ((await readFile(join(out, 'BUILD-INFO.txt'), 'utf8')).includes('PERSONAL')) {
+    throw new Error('refusing to package a personal build');
+  }
+  step('privacy policy check (both manifests)');
+  run('python3', ['test/policy.py'], { stdio: 'inherit' });
+
+  step('package');
+  await mkdir(DIST, { recursive: true });
+  const zipFile = join(DIST, `${base}-chrome.zip`);
+  const entries = [];
+  for (const f of (await walk(out)).sort()) entries.push({ name: relative(out, f), data: await readFile(f) });
+  await writeFile(zipFile, zip(entries));
+  const size = (await stat(zipFile)).size;
+  console.log(`  ${relative(ROOT, zipFile)}  ${mb(size)} (${entries.length} files)`);
+  await writeFile(join(DIST, 'SHA256SUMS-chrome'), `${await sha256(zipFile)}  ${relative(DIST, zipFile)}\n`);
+  console.log(`\nUpload ${relative(ROOT, zipFile)} to the Chrome Web Store developer dashboard`);
+  console.log('and to Microsoft Edge Add-ons (Partner Center); see store/CHROME-LISTING.md.');
+}
+
 async function main() {
   const manifest = JSON.parse(await readFile(join(ROOT, 'manifest.json'), 'utf8'));
   const version = manifest.version;
@@ -110,6 +147,8 @@ async function main() {
     throw new Error('working tree has uncommitted changes; commit first (or pass --allow-dirty)');
   }
   const commit = run('git', ['rev-parse', 'HEAD']).trim();
+  if (TARGET === 'chrome') return packageChrome(version, base);
+  if (TARGET !== 'firefox') throw new Error(`unknown --target ${TARGET}`);
 
   step(`clean build of ${version}`);
   await rm(BUILD, { recursive: true, force: true });
@@ -136,7 +175,7 @@ async function main() {
   // recreated.
   await mkdir(DIST, { recursive: true });
   for (const f of await readdir(DIST)) {
-    if (f.endsWith('-signed.xpi')) continue;
+    if (f.endsWith('-signed.xpi') || f.endsWith('-chrome.zip') || f === 'SHA256SUMS-chrome') continue;
     if (f.startsWith('voice-answers-for-wanikani-') || f === 'SHA256SUMS' || f === 'signed') {
       await rm(join(DIST, f), { recursive: true, force: true });
     }

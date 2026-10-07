@@ -1,9 +1,11 @@
 """Runs all tests: static policy checks, unit tests and end-to-end tests in a
 real (headless) Firefox with the built extension (build/, from `npm run build`)
-installed against test/mock.
+installed against test/mock; or, with --browser chrome, in headless Chromium
+with build-chrome/ (`node tools/build.mjs --target chrome`).
 
-Needs: Python with `selenium`, and `geckodriver` on PATH or in $GECKODRIVER.
-    python3 test/run_tests.py [-k name-substring] [--headed]
+Needs: Python with `selenium`, and `geckodriver` (Firefox) or `chromium` +
+`chromedriver` (Chrome) on PATH, or $GECKODRIVER / $CHROMEDRIVER.
+    python3 test/run_tests.py [--browser firefox|chrome] [-k name-substring] [--headed]
 
 All traffic except localhost goes to a dead proxy, so anything that tried to
 reach the network (a CDN, a model host) would fail the tests.
@@ -28,6 +30,7 @@ from selenium.webdriver.common.actions.action_builder import ActionBuilder
 from selenium.webdriver.common.actions.pointer_input import PointerInput
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.firefox.service import Service
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -97,13 +100,15 @@ def start_server():
 BUILD = ROOT / "build"
 
 
-def build_test_extension() -> Path:
-    """Copy of build/ that also runs on http://localhost, with the indicator's
-    shadow root open so the test can type into its test field. The models are
-    symlinked to save copying ~80 MB; scripts can't be (Firefox refuses to
-    import an ES module through a symlink in an extension)."""
+def build_test_extension(target="firefox") -> Path:
+    """Copy of build/ (build-chrome/ for Chrome) that also runs on
+    http://localhost, with the indicator's shadow root open so the test can
+    type into its test field. The models are symlinked to save copying
+    ~80 MB; scripts can't be (Firefox refuses to import an ES module through a
+    symlink in an extension)."""
+    BUILD = ROOT / ("build-chrome" if target == "chrome" else "build")
     if not (BUILD / "manifest.json").exists():
-        raise SystemExit("build/ is missing: run `npm run build` first")
+        raise SystemExit(f"{BUILD.name}/ is missing: run `node tools/build.mjs --target {target}` first")
     out = Path(tempfile.mkdtemp(prefix="wkv-ext-"))
     for item in BUILD.iterdir():
         if item.name == "models":
@@ -120,9 +125,16 @@ def build_test_extension() -> Path:
     shutil.copy(ROOT / "test/hooks/settings-bridge.js", out / "settings-bridge.js")
     manifest["content_scripts"].append(
         {"matches": ["http://localhost/*"], "js": ["settings-bridge.js"], "run_at": "document_start"})
+    # The custom-model hook fetches test model files from the local server.
+    csp = manifest["content_security_policy"]
+    csp["extension_pages"] = csp["extension_pages"].replace("connect-src 'self'", "connect-src 'self' http://localhost:*")
     # Custom-model install hook, using the real model store.
     shutil.copy(ROOT / "test/hooks/bg-hook.js", out / "bg-hook.js")
-    manifest["background"]["scripts"] += ["src/shared/zip-reader.js", "src/shared/model-store.js", "bg-hook.js"]
+    if target == "chrome":  # a service worker: add the hooks to its imports
+        sw = out / "src/background/service-worker.js"
+        sw.write_text(sw.read_text() + "importScripts('../shared/zip-reader.js', '../shared/model-store.js', '../../bg-hook.js');\n")
+    else:
+        manifest["background"]["scripts"] += ["src/shared/zip-reader.js", "src/shared/model-store.js", "bg-hook.js"]
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2))
     ind = out / "src/content/indicator.js"
     ind.write_text(ind.read_text().replace("mode: 'closed'", "mode: 'open'"))
@@ -132,8 +144,12 @@ def build_test_extension() -> Path:
 # ---- browser helpers ----------------------------------------------------------
 
 class Browser:
-    def __init__(self, base, ext_dir, headed=False, proxy_port=9, touch=False):
+    def __init__(self, base, ext_dir, headed=False, proxy_port=9, touch=False, target="firefox"):
         self.base = base
+        self.target = target
+        if target == "chrome":
+            self._start_chrome(ext_dir, headed, proxy_port, touch)
+            return
         opts = webdriver.FirefoxOptions()
         if not headed:
             opts.add_argument("-headless")
@@ -163,6 +179,33 @@ class Browser:
         self.d.execute("INSTALL_ADDON", {"path": str(ext_dir), "temporary": True})
         if touch:
             self.d.set_window_size(412, 915)  # Pixel 9 Pro XL, CSS pixels
+
+    def _start_chrome(self, ext_dir, headed, proxy_port, touch):
+        opts = webdriver.ChromeOptions()
+        opts.binary_location = os.environ.get("CHROMIUM") or shutil.which("chromium")
+        if not headed:
+            opts.add_argument("--headless=new")
+        opts.add_argument(f"--load-extension={ext_dir}")
+        opts.add_argument(f"--disable-extensions-except={ext_dir}")
+        # Privacy audit: everything but localhost goes to the refusing proxy,
+        # and Chrome's own background traffic is switched off, so any request
+        # that still arrives came from the page or the extension.
+        opts.add_argument(f"--proxy-server=http://127.0.0.1:{proxy_port}")
+        opts.add_argument("--proxy-bypass-list=<-loopback>;localhost;127.0.0.1")
+        for flag in ("--disable-background-networking", "--disable-component-update", "--no-pings",
+                     "--disable-sync", "--no-first-run", "--no-default-browser-check",
+                     "--disable-features=OptimizationHints,MediaRouter,Translate,AutofillServerCommunication"):
+            opts.add_argument(flag)
+        opts.add_argument("--window-size=412,915" if touch else "--window-size=1280,900")
+        service = ChromeService(executable_path=os.environ.get("CHROMEDRIVER") or shutil.which("chromedriver"))
+        self.d = webdriver.Chrome(options=opts, service=service)
+        if touch:
+            # A phone, as far as CSS and matchMedia can tell: touch emulation
+            # makes the primary pointer coarse with no hover.
+            self.d.execute_cdp_cmd("Emulation.setTouchEmulationEnabled", {"enabled": True, "maxTouchPoints": 5})
+            self.d.execute_cdp_cmd("Emulation.setEmulatedMedia", {"features": [
+                {"name": "pointer", "value": "coarse"}, {"name": "hover", "value": "none"},
+                {"name": "any-pointer", "value": "coarse"}, {"name": "any-hover", "value": "none"}]})
 
     def quit(self):
         self.d.quit()
@@ -504,6 +547,16 @@ def needs_voice(test):
     return test
 
 
+def firefox_only(test):
+    test.firefox_only = True
+    return test
+
+
+def chrome_only(test):
+    test.chrome_only = True
+    return test
+
+
 
 @needs_voice
 def test_speech_push_to_talk(b):
@@ -636,6 +689,31 @@ def test_speech_hands_free(b):
     assert b.mock_log()[-1]["answer"] == "water", b.mock_log()
 
 
+@chrome_only
+@needs_voice
+def test_service_worker_restart(b):
+    """Spike C2: Chrome stops idle extension service workers. The speech
+    worker lives in the offscreen document, so after a restart the models are
+    still loaded (ready again within moments, not a full reload) and the next
+    answer works."""
+    b.set_options(recognizer="local")
+    b.open_review()
+    b.wait_model_ready(timeout=120)
+    before = b.diag()
+    b.d.execute_cdp_cmd("ServiceWorker.enable", {})
+    b.d.execute_cdp_cmd("ServiceWorker.stopAllWorkers", {})
+    t0 = time.time()
+    b.wait(lambda: b.diag()["startedAt"] != before["startedAt"], 10, "service worker restarted")
+    b.wait(lambda: all(m.get("status") == "ready" for m in b.diag()["models"].values()), 10, "models ready again")
+    ready_in = time.time() - t0
+    b.wait_model_ready(timeout=10)
+    b.speak(SPEECH_PREFIX + "fire.wav")
+    b.wait_state("filled", timeout=20)
+    assert b.input_value() == "fire", b.input_value()
+    return f"models ready {ready_in:.1f} s after the restart"
+
+
+@firefox_only
 @needs_voice
 def test_background_survives_idle(b):
     """Spike S2: with the idle timeout at 8 s, the background (and the loaded
@@ -899,17 +977,27 @@ def test_touch_mic_stays_put(b):
     b.wait_state("filled")
     before = b.d.execute_script("return arguments[0].getBoundingClientRect().toJSON()", b.panel(".badge"))
     b.set_utterance("Fire|Fir")
+    # Note where the mic is once listening starts, from inside the page: one
+    # continuous press (chromedriver doesn't keep a finger down across actions).
+    b.d.execute_script("""
+        const host = document.querySelector('wkv-indicator');
+        window.__during = null;
+        new MutationObserver(() => {
+          if (host.dataset.state === 'listening' && !window.__during) {
+            window.__during = host.shadowRoot.querySelector('.badge').getBoundingClientRect().toJSON();
+          }
+        }).observe(host, { attributes: true });""")
     finger = PointerInput(interaction.POINTER_TOUCH, "finger")
     ab = ActionBuilder(b.d, mouse=finger)
     ab.pointer_action.move_to_location(int(before["x"] + before["width"] / 2), int(before["y"] + before["height"] / 2))
-    ab.pointer_action.pointer_down().pause(0.3)
+    ab.pointer_action.pointer_down().pause(0.3).pointer_up()
     ab.perform()
-    during = b.d.execute_script("return arguments[0].getBoundingClientRect().toJSON()", b.panel(".badge"))
-    ab = ActionBuilder(b.d, mouse=finger)
-    ab.pointer_action.pointer_up()
-    ab.perform()
-    assert abs(during["y"] - before["y"]) < 2, (before, during)
-    b.wait(lambda: b.input_value() == "fire", what="second recording kept")
+    during = b.d.execute_script("return window.__during")
+    assert during and abs(during["y"] - before["y"]) < 2, (before, during)
+    try:
+        b.wait(lambda: b.input_value() == "fire", what="second recording kept")
+    except AssertionError:
+        raise AssertionError(f"{b.state()} {b.message()!r} value {b.input_value()!r} before {before} during {during}")
 
 
 def test_touch_layout(b):
@@ -951,13 +1039,14 @@ TESTS = [test_unit, test_inactive_off_review_page, test_lesson_quiz, test_defaul
          test_speech_numbers_and_phrases, test_reading_choices, test_answer_choices_english,
          test_speech_japanese,
          test_speech_fast_english, test_speech_silence_not_sent,
-         test_speech_hands_free, test_background_survives_idle]
+         test_speech_hands_free, test_background_survives_idle, test_service_worker_restart]
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("-k", default="")
     ap.add_argument("--headed", action="store_true")
+    ap.add_argument("--browser", choices=("firefox", "chrome"), default="firefox")
     args = ap.parse_args()
 
     failed = 0
@@ -970,15 +1059,21 @@ def main():
     pack_test_models()
     server, base = start_server()
     proxy = RefusingProxy()
-    ext = build_test_extension()
+    ext = build_test_extension(args.browser)
     def run(tests, touch=False):
         nonlocal failed
         tests = [t for t in tests if args.k in t.__name__]
         if not tests:
             return
-        b = Browser(base, ext, headed=args.headed, proxy_port=proxy.port, touch=touch)
+        b = Browser(base, ext, headed=args.headed, proxy_port=proxy.port, touch=touch, target=args.browser)
         try:
             for t in tests:
+                if getattr(t, "firefox_only", False) and args.browser != "firefox":
+                    print(f"skip {t.__name__} (Firefox only)")
+                    continue
+                if getattr(t, "chrome_only", False) and args.browser != "chrome":
+                    print(f"skip {t.__name__} (Chrome only)")
+                    continue
                 if getattr(t, "needs_voice", False) and not VOICE_FIXTURES.exists():
                     print(f"skip {t.__name__} (private voice fixtures not checked out)")
                     continue
@@ -997,16 +1092,19 @@ def main():
     finally:
         server.shutdown()
         shutil.rmtree(ext, ignore_errors=True)
-    # Privacy audit: Firefox's own background traffic goes to Mozilla's
-    # servers (Remote Settings, certificates); anything else would have come
-    # from the page or the extension, and fails the run.
+    # Privacy audit: the browser's own background traffic goes to its
+    # vendor (Firefox: Mozilla's Remote Settings and certificates; Chromium:
+    # Google's update, time and account endpoints, despite the flags in
+    # _start_chrome). Anything else would have come from the page or the
+    # extension, and fails the run.
     import re as _re
+    browser_name, vendor_name, pattern = (("Chromium", "Google", r"(^|\.)(google\.com|googleapis\.com|gvt1\.com)$")
+                       if args.browser == "chrome" else
+                       ("Firefox", "Mozilla", r"(^|\.)mozilla\.(com|net|org)$"))
     host = lambda r: _re.sub(r"^\S+ (https?://)?([^/:]+).*$", r"\2", r)
-    foreign = [r for r in proxy.requests
-               if not _re.search(r"(^|\.)mozilla\.(com|net|org)$", host(r))]
-    print(f"{'FAIL' if foreign else 'ok  '} privacy audit: {len(proxy.requests)} outside requests, "
-          f"all from Firefox to Mozilla hosts" if not foreign else
-          f"FAIL privacy audit: {len(foreign)} requests to non-Mozilla hosts")
+    foreign = [r for r in proxy.requests if not _re.search(pattern, host(r))]
+    print(f"ok   privacy audit: {len(proxy.requests)} outside requests, all from {browser_name} to {vendor_name} hosts"
+          if not foreign else f"FAIL privacy audit: {len(foreign)} requests to non-{vendor_name} hosts")
     for r in sorted(set(foreign)):
         print(f"   {foreign.count(r)}x {r}")
     failed += bool(foreign)

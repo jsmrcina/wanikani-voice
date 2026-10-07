@@ -30,8 +30,10 @@
   ],
   "background": {
     "scripts": [
+      "src/shared/browser-shim.js",
       "src/shared/settings.js",
       "src/shared/normalize.js",
+      "src/shared/wire.js",
       "src/background/background.js"
     ]
   },
@@ -41,7 +43,9 @@
         "https://www.wanikani.com/*"
       ],
       "js": [
+        "src/shared/browser-shim.js",
         "src/shared/settings.js",
+        "src/shared/wire.js",
         "src/content/page-reader.js",
         "src/content/answer-io.js",
         "src/content/indicator.js",

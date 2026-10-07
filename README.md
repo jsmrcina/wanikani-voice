@@ -10,8 +10,9 @@ computer, inside Firefox. Nothing you say is sent anywhere.
 
 - **Meanings and radical names** in English: Moonshine base (*fast*, the
   default) or Whisper base.en (*accurate*).
-- **Desktop and Android:** Firefox on Windows, macOS and Linux, and Firefox
-  for Android, where everything works by touch.
+- **Firefox, Chrome and Android:** Firefox and Chrome (and other Chromium
+  browsers, such as Edge) on Windows, macOS and Linux, and Firefox for
+  Android, where everything works by touch.
 - **Readings** in hiragana: a small speech model that writes kana directly,
   so it never has to guess a reading from kanji.
 - **Choices:** besides its best guess, the panel offers up to two other
@@ -85,6 +86,11 @@ npm run build    # -> build/ (~185 MB: three speech models, a speech detector, t
 Then `about:debugging#/runtime/this-firefox` → **Load Temporary Add-on…** →
 `build/manifest.json`. A temporary add-on is removed when Firefox restarts.
 
+**Chrome, Edge and other Chromium browsers (from source):**
+`node tools/build.mjs --target chrome` → `build-chrome/`. Open
+`chrome://extensions`, turn on **Developer mode**, **Load unpacked** →
+`build-chrome/`. It stays installed across restarts.
+
 ## Requirements
 
 **No GPU is needed, and none is used.** Firefox has no WebGPU on Linux, so
@@ -111,7 +117,8 @@ That desktop CPU has one of the fastest single cores available, so treat
 its numbers as best case. Time scales roughly with single-core speed: on a
 typical laptop expect about **1.5–2.5× longer** (an estimate, not measured).
 Any 64-bit desktop CPU from the last decade runs it. Firefox 140 or newer is
-required on desktop, Firefox 142 or newer on Android.
+required on desktop, Firefox 142 or newer on Android, Chrome 116 or newer
+(or a Chromium browser of that age).
 
 A GPU only matters for the optional fine-tuning tools (PyTorch). Even there
 the CPU is enough: ~7 minutes for 400 recordings on the CPU above.
@@ -175,9 +182,9 @@ Firefox is excluded (EasyEffects: input blocklist).
 | Guarantee | How it's enforced |
 |---|---|
 | Your voice never leaves the computer | Recognition runs in a WASM worker inside the extension. Models and runtime ship in the package. Remote model loading is disabled. The extension's CSP allows connections only to itself (`connect-src 'self'`) |
-| No network requests at all | `test/policy.py` fails on any network API or outside URL in `src/`. Every test run routes all traffic through a recording proxy and **fails if anything goes to a non-Mozilla host**: a full run sees only Firefox's own background traffic |
+| No network requests at all | `test/policy.py` fails on any network API or outside URL in `src/`. Every test run routes all traffic through a recording proxy and **fails if anything goes anywhere but the browser vendor's own hosts**: a full run sees only Firefox's traffic to Mozilla (or Chromium's to Google) |
 | The question is never used | Only `page-reader.js` reads the page, and only the question-type labels. The recogniser's input is the audio plus `en` / `ja-kana`. WaniKani's quiz events are timing signals; their payloads (which contain the item) are never read. All of this is checked by `test/policy.py` |
-| Minimal permissions | `storage`, plus access to `www.wanikani.com` only. Settings live in `storage.local` (never synced). `data_collection_permissions: none` |
+| Minimal permissions | `storage`, plus access to `www.wanikani.com` only (Chrome adds `offscreen`, for the speech worker). Settings live in `storage.local` (never synced). `data_collection_permissions: none`. Privacy policy: [PRIVACY.md](PRIVACY.md) |
 | Custom models stay local | A chosen model file is read from disk into the extension's IndexedDB |
 
 ## How it works
@@ -266,6 +273,8 @@ sequenceDiagram
 | Panel | `src/content/indicator.js` | A closed shadow root, so WaniKani's CSS and scripts can't touch it. The icon is inlined at build time, so the page loads nothing from the extension |
 | Background | `src/background/background.js` | Owns the worker, picks models (built-in or custom, with fallback), normalises and ranks candidates. Review tabs send a 5 s heartbeat, because Firefox otherwise unloads an idle background page and the loaded models with it |
 | Worker | `src/worker/` | transformers.js + onnxruntime-web (plain WASM build, single thread), bundled by esbuild. Remote models are off and the WASM runtime comes from the package |
+| Chrome background | `src/background/service-worker.js`, `offscreen-host.js`, `src/offscreen/` | Chrome only. A Manifest V3 background is a service worker, which can't start workers and is stopped when idle, so the speech worker runs in an offscreen document that keeps the models loaded; `offscreen-host.js` gives `background.js` a stand-in with a Worker's interface that relays to it. After a service-worker restart the models are still there |
+| Wire format | `src/shared/wire.js`, `browser-shim.js` | Audio clips cross extension contexts as base64 (Chrome sends messages as JSON). The shim maps Chrome's `chrome.*` to `browser.*` (both promise-based) |
 | Normalisation | `src/shared/normalize.js` | Turns recogniser output into an answer, without correcting it (below) |
 
 ### Recognition
@@ -373,6 +382,8 @@ the extension never calls the WaniKani API.
 python3 -m venv .venv && .venv/bin/pip install selenium
 # geckodriver: https://github.com/mozilla/geckodriver/releases (on PATH or $GECKODRIVER)
 npm run build && .venv/bin/python test/run_tests.py   # --headed to watch, -k name to filter
+# Chrome: chromium + chromedriver on PATH (Arch: pacman -S chromium)
+node tools/build.mjs --target chrome && .venv/bin/python test/run_tests.py --browser chrome
 ```
 
 - **`test/policy.py`:** the static privacy and page-access checks above.
@@ -387,7 +398,12 @@ npm run build && .venv/bin/python test/run_tests.py   # --headed to watch, -k na
   - **Also covered:** push-to-talk and hands-free, choices in both
     languages, lesson quizzes, custom models (including fallback), the
     settings page, and the background surviving Firefox's idle unloading.
-- **Privacy audit:** the run fails if any request goes to a non-Mozilla host.
+- **Privacy audit:** the run fails if any request goes anywhere but the
+  browser vendor's hosts.
+- **Chrome:** the same suite in headless Chromium with `build-chrome/`,
+  plus a test that Chrome stopping the service worker loses nothing (the
+  models live in the offscreen document); the Firefox idle-unload test is
+  Firefox only.
 
 Tests that need real voice recordings are skipped unless the private
 `personal/` submodule is checked out.
@@ -410,6 +426,7 @@ npm run package                # dist/: .xpi, source zip for AMO review, SHA256S
 npm run package -- --verify    # also rebuild from the source zip and compare every file
 npm run package -- --sign      # also get it signed by Mozilla (unlisted channel)
 npm run package -- --sign --listed   # submit to the public store instead (see store/LISTING.md)
+npm run package -- --target chrome   # dist/…-chrome.zip for the Chrome Web Store and Edge Add-ons (see store/CHROME-LISTING.md)
 ```
 
 What the package script does:

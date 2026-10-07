@@ -1,4 +1,7 @@
-// Background page: owns recognition and keyboard commands.
+// Background: owns recognition and keyboard commands. In Firefox this is an
+// event page that runs the speech worker itself; in Chrome a service worker,
+// whose speech worker lives in an offscreen document (offscreen-host.js
+// provides WKV.createSpeechWorker there).
 //
 // The recognizer's input is deliberately narrow: a mode ('en' | 'ja-kana') and
 // the user's speech. Nothing from the page (no question, no item) is ever part
@@ -96,9 +99,15 @@
     broadcast(model);
   }
 
+  // Firefox: a dedicated worker. Chrome: a stand-in with the same interface
+  // that relays to the worker in the offscreen document.
+  const createWorker = () => (WKV.createSpeechWorker
+    ? WKV.createSpeechWorker()
+    : new Worker(browser.runtime.getURL('dist/asr-worker.js'), { type: 'module' }));
+
   function getWorker() {
     if (worker) return worker;
-    worker = new Worker(browser.runtime.getURL('dist/asr-worker.js'), { type: 'module' });
+    worker = createWorker();
     worker.onmessage = ({ data }) => {
       if (data.type === 'progress') {
         setModelState(data.model, { status: 'loading', loaded: data.loaded, total: data.total });
@@ -164,11 +173,10 @@
     } else {
       const model = modelsFor(settings)[msg.mode];
       if (!model) return { ok: false, reason: 'No speech model for this question type' };
-      if (!(msg.audio instanceof Float32Array) || msg.audio.length === 0) {
-        return { ok: false, reason: "Didn't catch that" };
-      }
-      // Copy: the incoming array may not be transferable from this context.
-      const res = await runWorker(model, new Float32Array(msg.audio));
+      // The clip arrives packed (src/shared/wire.js).
+      const audio = WKV.wire.unpackAudio(msg.audio);
+      if (!audio?.length) return { ok: false, reason: "Didn't catch that" };
+      const res = await runWorker(model, audio);
       if (res.type === 'error') return { ok: false, reason: `Recognizer error: ${res.message}` };
       if (res.noSpeech) return { ok: false, reason: "Didn't hear anything" };
       candidates = res.candidates;
@@ -193,15 +201,20 @@
   const startedAt = Date.now();
   let lastDecodeMs = null; // worker time for the most recent transcription
 
-  browser.runtime.onMessage.addListener((msg, sender) => {
-    if (sender.id !== browser.runtime.id) return undefined;
-    if (msg?.type === 'wkv:transcribe') return transcribe(msg);
+  // Replies through sendResponse (returning true keeps the channel open),
+  // which every Firefox and Chrome version supports; returning a promise
+  // works only in newer Chrome.
+  browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (sender.id !== browser.runtime.id) return false;
+    let reply;
+    if (msg?.type === 'wkv:transcribe') reply = transcribe(msg);
     // Diagnostics (used by tests): is this the same background instance, and
     // what state are the models in?
-    if (msg?.type === 'wkv:diag') {
-      return Promise.resolve({ startedAt, workerAlive: !!worker, models: Object.fromEntries(modelState), lastDecodeMs });
-    }
-    return undefined;
+    else if (msg?.type === 'wkv:diag') {
+      reply = Promise.resolve({ startedAt, workerAlive: !!worker, models: Object.fromEntries(modelState), lastDecodeMs });
+    } else return false;
+    reply.then(sendResponse, err => sendResponse({ ok: false, reason: `Recognizer error: ${err?.message ?? err}` }));
+    return true;
   });
 
   // A review tab keeps a port open for its whole session, to receive

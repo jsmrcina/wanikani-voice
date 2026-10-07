@@ -62,7 +62,7 @@
         <label><input type="radio" name="englishSpeed" value="accurate"> English: accurate (Whisper; about 1.5 s on a desktop, 4 s on a phone; offers the right answer a little more often)</label>
       </div>
       <label><input type="radio" name="recognizer" value="fake"> Test mode: type text into the panel instead of speaking</label>
-      <p class="help">Recognition runs inside Firefox on this computer. Your voice is never sent anywhere.
+      <p class="help">Recognition runs inside your browser, on this device. Your voice is never sent anywhere.
         It also offers up to two other answers it heard (e.g. "hand" for "and", or にん for じん):
         press 1–3 to switch before you submit.</p>
     </fieldset>
@@ -86,6 +86,7 @@
       </div>
     </fieldset>
   </main>
+  <script src="../shared/browser-shim.js"></script>
   <script src="../shared/settings.js"></script>
   <script src="../shared/zip-reader.js"></script>
   <script src="../shared/model-store.js"></script>
