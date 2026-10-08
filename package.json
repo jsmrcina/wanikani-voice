@@ -1,6 +1,6 @@
 {
   "name": "wanikani-voice",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": true,
   "description": "Firefox extension: answer WaniKani reviews by voice, recognised on-device",
   "type": "module",
