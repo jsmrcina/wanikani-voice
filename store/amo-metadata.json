@@ -12,7 +12,7 @@
   "version": {
     "license": "MIT",
     "release_notes": {
-      "en-US": "Firefox for Android: hold the panel's mic button to talk; Submit, Clear and Next buttons; the panel sits at the bottom of the screen and stays above the keyboard.\nFaster English: Moonshine is the new default (about 0.1 s per answer on a desktop, 0.3 s on a phone); Whisper stays available as \"accurate\".\nCustom models: English models fine-tuned on your voice (Moonshine or Whisper) can be loaded in the settings.\nFixes: repeated words from the recogniser are collapsed; choosing a model file from the toolbar popup now works."
+      "en-US": "Firefox for Android: hold the panel's mic button to talk; Submit, Clear and Next buttons; the panel sits at the bottom of the screen and stays above the keyboard.\nFaster English: Moonshine is the new default (about 0.1 s per answer on a desktop, 0.3 s on a phone); Whisper stays available as \"accurate\".\nCustom models: English models fine-tuned on your voice (Moonshine or Whisper) can be loaded in the settings.\nFixes: repeated words from the recogniser are collapsed; choosing a model file from the toolbar popup now works.\nThe settings page shows the version number; its wording no longer assumes Firefox (the same code now also runs in Chrome)."
     }
   }
 }
