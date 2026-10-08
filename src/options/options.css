@@ -46,3 +46,5 @@ code { font-size: 11px; }
   .touch-only { display: inline; }
   .kbd-only, #ptt-row { display: none; }
 }
+
+.version { color: var(--muted); font-size: 11px; text-align: right; margin: 8px 0 0; }

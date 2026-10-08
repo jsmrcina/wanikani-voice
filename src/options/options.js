@@ -65,6 +65,10 @@
     });
   }
 
+  // The add-on's version, from the manifest (absent in the test harness).
+  const version = browser.runtime?.getManifest?.().version;
+  if (version) $('version').textContent = `Version ${version}`;
+
   bind();
   WKV.settings.load().then(render);
   WKV.settings.onChange(render);

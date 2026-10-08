@@ -486,6 +486,8 @@ def test_options_page_saves(b):
     # The real options markup and script, on a plain page with in-memory storage.
     b.d.get(b.base + "/test/options/index.html")
     b.wait(lambda: b.d.find_element(By.ID, "pttKey").text == "Shift", what="options rendered")
+    version = json.loads((ROOT / "manifest.json").read_text())["version"]
+    assert b.d.find_element(By.ID, "version").text == f"Version {version}", b.d.find_element(By.ID, "version").text
     assert b.d.find_element(By.CSS_SELECTOR, 'input[value="push-to-talk"]').is_selected()
     assert b.d.find_element(By.CSS_SELECTOR, 'input[value="fill-only"]').is_selected()
     assert not b.d.find_element(By.ID, "autoAdvance").is_selected()

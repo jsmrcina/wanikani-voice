@@ -9,7 +9,7 @@
   const listeners = [];
   const data = {};
   window.__store = data;
-  window.browser = { storage: {
+  window.browser = { runtime: { getManifest: () => window.__manifest }, storage: {
     local: {
       async get(keys) {
         if (!keys) return { ...data };
@@ -24,6 +24,7 @@
     onChanged: { addListener: l => listeners.push(l) },
   } };
   (async () => {
+    window.__manifest = await (await fetch('/manifest.json')).json();
     const html = await (await fetch('/src/options/options.html')).text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
     document.body.prepend(...doc.body.querySelector('main').childNodes.length ? [doc.body.querySelector('main')] : []);
