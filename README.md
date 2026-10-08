@@ -86,6 +86,10 @@ npm run build    # -> build/ (~185 MB: three speech models, a speech detector, t
 Then `about:debugging#/runtime/this-firefox` → **Load Temporary Add-on…** →
 `build/manifest.json`. A temporary add-on is removed when Firefox restarts.
 
+**Microsoft Edge:** install from the Chrome Web Store. Edge runs Chrome
+extensions; on the store's page it offers to **Allow extensions from other
+stores**. (There is no separate Edge Add-ons listing.)
+
 **Chrome, Edge and other Chromium browsers (from source):**
 `node tools/build.mjs --target chrome` → `build-chrome/`. Open
 `chrome://extensions`, turn on **Developer mode**, **Load unpacked** →
@@ -426,7 +430,7 @@ npm run package                # dist/: .xpi, source zip for AMO review, SHA256S
 npm run package -- --verify    # also rebuild from the source zip and compare every file
 npm run package -- --sign      # also get it signed by Mozilla (unlisted channel)
 npm run package -- --sign --listed   # submit to the public store instead (see store/LISTING.md)
-npm run package -- --target chrome   # dist/…-chrome.zip for the Chrome Web Store and Edge Add-ons (see store/CHROME-LISTING.md)
+npm run package -- --target chrome   # dist/…-chrome.zip for the Chrome Web Store (see store/CHROME-LISTING.md)
 ```
 
 What the package script does:

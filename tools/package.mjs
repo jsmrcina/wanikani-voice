@@ -1,5 +1,5 @@
 // Packages the add-on for addons.mozilla.org (AMO), or with --target chrome
-// for the Chrome Web Store and Microsoft Edge Add-ons.
+// for the Chrome Web Store (which Edge users install from too).
 //
 //   npm run package [-- --verify] [--sign [--listed]] [--allow-dirty]
 //   npm run package -- --target chrome [--allow-dirty]
@@ -7,8 +7,8 @@
 // --target chrome: a clean `tools/build.mjs --target chrome`, the privacy
 // policy check (which also checks the generated Chrome manifest), then
 // dist/voice-answers-for-wanikani-<version>-chrome.zip and SHA256SUMS-chrome.
-// Both stores sign uploads themselves and need no source archive; upload the
-// zip in their developer dashboards (store/CHROME-LISTING.md).
+// The store signs uploads itself and needs no source archive; upload the zip
+// in its developer dashboard (store/CHROME-LISTING.md).
 //
 // Produces, in dist/:
 //   voice-answers-for-wanikani-<version>.xpi         the add-on (unsigned)
@@ -110,7 +110,7 @@ The add-on is written to \`build/\`; it is identical to the submitted package.
 `;
 }
 
-// Chrome Web Store / Edge Add-ons: the zip of build-chrome/.
+// Chrome Web Store: the zip of build-chrome/.
 async function packageChrome(version, base) {
   for (const flag of ['--sign', '--listed', '--verify']) {
     if (args.includes(flag)) throw new Error(`${flag} is for Firefox (AMO) only`);
@@ -134,8 +134,8 @@ async function packageChrome(version, base) {
   const size = (await stat(zipFile)).size;
   console.log(`  ${relative(ROOT, zipFile)}  ${mb(size)} (${entries.length} files)`);
   await writeFile(join(DIST, 'SHA256SUMS-chrome'), `${await sha256(zipFile)}  ${relative(DIST, zipFile)}\n`);
-  console.log(`\nUpload ${relative(ROOT, zipFile)} to the Chrome Web Store developer dashboard`);
-  console.log('and to Microsoft Edge Add-ons (Partner Center); see store/CHROME-LISTING.md.');
+  console.log(`\nUpload ${relative(ROOT, zipFile)} to the Chrome Web Store developer dashboard;`);
+  console.log('see store/CHROME-LISTING.md.');
 }
 
 async function main() {

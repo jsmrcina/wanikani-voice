@@ -1,16 +1,21 @@
-# Store listing: Chrome Web Store and Microsoft Edge Add-ons
+# Store listing: Chrome Web Store
 
-What a submission to the two Chromium stores needs. Both take the same
-package, `npm run package -- --target chrome` →
+What a submission to the Chrome Web Store needs. It takes the
+package `npm run package -- --target chrome` →
 `dist/voice-answers-for-wanikani-<version>-chrome.zip` (built from
-`build-chrome/`, see PLAN.md Phase 7), and both sign it themselves: there is
-no source archive or signing step. The Firefox listing is in `LISTING.md`.
+`build-chrome/`, see PLAN.md Phase 7), and signs it itself: there is no
+source archive or signing step. The Firefox listing is in `LISTING.md`.
 
 Plan (decided 2026-10-07): **unlisted first** on the Chrome Web Store for a
-test install from the store, then public; Edge Add-ons after that.
+test install from the store, then public.
 
 Status: **v0.2.6 submitted to the Chrome Web Store, unlisted, on 2026-10-07**
-(in review). Edge Add-ons: not yet.
+(in review).
+
+**Microsoft Edge Add-ons: dropped (2026-10-07).** Its developer registration
+requires a contact address that is shown publicly on the developer profile,
+and you don't want to publish a home address. Edge users install from the Chrome Web Store: Edge runs Chrome extensions and, on the store's page, offers to "Allow extensions from other stores".
+Only discoverability inside Edge's own store is lost.
 
 ## Accounts (you, once)
 - **Chrome Web Store:** register a developer account at
@@ -18,9 +23,6 @@ Status: **v0.2.6 submitted to the Chrome Web Store, unlisted, on 2026-10-07**
   one-time registration fee, contact email verification, and the EU
   trader / non-trader declaration (a free hobby project is normally
   non-trader). Then "New item" and upload the zip.
-- **Microsoft Edge Add-ons:** a free account in Partner Center
-  (https://partner.microsoft.com/dashboard/microsoftedge), then "Create new
-  extension" and upload the same zip.
 
 ## Package tab
 - Upload `dist/voice-answers-for-wanikani-<version>-chrome.zip` (~140 MB;
@@ -87,16 +89,10 @@ Not affiliated with WaniKani or Tofugu. Open source (MIT): https://github.com/js
   not searchable); switch to Public after testing the store build.
 - Regions: all.
 
-## Notes for the reviewer (Chrome "Test instructions", Edge "Notes for certification")
+## Notes for the reviewer ("Test instructions")
 ```
 The extension needs a WaniKani account with reviews or lessons available (wanikani.com, free levels 1-3 are enough). On a review page, hold Shift and say an answer (e.g. "fire"); the recognised text is filled into the answer box. Settings: toolbar button.
 
 Everything runs locally: the speech models (ONNX, in models/) and onnxruntime-web's WebAssembly runtime (vendor/ort/, unmodified) are inside the package; dist/asr-worker.js is our src/worker code bundled with @huggingface/transformers 4.3.0 and onnxruntime-web by esbuild, unminified. Source: https://github.com/jsmrcina/wanikani-voice (build: npm ci && node tools/build.mjs --target chrome). The extension makes no network requests; CSP connect-src 'self'. The offscreen document only hosts the speech worker.
 ```
 
-## Edge Add-ons specifics
-- Same zip, same description and images (1280×800 screenshots, the
-  440×280 promo tile); Edge's store logo is 300×300: `store/icon-300.png`.
-- Category: Education. Privacy policy URL: as above.
-- Microsoft certifies submissions within days; Edge users can also install
-  from the Chrome Web Store, so Edge is mostly for discoverability.

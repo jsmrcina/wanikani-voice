@@ -9,7 +9,6 @@ and chromedriver):
   (test/options/index.html, default settings), under a heading.
 - store/promo-440x280.png: the Chrome Web Store's small promo tile (required;
   no text, works on a light grey page).
-- store/icon-300.png: Microsoft Edge Add-ons' store logo.
 """
 import http.server
 import io
@@ -95,13 +94,6 @@ def promo_tile():
     print("wrote", out.relative_to(ROOT))
 
 
-def edge_logo():
-    subprocess.run(["rsvg-convert", "-w", "300", "-h", "300", str(ROOT / "icons/icon.svg"),
-                    "-o", str(ROOT / "store/icon-300.png")], check=True)
-    print("wrote store/icon-300.png")
-
-
 if __name__ == "__main__":
     settings_screenshot()
     promo_tile()
-    edge_logo()

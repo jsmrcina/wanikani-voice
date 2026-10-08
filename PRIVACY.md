@@ -1,8 +1,8 @@
 # Privacy policy: Voice Answers for WaniKani
 
 Last updated: 2026-10-07. Applies to the extension in every store (Firefox
-Add-ons, Chrome Web Store, Microsoft Edge Add-ons) and to builds from this
-repository.
+Add-ons, Chrome Web Store, also used by Microsoft Edge and other Chromium
+browsers) and to builds from this repository.
 
 **Voice Answers for WaniKani collects no data.** It has no servers, no
 account, no analytics and no tracking, and it makes no network requests at
@@ -27,7 +27,7 @@ access from its own pages.
 - **Access to www.wanikani.com:** to show the panel on review and lesson
   quiz pages, read the kind of question and fill in the answer box.
 - **Storage:** to keep your settings and custom models on your device.
-- **Offscreen document (Chrome and Edge only):** to run the speech
+- **Offscreen document (Chrome and other Chromium browsers only):** to run the speech
   recognition worker in the background of the browser.
 - **Microphone:** asked for by the browser for www.wanikani.com when you
   first use push-to-talk.

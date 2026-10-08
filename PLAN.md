@@ -782,7 +782,11 @@ the same tests. Chrome on Android has no extensions, so desktop only.
 - **Unlisted first**, then public.
 - **No speed work for Chrome** (C3/C4 dropped): Moonshine is already fast
   enough, and both browsers stay on the same single-threaded WASM.
-- **Microsoft Edge Add-ons too**, from the same Chrome package.
+- ~~Microsoft Edge Add-ons too~~: **dropped** (decided later the same day).
+  Edge's developer registration requires a contact address shown publicly on
+  the developer profile, and you don't want to publish a home address. Edge
+  users install from the Chrome Web Store instead (Edge offers "Allow
+  extensions from other stores"); only search inside Edge's store is lost.
 - **Chromium (with chromedriver) installed** for testing.
 
 **Result (2026-10-07):** built as planned; the whole suite (40 tests)
@@ -814,8 +818,8 @@ passes on Firefox and on Chromium 153.
     calls: one test now does its press in a single action.
   - The settings page said "inside Firefox"; now "inside your browser".
 - **Store material:** `store/CHROME-LISTING.md` (listing text, privacy-tab
-  answers, reviewer notes, Edge specifics), `PRIVACY.md`, the 440×280 promo
-  tile and Edge's 300×300 logo, and a re-rendered settings screenshot
+  answers, reviewer notes), `PRIVACY.md`, the 440×280 promo tile, and a
+  re-rendered settings screenshot
   (`tools/make-store-images.py`; the old one showed tiny.en).
 - **Tested by you in Chromium** (unpacked) on 2026-10-07, after Chromium was
   added to EasyEffects' input blocklist (its mic went through the noise gate,
@@ -824,7 +828,7 @@ passes on Firefox and on Chromium 153.
   (developer account registered by you; listing and privacy answers from
   `store/CHROME-LISTING.md`). The same v0.2.6 went to AMO's public channel.
 - **Next:** once approved, install from the unlisted link and check it; then
-  switch to public, and submit the same zip to Edge Add-ons.
+  switch to public. (Edge Add-ons dropped; see Decisions above.)
 
 **Spikes first** (each a yes/no before building on it):
 - **C1. Offscreen speech worker:** offscreen document + transformers.js
@@ -884,7 +888,7 @@ passes on Firefox and on Chromium 153.
 2. Test harness on Chromium; the whole suite green on both browsers.
 3. Your test on desktop Chrome, unpacked, then unlisted from the store.
 4. Listing assets and privacy policy; submit to the Chrome Web Store
-   (unlisted, then public) and to Microsoft Edge Add-ons.
+   (unlisted, then public).
 
 **Risks:**
 - Service worker ↔ offscreen messaging adds a hop and lifecycle edge cases (C2).
