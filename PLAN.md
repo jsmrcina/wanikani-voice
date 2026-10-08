@@ -897,6 +897,58 @@ passes on Firefox and on Chromium 153.
   or ask questions; the reviewer notes prepared for AMO apply.
 - Two builds to keep in step: one codebase and one test suite run on both.
 
+### English fine-tuning (built 2026-10-06)
+Moonshine base, the default English model, fine-tuned on your voice:
+`tools/wk-meanings.mjs` (300 of your WaniKani meanings: 105 short words, 75
+phrases, 120 others; 240 for training, 60 held out), recorded with
+`tools/recorder` into the private `personal/recordings/en/`, trained by
+`tools/finetune-moonshine.py`, exported by `tools/export-moonshine.py` and
+packed as a custom model (custom English models may be Moonshine or
+Whisper). README → Custom and fine-tuned models has the commands.
+On clips never trained on (first choice / offered):
+
+| | stock Moonshine | **fine-tuned** | Whisper base.en |
+|---|---|---|---|
+| 60 held-out personal clips | 40 / 50 | **46 / 50** | 49 / 55 |
+| 25 real-raw recordings (other words, other day) | 20 / 21 | **23 / 24** | 22 / 25 |
+| decode time (Node) | ~115 ms | ~65 ms | ~320 ms |
+
+- Training: everything but the encoder's conv stem, lr 1e-5, batch 8,
+  the hiragana script's augmentation. Validation peaked at epoch 2
+  (16/24 → 23/24) and later epochs overfit. The final model
+  (`personal/models/moonshine-base-ft`, packed in `dist/models/`) is
+  trained on all 300 clips for 2 epochs; real-raw 23/25 as above.
+- **Trap:** transformers 4.57 gives Moonshine a causal-LM loss that
+  shifts the labels a second time (10.7 loss on a clip it gets right,
+  0.21 computed correctly). Training with it wrecked the model
+  (validation 16/24 → 6/24 in 4 epochs). The script computes the loss
+  itself.
+- **Export:** Optimum's export adds attention-mask inputs that
+  onnx-community's files don't have and transformers.js doesn't send;
+  they become all-ones tensors in the graph. Quantising the merged
+  decoder needs `EnableSubgraph` (its layers sit in If branches). The
+  stock model exported this way scores within one clip of the shipped
+  one (226 vs 227 of 300).
+- Remaining misses are near-homophones (tale/tail, to pour/poor, warm/
+  warn) and close sounds; several have the right word as choice 2.
+
+- **Baseline on those recordings** (`node tools/eval-asr.mjs
+  moonshine-base whisper-base.en --personal [all]`), counting where the
+  right answer lands among the three choices:
+
+  | | 1st | 2nd | 3rd | not offered |
+  |---|---|---|---|---|
+  | Moonshine base, all 300 | 223 | 23 | 9 | 45 |
+  | Whisper base.en, all 300 | 242 | 27 | 8 | 23 |
+  | Moonshine base, 60 held out | 40 | 7 | 3 | 10 |
+  | Whisper base.en, 60 held out | 49 | 6 | 0 | 5 |
+
+  Moonshine's gap is mostly short words (right word offered 78/105 vs
+  93/105). Unfixable without the question: homophones (tale/tail,
+  aid/eight, "to be which"). (Measured before 11 re-recorded clips, 4
+  of which then passed with both models.)
+
+
 ---
 
 ## 5. Risks
@@ -982,71 +1034,22 @@ passes on Firefox and on Chromium 153.
 
 ## 8. Next steps
 
-1. **English fine-tuning pipeline: built 2026-10-06** (`tools/finetune-moonshine.py`,
-   `tools/export-moonshine.py`; custom English models may now be Moonshine).
-   On clips never trained on (first choice / offered):
-
-   | | stock Moonshine | **fine-tuned** | Whisper base.en |
-   |---|---|---|---|
-   | 60 held-out personal clips | 40 / 50 | **46 / 50** | 49 / 55 |
-   | 25 real-raw recordings (other words, other day) | 20 / 21 | **23 / 24** | 22 / 25 |
-   | decode time (Node) | ~115 ms | ~65 ms | ~320 ms |
-
-   - Training: everything but the encoder's conv stem, lr 1e-5, batch 8,
-     the hiragana script's augmentation. Validation peaked at epoch 2
-     (16/24 → 23/24) and later epochs overfit. The final model
-     (`personal/models/moonshine-base-ft`, packed in `dist/models/`) is
-     trained on all 300 clips for 2 epochs; real-raw 23/25 as above.
-   - **Trap:** transformers 4.57 gives Moonshine a causal-LM loss that
-     shifts the labels a second time (10.7 loss on a clip it gets right,
-     0.21 computed correctly). Training with it wrecked the model
-     (validation 16/24 → 6/24 in 4 epochs). The script computes the loss
-     itself.
-   - **Export:** Optimum's export adds attention-mask inputs that
-     onnx-community's files don't have and transformers.js doesn't send;
-     they become all-ones tensors in the graph. Quantising the merged
-     decoder needs `EnableSubgraph` (its layers sit in If branches). The
-     stock model exported this way scores within one clip of the shipped
-     one (226 vs 227 of 300).
-   - Remaining misses are near-homophones (tale/tail, to pour/poor, warm/
-     warn) and close sounds; several have the right word as choice 2.
-
-   Steps, as planned:
-   - a word list of your WaniKani meanings: done 2026-10-06,
-     `tools/wk-meanings.mjs`, 300 meanings (105 short words, 75 phrases,
-     120 others), 240 for training and 60 held out
-   - recordings with `tools/recorder`: done 2026-10-06, all 300, in the
-     private `personal/recordings/en/`
-   - **Baseline on those recordings** (`node tools/eval-asr.mjs
-     moonshine-base whisper-base.en --personal [all]`), counting where the
-     right answer lands among the three choices:
-
-     | | 1st | 2nd | 3rd | not offered |
-     |---|---|---|---|---|
-     | Moonshine base, all 300 | 223 | 23 | 9 | 45 |
-     | Whisper base.en, all 300 | 242 | 27 | 8 | 23 |
-     | Moonshine base, 60 held out | 40 | 7 | 3 | 10 |
-     | Whisper base.en, 60 held out | 49 | 6 | 0 | 5 |
-
-     Moonshine's gap is mostly short words (right word offered 78/105 vs
-     93/105). Unfixable without the question: homophones (tale/tail,
-     aid/eight, "to be which"). (Measured before 11 re-recorded clips, 4
-     of which then passed with both models.)
-   - full fine-tuning of Moonshine base (the default) or whisper-base.en
-     in PyTorch; custom English models are Whisper-only so far, so the
-     model store needs a `moonshine` kind
-   - export via Optimum with int8 quantisation, packed with
-     `tools/pack-model.mjs` and chosen in settings → Custom models
-   - measured on held-out recordings, as in the Phase 4 results
+1. **Store reviews (submitted 2026-10-07):**
+   - **Firefox (AMO), v0.2.6, public channel:** waiting for Mozilla's first
+     review of the listed add-on (it replaces the pending v0.1.2 and v0.2.3).
+     Once approved the add-on is public, including Firefox for Android.
+   - **Chrome Web Store, v0.2.6, unlisted:** once approved, install it from
+     the unlisted link and check it, then switch visibility to Public.
+   - **GitHub release v0.2.6** (2026-10-07, tag at 421a122): Chrome zip,
+     source zip, SHA256SUMS. Attach the Mozilla-signed `.xpi` once AMO
+     approves 0.2.6 (listed versions are signed on approval).
+     Microsoft Edge Add-ons is dropped (Phase 7, Decisions); Edge users
+     install from the Chrome Web Store.
 2. **Training inside the extension** (deferred 2026-10-04). Train only the
    kana head (0.69M weights), in plain JS/WASM, from a recorder in the
    settings page. Clips and weights stay in IndexedDB, and the CTC loss and
    gradients are written by hand, since onnxruntime-web has no training. On
    the benchmark, head-only gets 20/31 offered vs 24/31 for full
    fine-tuning (13/31 generic). Most useful for other users once the add-on
-   is public, since they have no personal build.
-3. **Android on the public listing: submitted 2026-10-07 as v0.2.3**
-   (the same code as the unlisted v0.2.2, tested on the Pixel), with release
-   notes, the Android description and the combined phone screenshot
-   (`store/screenshots/6-android.png`). Waiting for Mozilla's review, which
-   also covers the still-pending v0.1.2.
+   is public, since they have no personal build. The same idea could cover
+   English, though Moonshine's whole decoder was trained there.
