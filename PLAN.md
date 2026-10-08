@@ -817,8 +817,14 @@ passes on Firefox and on Chromium 153.
   answers, reviewer notes, Edge specifics), `PRIVACY.md`, the 440×280 promo
   tile and Edge's 300×300 logo, and a re-rendered settings screenshot
   (`tools/make-store-images.py`; the old one showed tiny.en).
-- **Next:** your test of `build-chrome/` (unpacked) in Chromium; then the
-  developer account, an unlisted upload, public, and Edge.
+- **Tested by you in Chromium** (unpacked) on 2026-10-07, after Chromium was
+  added to EasyEffects' input blocklist (its mic went through the noise gate,
+  like Firefox's before; see linux-machine-setup docs/audio-and-bluetooth.md).
+- **Submitted 2026-10-07:** v0.2.6 to the Chrome Web Store as **unlisted**
+  (developer account registered by you; listing and privacy answers from
+  `store/CHROME-LISTING.md`). The same v0.2.6 went to AMO's public channel.
+- **Next:** once approved, install from the unlisted link and check it; then
+  switch to public, and submit the same zip to Edge Add-ons.
 
 **Spikes first** (each a yes/no before building on it):
 - **C1. Offscreen speech worker:** offscreen document + transformers.js

@@ -9,6 +9,9 @@ no source archive or signing step. The Firefox listing is in `LISTING.md`.
 Plan (decided 2026-10-07): **unlisted first** on the Chrome Web Store for a
 test install from the store, then public; Edge Add-ons after that.
 
+Status: **v0.2.6 submitted to the Chrome Web Store, unlisted, on 2026-10-07**
+(in review). Edge Add-ons: not yet.
+
 ## Accounts (you, once)
 - **Chrome Web Store:** register a developer account at
   https://chrome.google.com/webstore/devconsole with a Google account: a
