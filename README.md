@@ -1,4 +1,4 @@
-# Voice Answers for WaniKani
+# Voice Answers for WaniKani: An Unofficial Companion
 
 > **This extension was written with Claude.** All of its code, tests, tools
 > and documentation were written by [Claude Code](https://claude.com/claude-code)
