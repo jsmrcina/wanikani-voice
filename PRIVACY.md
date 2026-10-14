@@ -1,4 +1,4 @@
-# Privacy policy: Voice Answers for WaniKani: An Unofficial Tool
+# Privacy policy: Voice Answers for WaniKani: Unofficial Tool
 
 Last updated: 2026-10-07. Applies to the extension in every store (Firefox
 Add-ons, Chrome Web Store, also used by Microsoft Edge and other Chromium

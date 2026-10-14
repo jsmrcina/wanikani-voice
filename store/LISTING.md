@@ -9,7 +9,7 @@ them from here.
 ## Basics
 | Field | Value |
 |---|---|
-| Name | Voice Answers for WaniKani: An Unofficial Tool (from the manifest; WaniKani's branding guidelines require "unofficial" next to the WaniKani name, 2026-10-13) |
+| Name | Voice Answers for WaniKani: Unofficial Tool (from the manifest; WaniKani's branding guidelines require "unofficial" next to the WaniKani name, 2026-10-13) |
 | Add-on URL slug | `voice-answers-for-wanikani` |
 | Category | Language Support |
 | Licence | MIT |
@@ -49,7 +49,7 @@ An unofficial tool: not affiliated with or endorsed by WaniKani or Tofugu. Open 
 Not required: the add-on collects and transmits no data
 (`data_collection_permissions: none`). If AMO asks anyway, this is enough:
 
-> Voice Answers for WaniKani: An Unofficial Tool does not collect, store or transmit any personal
+> Voice Answers for WaniKani: Unofficial Tool does not collect, store or transmit any personal
 > data. Speech is processed on your own computer, inside Firefox, and is
 > discarded after recognition. Settings and any custom model you choose are
 > stored locally in the extension's own storage. The extension makes no

@@ -32,7 +32,7 @@ Only discoverability inside Edge's own store is lost.
 ## Store listing tab
 | Field | Value |
 |---|---|
-| Name | Voice Answers for WaniKani: An Unofficial Tool (from the manifest; WaniKani's branding guidelines require "unofficial" next to the WaniKani name, 2026-10-13) |
+| Name | Voice Answers for WaniKani: Unofficial Tool (from the manifest; WaniKani's branding guidelines require "unofficial" next to the WaniKani name, 2026-10-13) |
 | Summary (≤ 132 characters, from the manifest) | An unofficial tool: answer WaniKani reviews by voice. Speech recognition runs entirely on your device. |
 | Category | Education |
 | Language | English |

@@ -1,4 +1,4 @@
-# Voice Answers for WaniKani: An Unofficial Tool
+# Voice Answers for WaniKani: Unofficial Tool
 
 > **This extension was written with Claude.** All of its code, tests, tools
 > and documentation were written by [Claude Code](https://claude.com/claude-code)

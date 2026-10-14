@@ -80,7 +80,7 @@ function sourceFiles() {
 }
 
 function sourceReadme(version, commit, dirty) {
-  return `# Voice Answers for WaniKani: An Unofficial Tool ${version}: build instructions
+  return `# Voice Answers for WaniKani: Unofficial Tool ${version}: build instructions
 
 Source for the submitted add-on, from commit ${commit}${dirty ? ' (with uncommitted changes)' : ''}.
 
