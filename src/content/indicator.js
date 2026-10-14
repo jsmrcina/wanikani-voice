@@ -179,7 +179,7 @@
     root.append(style, ...parse(`
       <div class="wrap" data-state="off">
         <div class="row">
-          <span class="logo" title="Voice Answers for WaniKani"></span>
+          <span class="logo" title="Voice Answers for WaniKani: An Unofficial Tool"></span>
           <div class="bubble" role="status" aria-live="polite"></div>
           <span class="mode"></span>
           <button class="badge" type="button"></button>

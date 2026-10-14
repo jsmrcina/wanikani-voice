@@ -32,8 +32,8 @@ Only discoverability inside Edge's own store is lost.
 ## Store listing tab
 | Field | Value |
 |---|---|
-| Name | Voice Answers for WaniKani (from the manifest) |
-| Summary (≤ 132 characters, from the manifest) | Answer WaniKani reviews by voice. Speech recognition runs entirely on your device. |
+| Name | Voice Answers for WaniKani: An Unofficial Tool (from the manifest; WaniKani's branding guidelines require "unofficial" next to the WaniKani name, 2026-10-13) |
+| Summary (≤ 132 characters, from the manifest) | An unofficial tool: answer WaniKani reviews by voice. Speech recognition runs entirely on your device. |
 | Category | Education |
 | Language | English |
 | Homepage / support | https://github.com/jsmrcina/wanikani-voice (issues for support) |
@@ -68,7 +68,7 @@ REQUIREMENTS
 No GPU needed: everything runs on the CPU. On a fast desktop answers take about 0.1 s (English, fast), 1.5 s (English, accurate) and 0.4 s (readings); slower computers take longer. The models use about 430 MB of memory while a review is open (720 MB with accurate English). Chrome 116 or newer; the download is about 140 MB. Avoid system noise gates or suppressors on the microphone: they cut off the start of words.
 
 NOTES
-Not affiliated with WaniKani or Tofugu. Open source (MIT): https://github.com/jsmrcina/wanikani-voice. This extension was created with AI: all of its code was written by Anthropic's Claude Opus 5.5 (in Claude Code), directed and tested by a human.
+An unofficial tool: not affiliated with or endorsed by WaniKani or Tofugu. Open source (MIT): https://github.com/jsmrcina/wanikani-voice. This extension was created with AI: all of its code was written by Anthropic's Claude Opus 5.5 (in Claude Code), directed and tested by a human.
 ```
 
 ## Privacy practices tab (Chrome Web Store)

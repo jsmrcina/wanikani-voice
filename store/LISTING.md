@@ -9,7 +9,7 @@ them from here.
 ## Basics
 | Field | Value |
 |---|---|
-| Name | Voice Answers for WaniKani (from the manifest) |
+| Name | Voice Answers for WaniKani: An Unofficial Tool (from the manifest; WaniKani's branding guidelines require "unofficial" next to the WaniKani name, 2026-10-13) |
 | Add-on URL slug | `voice-answers-for-wanikani` |
 | Category | Language Support |
 | Licence | MIT |
@@ -43,13 +43,13 @@ Say your WaniKani answers instead of typing them. Hold Shift (or, on a phone, th
 No GPU needed: everything runs on the CPU. On a fast desktop answers take about 0.1 s (English, fast), 1.5 s (English, accurate) and 0.4 s (readings); on a Pixel 9 Pro XL about 0.3 s, 4 s and 0.5 s. The models use about 430 MB of memory while a review is open (720 MB with accurate English). Firefox 140+ on desktop, 142+ on Android; the download is about 150 MB. Avoid system noise gates or suppressors on the microphone (e.g. EasyEffects): they cut off the start of words.
 
 <b>Notes</b>
-Not affiliated with WaniKani or Tofugu. Open source (MIT). This extension was created with AI: all of its code was written by Anthropic's Claude Opus 5.5 (in Claude Code), directed and tested by a human.
+An unofficial tool: not affiliated with or endorsed by WaniKani or Tofugu. Open source (MIT). This extension was created with AI: all of its code was written by Anthropic's Claude Opus 5.5 (in Claude Code), directed and tested by a human.
 
 ## Privacy policy
 Not required: the add-on collects and transmits no data
 (`data_collection_permissions: none`). If AMO asks anyway, this is enough:
 
-> Voice Answers for WaniKani does not collect, store or transmit any personal
+> Voice Answers for WaniKani: An Unofficial Tool does not collect, store or transmit any personal
 > data. Speech is processed on your own computer, inside Firefox, and is
 > discarded after recognition. Settings and any custom model you choose are
 > stored locally in the extension's own storage. The extension makes no

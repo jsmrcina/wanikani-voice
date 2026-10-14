@@ -1,4 +1,4 @@
-# WaniKani Voice — Plan
+# Voice Answers for WaniKani: An Unofficial Tool — Plan
 
 A Firefox extension that lets you answer WaniKani reviews by voice. Speech
 recognition runs entirely on-device.
@@ -968,7 +968,13 @@ On clips never trained on (first choice / offered):
 
 ## 6. Keeping public publishing open
 
-- Name "Voice Answers for WaniKani", not "WaniKani Voice". Using "for X" is the
+- **Name "Voice Answers for WaniKani: An Unofficial Tool"** (2026-10-13): WaniKani's updated branding guidelines
+  require every third-party tool to say "unofficial" next to the WaniKani
+  name (the WaniKani admins asked for it before approving the community
+  post). Applied to the manifest, the settings page, the README, the
+  privacy policy and both store listings; the short name ("WK Voice") was
+  dropped.
+- Originally "Voice Answers for WaniKani", not "WaniKani Voice". Using "for X" is the
   usual way to reference someone else's trademark in a listing. Unaffiliated;
   no WaniKani logo.
 - `data_collection_permissions: ["none"]` is now required for new AMO

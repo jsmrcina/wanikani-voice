@@ -1,9 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Voice Answers for WaniKani",
-  "short_name": "WK Voice",
-  "version": "0.2.6",
-  "description": "Answer WaniKani reviews by voice. Speech recognition runs entirely on your device.",
+  "name": "Voice Answers for WaniKani: An Unofficial Tool",
+  "version": "0.2.7",
+  "description": "An unofficial tool: answer WaniKani reviews by voice. Speech recognition runs entirely on your device.",
   "browser_specific_settings": {
     "gecko": {
       "id": "wanikani-voice@jsmrcina",
@@ -56,7 +55,7 @@
     }
   ],
   "action": {
-    "default_title": "Voice Answers for WaniKani",
+    "default_title": "Voice Answers for WaniKani: An Unofficial Tool",
     "default_icon": "icons/icon.svg",
     "default_popup": "src/options/options.html?popup"
   },

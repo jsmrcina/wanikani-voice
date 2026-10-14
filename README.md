@@ -1,12 +1,14 @@
-# Voice Answers for WaniKani: An Unofficial Companion
+# Voice Answers for WaniKani: An Unofficial Tool
 
 > **This extension was written with Claude.** All of its code, tests, tools
 > and documentation were written by [Claude Code](https://claude.com/claude-code)
 > (Anthropic's Claude Opus 5.5), directed and tested by a human.
 
-A Firefox extension for answering [WaniKani](https://www.wanikani.com) reviews
-and lesson quizzes by voice. Speech recognition runs entirely on your
-computer, inside Firefox. Nothing you say is sent anywhere.
+An **unofficial** browser extension (Firefox, Chrome) for answering
+[WaniKani](https://www.wanikani.com) reviews and lesson quizzes by voice. It
+is not affiliated with or endorsed by WaniKani or Tofugu. Speech recognition
+runs entirely on your device, inside the browser. Nothing you say is sent
+anywhere.
 
 - **Meanings and radical names** in English: Moonshine base (*fast*, the
   default) or Whisper base.en (*accurate*).
@@ -479,5 +481,5 @@ personal/          private submodule (not needed to build)
 
 ## Support
 
-If Voice Answers for WaniKani helps your reviews, you can
+If Voice Answers for WaniKani (an unofficial tool) helps your reviews, you can
 [buy me a coffee](https://buymeacoffee.com/jsmrcina).

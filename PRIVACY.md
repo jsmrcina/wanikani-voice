@@ -1,10 +1,11 @@
-# Privacy policy: Voice Answers for WaniKani
+# Privacy policy: Voice Answers for WaniKani: An Unofficial Tool
 
 Last updated: 2026-10-07. Applies to the extension in every store (Firefox
 Add-ons, Chrome Web Store, also used by Microsoft Edge and other Chromium
 browsers) and to builds from this repository.
 
-**Voice Answers for WaniKani collects no data.** It has no servers, no
+**Voice Answers for WaniKani (an unofficial tool, not affiliated with
+WaniKani or Tofugu) collects no data.** It has no servers, no
 account, no analytics and no tracking, and it makes no network requests at
 all.
 

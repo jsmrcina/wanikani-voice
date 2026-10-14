@@ -48,3 +48,5 @@ code { font-size: 11px; }
 }
 
 .version { color: var(--muted); font-size: 11px; text-align: right; margin: 8px 0 0; }
+
+h1 .subtitle { display: block; font-size: 12px; font-weight: normal; color: var(--muted); margin-top: 2px; }
