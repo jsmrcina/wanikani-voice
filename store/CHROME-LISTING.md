@@ -9,8 +9,10 @@ source archive or signing step. The Firefox listing is in `LISTING.md`.
 Plan (decided 2026-10-07): **unlisted first** on the Chrome Web Store for a
 test install from the store, then public.
 
-Status: **v0.2.6 submitted to the Chrome Web Store, unlisted, on 2026-10-07**
-(in review).
+Status: **public** at https://chromewebstore.google.com/detail/voice-answers-for-wanikan/ggmdidfeoabmefbnoldfjigagafdcgjn
+- v0.2.6: submitted unlisted 2026-10-07, approved, tested, then made public.
+- v0.2.7 (renamed "…: Unofficial Tool" for WaniKani's branding guidelines):
+  submitted 2026-10-13, in review.
 
 **Microsoft Edge Add-ons: dropped (2026-10-07).** Its developer registration
 requires a contact address that is shown publicly on the developer profile,

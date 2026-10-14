@@ -1041,17 +1041,18 @@ On clips never trained on (first choice / offered):
 
 ## 8. Next steps
 
-1. **Store reviews (submitted 2026-10-07):**
-   - **Firefox (AMO), v0.2.6, public channel:** waiting for Mozilla's first
-     review of the listed add-on (it replaces the pending v0.1.2 and v0.2.3).
-     Once approved the add-on is public, including Firefox for Android.
-   - **Chrome Web Store, v0.2.6, unlisted:** once approved, install it from
-     the unlisted link and check it, then switch visibility to Public.
-   - **GitHub release v0.2.6** (2026-10-07, tag at 421a122): Chrome zip,
-     source zip, SHA256SUMS. Attach the Mozilla-signed `.xpi` once AMO
-     approves 0.2.6 (listed versions are signed on approval).
-     Microsoft Edge Add-ons is dropped (Phase 7, Decisions); Edge users
-     install from the Chrome Web Store.
+1. **Store releases.** Both stores have **v0.2.6 public** (as of 2026-10-13):
+   - Firefox (desktop and Android): https://addons.mozilla.org/en-US/firefox/addon/voice-answers-for-wanikani/
+   - Chrome Web Store: https://chromewebstore.google.com/detail/voice-answers-for-wanikan/ggmdidfeoabmefbnoldfjigagafdcgjn
+     (made public after an unlisted test; Edge users install from it,
+     Edge Add-ons was dropped, see Phase 7)
+   - **v0.2.7**, the rename to "Voice Answers for WaniKani: Unofficial
+     Tool" required by WaniKani's branding guidelines (no functional
+     change), is in review in both stores since 2026-10-13. Tell the
+     WaniKani admins once both show the new name, so the community post is
+     restored.
+   - GitHub release v0.2.6 has the Chrome zip, the source zip and
+     Mozilla's signed `.xpi`.
 2. **Training inside the extension** (deferred 2026-10-04). Train only the
    kana head (0.69M weights), in plain JS/WASM, from a recorder in the
    settings page. Clips and weights stay in IndexedDB, and the CTC loss and

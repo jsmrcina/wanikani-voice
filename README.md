@@ -72,6 +72,12 @@ screen. ([MP4](docs/media/demo.mp4))
 
 ## Install
 
+- **Firefox (desktop and Android):** [addons.mozilla.org](https://addons.mozilla.org/en-US/firefox/addon/voice-answers-for-wanikani/)
+- **Chrome, Edge and other Chromium browsers:** [Chrome Web Store](https://chromewebstore.google.com/detail/voice-answers-for-wanikan/ggmdidfeoabmefbnoldfjigagafdcgjn)
+  (in Edge, allow extensions from other stores when asked)
+
+Building it yourself:
+
 **Signed package (release Firefox):** `npm run package -- --sign` (see
 [Packaging and signing](#packaging-and-signing)) produces
 `dist/voice-answers-for-wanikani-<version>-signed.xpi`. Install it from
