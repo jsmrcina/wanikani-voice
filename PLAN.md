@@ -1029,6 +1029,42 @@ spellings and homophones are counted as they are offered. `--opts` and
    personal, +1 Moonshine benchmark). CMUdict has *pour* and *poor* as
    different sounds, so that pair isn't covered.
 
+**Second round (2026-10-16), mostly for Moonshine, the model in daily use.**
+Offline evaluation now runs without the 1 s alternatives budget
+(`budgetMs: null`): with 11 runs in parallel the budget cut alternatives
+short and the unchanged baseline dropped to 234 / 256, so loaded runs
+aren't comparable.
+
+| Idea | Moonshine, 300 personal: first / offered | Readings, 400 personal | Decision |
+|---|---|---|---|
+| Baseline | 235 / 267 | 163 / 265 | |
+| ー spellings offered last, not second | n/a | 163 / **270** | **kept** |
+| Score ÷ length^0.5 / ÷ length / without end-of-text | 233 / 266, 227 / 265, 230 / 270 | n/a | dropped |
+| Trim to Silero's speech ± 100 / 200 / 300 / 500 ms | 199, 216, 233 / 266, 232 / 258 | 53 (± 200 ms) | dropped |
+| High-pass 80 Hz / 50 Hz | 236 / 269, 237 / 265 (benchmark −1 first) | 166 / 262 (benchmark 13 → 11) | dropped |
+| Pre-emphasis 0.97 | 214 / 243 (loaded run) | 161 / 246 | dropped |
+| Remember the user's picks (*and* → *hand*) | +1 of 25 each way on the paired gated/raw recordings (*i* → *eye*), nothing lost | nothing learnable | not built |
+
+- **ー spellings last:** びーだま, かんびーる and ぺーじ (the personal
+  readings that really contain ー) are offered no less often.
+- **Whisper reacts differently** and might be worth revisiting if it's
+  ever the main model: high-pass 50 Hz 248 → 255 first choice (offered
+  unchanged, benchmark unchanged), trimming ± 500 ms 248 → 258 (offered
+  −2). Not pursued (Moonshine is the model in use).
+- **Remembering picks** would mean storing the user's answers, a change to
+  the privacy policy and store listings ("collects no data"); +2 of 50
+  doesn't justify that. Each personal word was recorded once, so only the
+  25 words recorded twice could test it at all.
+- **Hesitations:** with the fine-tuned Moonshine the new alternatives
+  turned the "um" noise clip into "um in". When the likeliest English
+  candidate is only a hesitation, `buildChoices` now returns no answer;
+  the generic Moonshine then passes both noise checks too (benchmark 22/27
+  → 23/27 including noise).
+- **Fine-tuned models** (`--models-root personal/models`, benchmark only,
+  since they were trained on the personal sets): Moonshine-ft 23 first /
+  24 offered of 25 before and after, misses eye→I (choice 2) and
+  ground→crowned; hiragana-ft 18 / 24 of 31 before and after.
+
 Still missed with the right answer nowhere in the choices: hand→and,
 legs→links, ear→you're, cow→cal, meat→need; readings where the generic
 model hears a different consonant (りょ→よ, ちから→きから). Fine-tuning

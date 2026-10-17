@@ -1,6 +1,7 @@
 // Offline accuracy check for the bundled speech models (spike S5).
 //
 //   node tools/eval-asr.mjs [model ...] [--real | --set NAME | --personal [SPLIT]] [--only a,b] [--ja] [--show-misses]
+//                           [--opts JSON] [--choices JSON] [--dump FILE]
 //
 // Runs each model over the English fixtures with the same normalisation the
 // extension uses, and reports exact-match accuracy and decode time.
@@ -14,7 +15,7 @@
 // 400 recorded readings (personal/recordings/ja). Uses
 // transformers.js on Node (native onnxruntime), so absolute speed differs from
 // Firefox's WASM backend; accuracy should match.
-import { readdir, readFile } from 'node:fs/promises';
+import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
@@ -32,13 +33,15 @@ const lang = args.includes('--ja') ? 'ja' : 'en';
 // --models-root DIR: evaluate models from elsewhere (e.g. personal fine-tuned exports).
 const rootIdx = args.indexOf('--models-root');
 const setName = setIdx >= 0 ? args[setIdx + 1] : 'real';
-const models = args.filter((a, i) => !a.startsWith('--') && !['--set', '--models-root', '--personal', '--only', '--opts', '--choices'].includes(args[i - 1]));
+const models = args.filter((a, i) => !a.startsWith('--') && !['--set', '--models-root', '--personal', '--only', '--opts', '--choices', '--dump'].includes(args[i - 1]));
 // --opts JSON: extra options for recognize() (English decoding experiments).
 const optsIdx = args.indexOf('--opts');
 const recognizeOpts = optsIdx >= 0 ? JSON.parse(args[optsIdx + 1]) : {};
 // --choices JSON: extra options for buildChoices() (e.g. {"homophones":false}).
 const choicesIdx = args.indexOf('--choices');
 const choiceOpts = choicesIdx >= 0 ? JSON.parse(args[choicesIdx + 1]) : {};
+// --dump FILE: every clip's choices as JSON (one file per model: FILE.<model>.json).
+const dumpIdx = args.indexOf('--dump');
 
 env.allowRemoteModels = false;
 env.allowLocalModels = true;
@@ -82,13 +85,16 @@ if (personalIdx >= 0) {
   const recorded = new Set((await readdir(join(fixtureDir, lang)).catch(() => [])).map(f => f.replace(/\.wav$/, '')));
   // The readings have no split: the generic model never trained on any of them.
   fixtures = words[lang].filter(w => (split === 'all' || lang === 'ja' || w.split === split) && recorded.has(w.slug))
-    .map(w => ({ file: `${lang}/${w.slug}.wav`, said: w.say, expected: w.expected, group: w.group }));
+    .map(w => ({ file: `${lang}/${w.slug}.wav`, said: w.say, expected: w.expected, group: w.group, split: w.split }));
   console.log(`personal ${lang === 'ja' ? 'readings' : `English, ${split} split`}: ${fixtures.length} recorded clips`);
 } else if (real) {
   const words = JSON.parse(await readFile(join(ROOT, 'tools/recorder/words.json'), 'utf8'));
   fixtureDir = join(ROOT, 'personal/fixtures', setName);
   fixtures = [...words[lang].map(w => ({ ...w, lang })), ...words.noise.map(w => ({ ...w, lang: 'noise' }))]
     .map(w => ({ file: `${w.lang}/${w.slug}.wav`, said: w.say, expected: w.expected }));
+  // Older sets lack some later recordings.
+  const present = new Set((await Promise.all(['en', 'ja', 'noise'].map(d => readdir(join(fixtureDir, d)).then(fs => fs.map(f => `${d}/${f}`), () => [])))).flat());
+  fixtures = fixtures.filter(f => present.has(f.file));
 } else {
   fixtureDir = join(ROOT, 'test/fixtures/audio/en');
   fixtures = JSON.parse(await readFile(join(fixtureDir, 'manifest.json'), 'utf8'));
@@ -119,6 +125,7 @@ for (const name of candidates) {
   const misses = [];
   const groups = {}; // group -> { n, first, offered } (personal lists)
   const ranks = [0, 0, 0, 0]; // expected answer was choice 1, 2, 3, or not offered
+  const dump = [];
   for (const f of fixtures) {
     const audio = decodeWav(await readFile(join(fixtureDir, f.file)));
     // Like the extension: clips Silero VAD finds no speech in never reach the model.
@@ -137,9 +144,10 @@ for (const name of candidates) {
     let candidates;
     if (ctc) candidates = await recognizeCtc(asr, vocab, audio, Tensor);
     else if (lang === 'ja') candidates = [await recognizeKana(asr, audio, tokenizerJson, LogitsProcessor)];
-    else candidates = await recognize(asr, audio, { alternatives: 4, LogitsProcessorClass: LogitsProcessor, ...recognizeOpts });
+    else candidates = await recognize(asr, audio, { alternatives: 4, LogitsProcessorClass: LogitsProcessor, budgetMs: null, ...recognizeOpts });
     const built = buildChoices(candidates, mode, choiceOpts);
     const choices = built.ok ? built.choices : [];
+    dump.push({ file: f.file, expected: f.expected, split: f.split, choices });
     if (f.expected && choices.includes(f.expected)) inTop += 1;
     if (f.expected) {
       const r = choices.indexOf(f.expected);
@@ -169,5 +177,6 @@ for (const name of candidates) {
     console.log(`${''.padEnd(18)} ${name.padEnd(6)} first ${g.first}/${g.n}, offered ${g.offered}/${g.n}`);
   }
   if (showMisses) misses.forEach(m => console.log(`   miss ${m}`));
+  if (dumpIdx >= 0) await writeFile(`${args[dumpIdx + 1]}.${name}.json`, JSON.stringify(dump));
   await asr.dispose?.();
 }

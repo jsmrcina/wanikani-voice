@@ -90,7 +90,9 @@
     [['hand', 'and', 'band', 'sand'], {}, ['hand', 'and', 'band']],
     [['hand', 'and', 'band', 'sand'], { exclude: ['hand'] }, ['and', 'band', 'sand']],
     [['and'], { exclude: ['and'] }, ['and'], true],
-    [['きょー', 'きよ'], {}, ['きょう', 'きょー', 'きよ']],
+    [['Um.', 'Um in.'], {}, undefined],                  // best is a hesitation: no answer
+    [['きょー', 'きよ'], {}, ['きょう', 'きよ', 'きょー']],   // ー spellings last
+    [['びーだま'], {}, ['びいだま', 'びーだま']],
   ];
   for (const [cands, opts, want, repeated] of choiceCases) {
     const mode = /^[a-z]/.test(cands[0]) ? 'en' : 'ja-kana';

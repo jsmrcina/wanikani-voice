@@ -118,7 +118,7 @@
       .trim();
     if (!s) return { ok: false, reason: "Didn't catch that" };
     // Hesitations aren't answers ("um", "uh, hmm").
-    if (s.split(' ').every(w => FILLERS.has(w))) return { ok: false, reason: "Didn't catch that" };
+    if (s.split(' ').every(w => FILLERS.has(w))) return { ok: false, reason: "Didn't catch that", hesitation: true };
     const words = normalizeNumbers(s.split(' '));
     const homophones = homophonesOf(words);
     return homophones.length ? { ok: true, text: words.join(' '), homophones } : { ok: true, text: words.join(' ') };
@@ -212,9 +212,12 @@
 
   // Turns a recogniser's candidates (best first) into the answers offered:
   // each normalised, the valid and distinct ones kept, up to `max`. Order:
-  // the best answer, its alternate spellings (e.g. with ー), the other
-  // candidates, then words that sound like the best answer, then the other
-  // candidates' alternates. Homophones go after what the model itself heard:
+  // the best answer, the other candidates, words that sound like the best
+  // answer, then the alternate spellings (with ー). Those spellings come
+  // last: only a handful of readings really contain ー (びーだま), and as
+  // choice 2 they pushed real alternatives out (400 personal readings,
+  // 2026-10-16: right reading offered 265 -> 270; びーだま, かんびーる and
+  // ぺーじ no worse). Homophones go after what the model itself heard:
   // offered straight after the best answer they pushed better candidates
   // out (Whisper, 300 personal recordings, 2026-10-16: right answer offered
   // 281 -> 276; after the candidates 285 -> 286). `exclude`: answers the
@@ -225,12 +228,16 @@
   // { ok: false, reason }.
   function buildChoices(candidates, mode, { exclude = [], max = 3, homophones = true } = {}) {
     const normalized = candidates.map(c => normalizeAnswer(c, mode));
+    // The likeliest reading of the clip is a hesitation: that's no answer,
+    // whatever a less likely alternative made of it ("um" -> "um in", seen
+    // with the fine-tuned Moonshine 2026-10-16).
+    if (normalized[0]?.hesitation) return normalized[0];
     const valid = normalized.filter(n => n.ok);
     const ordered = [...new Set([
-      ...(valid[0] ? [valid[0].text, ...(valid[0].alternates ?? [])] : []),
+      ...(valid[0] ? [valid[0].text] : []),
       ...valid.slice(1).map(n => n.text),
       ...(homophones ? valid[0]?.homophones ?? [] : []),
-      ...valid.slice(1).flatMap(n => n.alternates ?? []),
+      ...valid.flatMap(n => n.alternates ?? []),
     ])];
     if (!ordered.length) return normalized[0] ?? { ok: false, reason: "Didn't catch that" };
     const rejected = new Set(exclude);

@@ -51,9 +51,13 @@ const ALTERNATIVES_BUDGET_MS = 1000;
 // the first token (2 alternatives, greedy first): Moonshine first choice
 // 227 -> 235, offered 258 -> 267; Whisper 246 -> 248, 281 -> 285; the
 // 25-clip benchmark unchanged or better. ~+100 ms per answer in Node.
+// Length-normalising the score, or leaving out the end-of-text token, was
+// no better (2026-10-16: Moonshine first choice 235 -> 227-233).
 // LogitsProcessorClass: transformers.js's LogitsProcessor (needed only for
 // alternatives).
-export async function recognize(asr, audio, { alternatives = 0, LogitsProcessorClass = null } = {}) {
+// budgetMs: ALTERNATIVES_BUDGET_MS, or null for none (offline evaluation, so
+// results don't depend on machine load).
+export async function recognize(asr, audio, { alternatives = 0, LogitsProcessorClass = null, budgetMs = ALTERNATIVES_BUDGET_MS } = {}) {
   const inputs = await asr.processor(audio);
   const prompt = decoderPrompt(asr);
   const promptLen = prompt[0].length;
@@ -144,7 +148,7 @@ export async function recognize(asr, audio, { alternatives = 0, LogitsProcessorC
   }
   branches.sort((x, y) => y.path - x.path);
   const runs = [{ ids: best.ids, score: sum(bestScores) }];
-  const deadline = performance.now() + ALTERNATIVES_BUDGET_MS;
+  const deadline = budgetMs === null ? Infinity : performance.now() + budgetMs;
   for (const b of branches.slice(0, alternatives)) {
     if (performance.now() > deadline) break;
     const run = await decode([...best.ids.slice(0, b.at), b.id]);
