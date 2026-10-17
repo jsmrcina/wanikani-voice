@@ -52,7 +52,12 @@ const ALTERNATIVES_BUDGET_MS = 1000;
 // 227 -> 235, offered 258 -> 267; Whisper 246 -> 248, 281 -> 285; the
 // 25-clip benchmark unchanged or better. ~+100 ms per answer in Node.
 // Length-normalising the score, or leaving out the end-of-text token, was
-// no better (2026-10-16: Moonshine first choice 235 -> 227-233).
+// no better (2026-10-16: Moonshine first choice 235 -> 227-233). Also tried
+// for Moonshine and dropped (2026-10-16, 300 personal recordings): a spoken
+// lead-in ("The word is", LJSpeech voice) before the clip, forced as the
+// decoder prefix (first choice 235 -> 228); rescoring on the clip at 0.9x
+// and 1.1x speed (235, benchmark -1); scaling the clip to a fixed loudness
+// (232-235).
 // LogitsProcessorClass: transformers.js's LogitsProcessor (needed only for
 // alternatives).
 // budgetMs: ALTERNATIVES_BUDGET_MS, or null for none (offline evaluation, so
@@ -157,9 +162,28 @@ export async function recognize(asr, audio, { alternatives = 0, LogitsProcessorC
     scores[b.at - promptLen] = best.steps.get(b.at)[b.id];
     runs.push({ ids: run.ids, score: sum(scores) });
   }
+  if (!isWhisper(asr)) {
+    for (const r of runs) if (GRAMMAR_WORDS.has(bareWord(textOf(r.ids)))) r.score -= GRAMMAR_PENALTY;
+  }
   runs.sort((x, y) => y.score - x.score);
   return tidy(asr, runs.map(r => textOf(r.ids)));
 }
+
+// Moonshine often hears a short content word as a grammar word: and for
+// hand, so for soul, that for fat, you're for ear. Such a word is almost
+// never a WaniKani answer on its own, so as the whole answer it ranks this
+// many nats lower (and can still win if that's clearly what was said).
+// Applies to every question alike (F4); nothing is corrected (F5), it only
+// reorders what was heard. Measured 2026-10-16 on 300 personal recordings:
+// first choice 235 -> 237 (hand, am), nothing lost; 2, 4 and 8 nats gave
+// the same result; the 25-clip benchmark unchanged. Penalising those words
+// while decoding instead was no better (237 / 266 offered, benchmark -1).
+// Not measured with Whisper, so not applied there.
+const GRAMMAR_PENALTY = 2;
+const GRAMMAR_WORDS = new Set(['and', 'that', 'so', 'or', 'the', 'a', 'an', 'to', 'of', 'in', 'on', 'it',
+  'is', "it's", 'but', 'if', 'at', 'as', 'be', "you're", 'there', 'their', "they're", 'then', 'than',
+  'with', 'for', 'was', 'are']);
+const bareWord = text => text.toLowerCase().replace(/[^a-z' ]/g, '').trim();
 
 function logSoftmax1(data) {
   let max = -Infinity;

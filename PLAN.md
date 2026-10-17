@@ -1065,6 +1065,25 @@ aren't comparable.
   24 offered of 25 before and after, misses eye→I (choice 2) and
   ground→crowned; hiragana-ft 18 / 24 of 31 before and after.
 
+**Third round (2026-10-16), Moonshine only** (300 personal recordings /
+25-clip benchmark, first choice / offered; baseline 235 / 267, 21 / 23):
+
+| Idea | Result | Decision |
+|---|---|---|
+| Spoken lead-in before the clip ("The word is" / "The answer is", Piper's LJSpeech voice, public domain), its text forced as the decoder prefix | 228 / 263, 223 / 256 (benchmark 21 / 24, 21 / 23) | dropped |
+| Grammar word (and, that, so, you're, …) as the whole answer ranks 2 nats lower | **237 / 267**, benchmark unchanged; 4 and 8 nats identical | **kept** (Moonshine only) |
+| The same words penalised as the first token while decoding, 2 / 4 nats | 237 / 266 (benchmark 21 / 22), 234 / 264 | dropped |
+| Rescoring every candidate on the clip at 0.9× and 1.1× speed (teacher-forced) | 235 / 267, benchmark 20 / 23; ~2× decode time | dropped |
+| Loudness: loud frames scaled to RMS 0.05 / 0.1 / 0.2 | 233 / 266, 235 / 263, 232 / 264 | dropped |
+
+- The penalty fixed *hand* (heard "and") and *AM* ("and"), moved *tip*
+  to choice 2 ahead of "to", and broke nothing. It applies to every
+  question alike (F4) and only reorders what was heard (F5): a clearly
+  spoken "and" still wins.
+- The lead-in helped single words in the smoke test (ground, moon offered)
+  but hurt phrases and the personal set overall.
+- The fine-tuned Moonshine is unchanged by all of this (23 / 24 of 25).
+
 Still missed with the right answer nowhere in the choices: hand→and,
 legs→links, ear→you're, cow→cal, meat→need; readings where the generic
 model hears a different consonant (りょ→よ, ちから→きから). Fine-tuning
