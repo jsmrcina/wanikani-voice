@@ -1193,6 +1193,12 @@ remains the fix for those.
      restored.
    - GitHub release v0.2.6 has the Chrome zip, the source zip and
      Mozilla's signed `.xpi`.
+   - **v0.3.0** (2026-10-16): the detection-quality work (Phase notes under
+     "Detection quality without retraining"). GitHub release only, **not
+     submitted to either store**: the user is testing it first. Still to
+     check live: the 200 ms push-to-talk tail and per-answer time in
+     Firefox. A later store submission needs a new version number (0.3.1 or
+     up) if 0.3.0 was signed on AMO's unlisted channel.
 2. **Training inside the extension** (deferred 2026-10-04). Train only the
    kana head (0.69M weights), in plain JS/WASM, from a recorder in the
    settings page. Clips and weights stay in IndexedDB, and the CTC loss and
