@@ -1,6 +1,6 @@
 // Speech decoding shared by the extension's worker and tools/eval-asr.mjs,
 // so offline evaluation measures exactly what the extension does.
-import { ctcBeamSearch } from './ctc.js';
+import { ctcBeamSearch, ctcScore, logSoftmax } from './ctc.js';
 
 // A fixed decoder prompt nudges Whisper toward short dictionary-style answers
 // ("Hand." rather than "And", "Sun." rather than "Son."). It is the same for
@@ -32,16 +32,25 @@ function decoderPrompt(asr) {
   return promptCache.get(asr);
 }
 
-// Alternatives under this share of the best first token's probability are noise.
+// At a step, tokens under this share of the chosen token's probability are noise.
 const MIN_RELATIVE = 0.05;
+// Alternatives stop being decoded once they have taken this long, so a long
+// phrase on a slow device can't hold the answer up.
+const ALTERNATIVES_BUDGET_MS = 1000;
 
-// Returns candidate transcripts, best first: the greedy decode, then up to
-// `alternatives` more. Whisper's confusions are mostly in the first word
-// (eye / I / bye, hand / and), so the alternatives start from the next most
-// likely *first* tokens, each completed greedily. transformers.js 4.3 has no
-// real beam search (generate() keeps one token per step) and returns no
-// scores, so a one-off logits processor records the first step's scores, and
-// the audio is encoded once and reused for every decode.
+// Returns candidate transcripts, best first: the greedy decode and up to
+// `alternatives` more, ordered by their whole-answer probability.
+// transformers.js 4.3 has no real beam search (generate() keeps one token per
+// step) and returns no scores, so a logits processor records every step's
+// log-probabilities, and the audio is encoded once and reused for every
+// decode. An alternative branches off the greedy decode at any step where
+// another ordinary text token was close (hand / and at the start, tale / tail
+// later in a phrase) and is completed greedily; the likeliest branch points
+// (by the probability of the path up to them) are decoded.
+// Measured 2026-10-16 on 300 personal recordings, against branching only at
+// the first token (2 alternatives, greedy first): Moonshine first choice
+// 227 -> 235, offered 258 -> 267; Whisper 246 -> 248, 281 -> 285; the
+// 25-clip benchmark unchanged or better. ~+100 ms per answer in Node.
 // LogitsProcessorClass: transformers.js's LogitsProcessor (needed only for
 // alternatives).
 export async function recognize(asr, audio, { alternatives = 0, LogitsProcessorClass = null } = {}) {
@@ -89,31 +98,74 @@ export async function recognize(asr, audio, { alternatives = 0, LogitsProcessorC
     if (prepared?.encoder_outputs) shared = { ...inputs, encoder_outputs: prepared.encoder_outputs };
   }
 
-  let firstStep = null;
-  class RecordFirstStep extends LogitsProcessorClass {
+  // Records each decoding step's log-probabilities, keyed by how many
+  // tokens came before it, so a finished decode can be scored token by token.
+  class RecordSteps extends LogitsProcessorClass {
+    constructor() { super(); this.steps = new Map(); }
     _call(ids, logits) {
-      if (!firstStep && ids[0].length === promptLen) firstStep = Float32Array.from(logits[0].data);
+      if (!this.steps.has(ids[0].length)) this.steps.set(ids[0].length, logSoftmax1(logits[0].data));
       return logits;
     }
   }
-  const best = await generate(prompt, { ...shared, logits_processor: [new RecordFirstStep()] });
-  const out = [textOf(best)];
-  if (!firstStep || best.length <= promptLen) return out;
+  // decode(prefix) -> { ids (whole sequence), steps (prefix length -> log-probs) }
+  const decode = async prefix => {
+    const rec = new RecordSteps();
+    const ids = await generate([prefix], { ...shared, logits_processor: [rec] });
+    return { ids, steps: rec.steps };
+  };
+  const isText = id => /[\p{L}\p{N}]/u.test(asr.tokenizer.decode([id], { skip_special_tokens: true }));
 
-  // Ordinary text tokens only: special ones (end of text, Whisper's
-  // timestamps) decode to nothing once special tokens are skipped.
-  const chosen = best[promptLen];
-  const floor = firstStep[chosen] + Math.log(MIN_RELATIVE);
-  const others = [];
-  for (let id = 0; id < firstStep.length; id++) {
-    if (id !== chosen && firstStep[id] >= floor &&
-      asr.tokenizer.decode([id], { skip_special_tokens: true }).trim()) others.push(id);
+  const best = await decode(prompt[0]);
+  if (best.ids.length <= promptLen || !best.steps.size) return tidy(asr, [textOf(best.ids)]);
+  // Log-probability of each token of a decode, from the first decode's steps
+  // up to `from` and the decode's own steps after.
+  const tokenScores = (run, parent = null, from = Infinity) => run.ids.slice(promptLen).map((id, i) => {
+    const at = promptLen + i;
+    const steps = at < from ? parent?.steps ?? run.steps : run.steps;
+    return steps.get(at)?.[id] ?? 0;
+  });
+  const sum = xs => xs.reduce((a, b) => a + b, 0);
+
+  // Branch points: at each step of the best decode, the next most likely
+  // ordinary text tokens within MIN_RELATIVE of the chosen one.
+  const bestScores = tokenScores(best);
+  const branches = [];
+  for (let at = promptLen; at < best.ids.length; at++) {
+    const logp = best.steps.get(at);
+    if (!logp) break;
+    const chosen = best.ids[at];
+    const floor = logp[chosen] + Math.log(MIN_RELATIVE);
+    const prefixScore = sum(bestScores.slice(0, at - promptLen));
+    for (let id = 0; id < logp.length; id++) {
+      if (id !== chosen && logp[id] >= floor && isText(id)) {
+        branches.push({ at, id, path: prefixScore + logp[id] });
+      }
+    }
   }
-  others.sort((x, y) => firstStep[y] - firstStep[x]);
-  for (const id of others.slice(0, alternatives)) {
-    out.push(textOf(await generate([[...prompt[0], id]], shared)));
+  branches.sort((x, y) => y.path - x.path);
+  const runs = [{ ids: best.ids, score: sum(bestScores) }];
+  const deadline = performance.now() + ALTERNATIVES_BUDGET_MS;
+  for (const b of branches.slice(0, alternatives)) {
+    if (performance.now() > deadline) break;
+    const run = await decode([...best.ids.slice(0, b.at), b.id]);
+    // Tokens before the branch point were scored in the best decode.
+    const scores = tokenScores(run, best, b.at);
+    scores[b.at - promptLen] = best.steps.get(b.at)[b.id];
+    runs.push({ ids: run.ids, score: sum(scores) });
   }
-  return tidy(asr, out);
+  runs.sort((x, y) => y.score - x.score);
+  return tidy(asr, runs.map(r => textOf(r.ids)));
+}
+
+function logSoftmax1(data) {
+  let max = -Infinity;
+  for (let i = 0; i < data.length; i++) if (data[i] > max) max = data[i];
+  let total = 0;
+  for (let i = 0; i < data.length; i++) total += Math.exp(data[i] - max);
+  const lse = max + Math.log(total);
+  const out = new Float32Array(data.length);
+  for (let i = 0; i < data.length; i++) out[i] = data[i] - lse;
+  return out;
 }
 
 // Moonshine tends to repeat a short answer: "king king", "21 21", "north
@@ -262,24 +314,61 @@ export async function recognizeKana(asr, audio, tokenizerJson, LogitsProcessorCl
 // de-duplicates them.
 // model: a transformers.js HubertForCTC; vocab: kana_vocab.json; TensorClass:
 // transformers.js Tensor.
-export async function recognizeCtc(model, vocab, audio, TensorClass, topK = 3) {
-  const input = new TensorClass('float32', audio, [1, audio.length]);
-  const { logits } = await model({ input_values: input });
-  const [, frames, size] = logits.dims;
+
+// The clip is also heard at these speeds, and each alternative is scored by
+// how well it fits all of them (mean CTC log-probability): a reading that
+// only fits one tempo is likelier to be noise. Measured 2026-10-16 on 400
+// personal recordings (generic model): right reading offered 253 -> 265,
+// first choice unchanged (163); the 31-reading benchmark unchanged (13/13).
+// Ranking the first choice by this score too gained 26 first choices on the
+// personal set but lost 3 of 13 on the benchmark, mostly by adding long
+// vowels (か -> かあ); the personal list over-samples long vowels, so greedy
+// stays first. Generating spelling variants (よ -> りょ, っ, long vowels,
+// any one-kana edit) and scoring them the same way added nothing: the right
+// reading usually scores far below what was heard (りょこう 24 nats under よこー).
+export const CTC_SPEEDS = [1, 0.9, 1.1];
+
+// Linear-interpolation resampling: rate > 1 plays faster (shorter clip).
+export function changeSpeed(audio, rate) {
+  if (rate === 1) return audio;
+  const n = Math.floor((audio.length - 1) / rate);
+  const out = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = i * rate;
+    const j = Math.floor(x);
+    const f = x - j;
+    out[i] = audio[j] * (1 - f) + audio[j + 1] * f;
+  }
+  return out;
+}
+
+export async function recognizeCtc(model, vocab, audio, TensorClass, topK = 3, speeds = CTC_SPEEDS) {
+  const heard = [];
+  for (const rate of speeds) {
+    const clip = changeSpeed(audio, rate);
+    const { logits } = await model({ input_values: new TensorClass('float32', clip, [1, clip.length]) });
+    const [, frames, size] = logits.dims;
+    heard.push({ frames, size, logp: logSoftmax(logits.data, frames, size) });
+  }
+  const [{ frames, size, logp }] = heard;
   const toText = ids => ids.map(id => vocab.tokens[id]).join('');
-  // First choice: greedy (best token per frame). On real readings it beat the
-  // beam's top hypothesis, which tends to append a trailing ー; the beam
-  // supplies the alternatives.
+  // First choice: greedy (best token per frame) at normal speed. On real
+  // readings it beat the beam's top hypothesis, which tends to append a
+  // trailing ー; the beam supplies the alternatives.
   const greedy = [];
   let prev = -1;
   for (let t = 0; t < frames; t++) {
     let best = 0;
-    for (let v = 1; v < size; v++) if (logits.data[t * size + v] > logits.data[t * size + best]) best = v;
+    for (let v = 1; v < size; v++) if (logp[t * size + v] > logp[t * size + best]) best = v;
     if (best !== vocab.blank && best !== prev) greedy.push(best);
     prev = best;
   }
-  const beam = ctcBeamSearch(logits.data, frames, size, { blank: vocab.blank, topK: topK + 2 });
-  // Alternatives under 5% of the top hypothesis are noise (ねんん, かこうう).
-  const floor = (beam[0]?.logProb ?? 0) + Math.log(0.05);
-  return [toText(greedy), ...beam.filter(h => h.logProb >= floor).map(h => toText(h.ids))];
+  const beam = ctcBeamSearch(logp, frames, size, { blank: vocab.blank, topK: topK + 2 });
+  const score = ids => heard.reduce((sum, h) => sum + ctcScore(h.logp, h.frames, h.size, ids, vocab.blank), 0) / heard.length;
+  const scored = [greedy, ...beam.map(h => h.ids)]
+    .map(ids => ({ ids, score: score(ids) }))
+    .sort((a, b) => b.score - a.score);
+  // Alternatives under 5% of the best are noise (ねんん, かこうう).
+  const floor = (scored[0]?.score ?? 0) + Math.log(0.05);
+  return [toText(greedy), ...scored.filter(h => h.score >= floor).map(h => toText(h.ids))];
 }

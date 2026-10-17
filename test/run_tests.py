@@ -633,6 +633,27 @@ def test_answer_choices_english(b):
     assert b.mock_log()[-1]["answer"] == "hand", b.mock_log()
 
 
+
+def test_retry_drops_rejected_answer(b):
+    """Recording again over a filled answer rejects it: it isn't offered again
+    on this question, unless it is all that was heard; a new question forgets."""
+    b.set_options()
+    b.open_review()
+    b.say("And|Hand|Band")
+    b.wait(lambda: b.input_value() == "and", 5, "first answer")
+    b.say("And|Hand|Band")
+    b.wait(lambda: b.input_value() == "hand", 5, "rejected answer skipped")
+    assert b.host().get_attribute("data-choices") == "hand|band", b.host().get_attribute("data-choices")
+    b.say("Hand|And")
+    b.wait(lambda: b.message().startswith("Heard"), 5, "only rejected answers heard")
+    assert b.input_value() == "hand", b.input_value()
+    b.press_enter()
+    b.wait_state("waiting")
+    b.press_enter()  # next question: nothing rejected yet
+    b.wait(lambda: b.state() == "ready", 10, "next question")
+    b.say("ジン|ニン")
+    b.wait(lambda: b.input_value() == "じん", 5, "fresh question keeps the first answer")
+
 @needs_voice
 def test_speech_japanese(b):
     """Real Japanese speech through the hiragana model: some valid kana reading
@@ -1038,7 +1059,7 @@ TESTS = [test_unit, test_inactive_off_review_page, test_lesson_quiz, test_defaul
          test_options_custom_models,
          test_auto_advance_only_correct,
          test_hands_free_gives_up_after_misses, test_panel_position, test_speech_push_to_talk,
-         test_speech_numbers_and_phrases, test_reading_choices, test_answer_choices_english,
+         test_speech_numbers_and_phrases, test_reading_choices, test_answer_choices_english, test_retry_drops_rejected_answer,
          test_speech_japanese,
          test_speech_fast_english, test_speech_silence_not_sent,
          test_speech_hands_free, test_background_survives_idle, test_service_worker_restart]

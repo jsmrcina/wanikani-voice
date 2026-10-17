@@ -1,7 +1,7 @@
 // Runs in a plain page (test/unit/index.html); results land in #results as JSON.
 (function () {
   'use strict';
-  const { normalizeAnswer } = WKV.normalize;
+  const { normalizeAnswer, buildChoices } = WKV.normalize;
   const cases = [
     // [raw, mode, expected text | null for "rejected"]
     // English: tidy-up only
@@ -70,11 +70,40 @@
       failures.push({ raw, mode: 'ja-kana', expected: { text, alts }, got });
     }
   }
+  // Homophones offered with an English answer (src/shared/homophones.js).
+  const homophones = [
+    ['Tale.', ['tail']],
+    ['I', ['eye', 'aye']],
+    ['to pour', ['to pore']],      // "to" is grammar inside a phrase
+    ['hand', undefined],
+  ];
+  for (const [raw, want] of homophones) {
+    const got = normalizeAnswer(raw, 'en');
+    if (JSON.stringify(got.homophones) !== JSON.stringify(want)) {
+      failures.push({ raw, mode: 'en', expected: { homophones: want }, got });
+    }
+  }
+  // Choices: order, rejected answers left out, repeats.
+  const choiceCases = [
+    [['tale', 'tell'], {}, ['tale', 'tell', 'tail']],
+    [['tale'], {}, ['tale', 'tail']],
+    [['hand', 'and', 'band', 'sand'], {}, ['hand', 'and', 'band']],
+    [['hand', 'and', 'band', 'sand'], { exclude: ['hand'] }, ['and', 'band', 'sand']],
+    [['and'], { exclude: ['and'] }, ['and'], true],
+    [['きょー', 'きよ'], {}, ['きょう', 'きょー', 'きよ']],
+  ];
+  for (const [cands, opts, want, repeated] of choiceCases) {
+    const mode = /^[a-z]/.test(cands[0]) ? 'en' : 'ja-kana';
+    const got = buildChoices(cands, mode, opts);
+    if (JSON.stringify(got.choices) !== JSON.stringify(want) || !!got.repeated !== !!repeated) {
+      failures.push({ raw: cands, mode, expected: { choices: want, repeated }, got });
+    }
+  }
   for (const [raw, mode, expected] of cases) {
     const got = normalizeAnswer(raw, mode);
     const ok = expected === null ? !got.ok : got.ok && got.text === expected;
     if (!ok) failures.push({ raw, mode, expected, got });
   }
   document.getElementById('results').textContent =
-    JSON.stringify({ total: cases.length + alternates.length, failures });
+    JSON.stringify({ total: cases.length + alternates.length + homophones.length + choiceCases.length, failures });
 })();

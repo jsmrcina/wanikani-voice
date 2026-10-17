@@ -31,6 +31,7 @@
     "scripts": [
       "src/shared/browser-shim.js",
       "src/shared/settings.js",
+      "src/shared/homophones.js",
       "src/shared/normalize.js",
       "src/shared/wire.js",
       "src/background/background.js"

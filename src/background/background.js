@@ -183,19 +183,11 @@
       ms = res.ms;
       lastDecodeMs = ms;
     }
-    // Normalise every candidate; keep the valid, distinct ones, best first.
-    const normalized = candidates.map(c => WKV.normalize.normalizeAnswer(c, msg.mode));
-    const valid = normalized.filter(n => n.ok);
-    // Order: best answer, its alternate spelling (e.g. with ー), the other
-    // candidates, then their alternates.
-    const ordered = [
-      ...(valid[0] ? [valid[0].text, ...(valid[0].alternates ?? [])] : []),
-      ...valid.slice(1).map(n => n.text),
-      ...valid.slice(1).flatMap(n => n.alternates ?? []),
-    ];
-    const choices = [...new Set(ordered)].slice(0, MAX_CHOICES);
-    if (!choices.length) return { raw: candidates[0], ms, ...normalized[0] };
-    return { ok: true, raw: candidates[0], ms, text: choices[0], choices };
+    // Normalise every candidate; keep the valid, distinct ones, best first,
+    // minus answers already rejected on this question (msg.rejected: what
+    // was in the answer box each time the user recorded again).
+    const rejected = Array.isArray(msg.rejected) ? msg.rejected.filter(r => typeof r === 'string') : [];
+    return { raw: candidates[0], ms, ...WKV.normalize.buildChoices(candidates, msg.mode, { exclude: rejected, max: MAX_CHOICES }) };
   }
 
   const startedAt = Date.now();

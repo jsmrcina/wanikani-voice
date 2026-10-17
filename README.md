@@ -145,8 +145,11 @@ tag for the kind of answer expected, and a mic button.
    microphone.
 2. The answer is filled in. If other answers were also likely, they appear
    as numbered choices: **1–3** switch between them, as long as you haven't
-   started typing your own.
-3. **Enter** submits (default), and Enter again moves on, as usual on WaniKani.
+   started typing your own. Words that sound the same (*eye* / *I*, *tail* /
+   *tale*) are offered too, since no speech model can tell them apart.
+3. Not what you said? **Hold Shift and say it again.** The answer you
+   recorded over isn't offered again for this question.
+4. **Enter** submits (default), and Enter again moves on, as usual on WaniKani.
 
 The panel border shows what's happening: red while listening, blue while
 recognising, green when an answer is filled in, amber for "didn't hear
@@ -163,8 +166,8 @@ Everything works by touch. The panel is a bar at the bottom of the screen
 - **Hold the mic button**, speak, let go. Letting go well away from where you
   pressed cancels.
 - **Tap** a choice to switch to it, **Submit** to submit, **Clear** to empty
-  the answer box without bringing up the keyboard, **Next** for the next
-  question.
+  the answer box without bringing up the keyboard (what you clear isn't
+  offered again for that question), **Next** for the next question.
 - The microphone uses Android's automatic gain: a phone's raw microphone
   signal is far quieter than a desktop's.
 - A custom model (below) is installed the same way: copy the
@@ -247,7 +250,8 @@ flowchart LR
 
 The only page content that crosses into the recogniser is the question
 **type**, reduced to a mode (`en` or `ja-kana`). The only thing written back
-is the answer box.
+is the answer box. When you record again, the answers you recorded over go
+along too (your own earlier answers, so they aren't offered again).
 
 ### One answer, step by step
 
@@ -262,12 +266,12 @@ sequenceDiagram
   C->>P: read category and meaning/reading label
   You->>C: hold Shift, speak, release
   C->>C: capture at device rate, resample to 16 kHz
-  C->>B: transcribe { mode, audio }
+  C->>B: transcribe { mode, audio, answers recorded over }
   B->>W: transcribe { model, audio }
   W->>W: Silero VAD: at least 96 ms of speech?
-  W->>W: Moonshine / Whisper or hiragana CTC: up to 3 candidates
+  W->>W: Moonshine / Whisper (best + 4 alternatives) or hiragana CTC (scored at 3 speeds)
   W-->>B: candidates
-  B->>B: normalise, drop invalid, keep 3 distinct
+  B->>B: normalise, add homophones, drop invalid and recorded-over, keep 3 distinct
   B-->>C: { text, choices }
   C->>P: fill the answer box
   You->>P: 1–3 to switch (optional), Enter to submit

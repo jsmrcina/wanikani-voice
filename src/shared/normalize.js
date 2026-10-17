@@ -119,7 +119,30 @@
     if (!s) return { ok: false, reason: "Didn't catch that" };
     // Hesitations aren't answers ("um", "uh, hmm").
     if (s.split(' ').every(w => FILLERS.has(w))) return { ok: false, reason: "Didn't catch that" };
-    return { ok: true, text: normalizeNumbers(s.split(' ')).join(' ') };
+    const words = normalizeNumbers(s.split(' '));
+    const homophones = homophonesOf(words);
+    return homophones.length ? { ok: true, text: words.join(' '), homophones } : { ok: true, text: words.join(' ') };
+  }
+
+  // Short words that sound like others (to/two, a/eh, for/four) but are
+  // only ever grammar inside a phrase: "to pour" never means "two pour".
+  const PHRASE_GLUE = new Set(['a', 'an', 'the', 'to', 'too', 'two', 'for', 'four', 'of', 'in', 'on',
+    'at', 'by', 'be', 'or', 'and', 'so', 'i', 'one', 'no', 'not', 'our', 'are', 'its', "it's", 'we',
+    'you', 'your', 'there', 'their', 'is', 'as', 'up', 'out', 'off', 'with', 'from', 'into', 'some']);
+
+  // Spellings that sound the same as what was heard (eye for I, tail for
+  // tale), from src/shared/homophones.js: the recogniser can't tell them
+  // apart, and the question may not be used to decide (F4), so they are
+  // offered as choices. One word changed at a time; in a phrase, not the
+  // grammatical glue.
+  function homophonesOf(words) {
+    const table = WKV.homophones ?? {};
+    const out = [];
+    words.forEach((w, i) => {
+      if (words.length > 1 && PHRASE_GLUE.has(w)) return;
+      for (const alt of table[w] ?? []) out.push([...words.slice(0, i), alt, ...words.slice(i + 1)].join(' '));
+    });
+    return out;
   }
 
   // ---- Japanese ------------------------------------------------------------
@@ -185,5 +208,39 @@
     return { ok: false, reason: `Unknown mode ${mode}` };
   }
 
-  WKV.normalize = { normalizeAnswer, normalizeEnglish, normalizeKana, katakanaToHiragana };
+  // ---- Choices -------------------------------------------------------------
+
+  // Turns a recogniser's candidates (best first) into the answers offered:
+  // each normalised, the valid and distinct ones kept, up to `max`. Order:
+  // the best answer, its alternate spellings (e.g. with ー), the other
+  // candidates, then words that sound like the best answer, then the other
+  // candidates' alternates. Homophones go after what the model itself heard:
+  // offered straight after the best answer they pushed better candidates
+  // out (Whisper, 300 personal recordings, 2026-10-16: right answer offered
+  // 281 -> 276; after the candidates 285 -> 286). `exclude`: answers the
+  // user already rejected on this question by recording again; they are
+  // left out unless nothing else is left (then `repeated` is set). Shared by
+  // the background page and tools/eval-asr.mjs. Returns
+  // { ok, text, choices, repeated? } or the first candidate's rejection
+  // { ok: false, reason }.
+  function buildChoices(candidates, mode, { exclude = [], max = 3, homophones = true } = {}) {
+    const normalized = candidates.map(c => normalizeAnswer(c, mode));
+    const valid = normalized.filter(n => n.ok);
+    const ordered = [...new Set([
+      ...(valid[0] ? [valid[0].text, ...(valid[0].alternates ?? [])] : []),
+      ...valid.slice(1).map(n => n.text),
+      ...(homophones ? valid[0]?.homophones ?? [] : []),
+      ...valid.slice(1).flatMap(n => n.alternates ?? []),
+    ])];
+    if (!ordered.length) return normalized[0] ?? { ok: false, reason: "Didn't catch that" };
+    const rejected = new Set(exclude);
+    const fresh = ordered.filter(t => !rejected.has(t));
+    // Heard only what was already rejected: offer it again rather than
+    // nothing, and say so.
+    if (!fresh.length) return { ok: true, text: ordered[0], choices: ordered.slice(0, max), repeated: true };
+    const choices = fresh.slice(0, max);
+    return { ok: true, text: choices[0], choices };
+  }
+
+  WKV.normalize = { normalizeAnswer, normalizeEnglish, normalizeKana, katakanaToHiragana, buildChoices };
 })(globalThis.WKV = globalThis.WKV || {});

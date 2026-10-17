@@ -240,6 +240,7 @@ src/content/answer-io.js       fill / submit / graded?
 src/content/indicator.js       badge + test-utterance field
 src/content/main.js            state machine
 src/shared/normalize.js        EN/JA normalisation
+src/shared/homophones.js       English words that sound alike (generated)
 src/shared/settings.js         defaults, storage.local
 src/options/                   settings page = toolbar popup
 icons/icon.svg
@@ -256,6 +257,7 @@ tools/eval-asr.mjs             offline accuracy on recordings (S5)
 tools/recorder/                local page for recording evaluation clips
 tools/make-test-audio.py       synthetic TTS fixtures (Piper)
 tools/make-icon.py             generates icons/icon.svg (mic + あ)
+tools/make-homophones.py       generates src/shared/homophones.js (CMUdict + SCOWL)
 tools/export-dual-ctc.py       exports the hiragana model to ONNX (+ partial int8)
 tools/export-ctc.py            generic CTC export (optimum), for other candidates
 tools/eval-ja-torch.py         S4 comparison of hiragana models in PyTorch
@@ -275,7 +277,8 @@ were installed on 2026-10-04. Model files and WAVs are in Git LFS
 
 
 Tests: `npm run build && python3 test/run_tests.py`. Current result: policy
-ok, 53 unit cases (normalisation, CTC beam search), 19 end-to-end scenarios.
+ok, 71 unit cases (normalisation, homophones, choices, CTC beam search and
+scoring), 34 end-to-end scenarios (2026-10-16).
 They include real English and Japanese speech through the extension
 (push-to-talk, hands-free with autoplay unblock, numbers, silence rejected),
 the reading-choices UI, and the S2 idle-survival check. All non-localhost traffic
@@ -948,6 +951,88 @@ On clips never trained on (first choice / offered):
   aid/eight, "to be which"). (Measured before 11 re-recorded clips, 4
   of which then passed with both models.)
 
+
+### Detection quality without retraining (2026-10-16, branch `detection-quality`)
+Six ideas for the generic models, none of which use the question (F4) or
+correct toward an answer (F5). Measured with `tools/eval-asr.mjs` on the
+generic models: the 400 personal reading recordings (`--personal --ja`,
+new; the generic model never trained on them), the 300 personal English
+recordings (`--personal all`) and the real-raw benchmarks. `eval-asr` now
+builds choices with the extension's own `buildChoices`
+(`src/shared/normalize.js`, shared with the background page), so the ー
+spellings and homophones are counted as they are offered. `--opts` and
+`--choices` pass experiment options.
+
+| | Before | After |
+|---|---|---|
+| Readings, 400 personal: first / offered | 163 / 253 | 163 / **265** |
+| Readings, 31 benchmark: first / offered | 13 / 13 | 13 / 13 |
+| Moonshine, 300 personal: first / offered | 227 / 258 | **235 / 267** |
+| Whisper base.en, 300 personal: first / offered | 246 / 281 | **248 / 286** |
+| Moonshine, 25 benchmark: first / offered | 20 / 21 | 21 / 23 |
+| Whisper base.en, 25 benchmark: first / offered | 22 / 25 | 22 / 25 |
+
+1. **Recording again rejects the answer in the box (built).** Pressing
+   push-to-talk while an answer is filled in, or **Clear** on a phone,
+   adds that answer to a per-question list (`main.js`, reset on a new
+   question). The list goes with the next transcribe request (`rejected`)
+   and `buildChoices` leaves those answers out. If nothing else was heard,
+   it offers them anyway and the panel says "Heard “…” again", and
+   auto-submit doesn't fire. The list is the user's own earlier answers,
+   not page content. *Combining the evidence of both attempts* (scoring
+   each candidate on both clips) was simulated on the paired gated/raw
+   recordings of the same readings: 34 retries, +1 offered. Not kept: too
+   small to justify keeping the previous clip in the worker.
+2. **Push-to-talk tail (built).** `mic.stop({ tailMs })` keeps recording
+   200 ms after the key is let go (the panel shows *processing* at once).
+   Keys are often released while the last sound is still being said, and
+   the ScriptProcessor chunk in flight (~85 ms) used to be dropped too. Not
+   measurable offline (the recordings have no release point); hands-free
+   endpointing is unchanged.
+3. **Kana spelling variants scored against the audio (tried, not kept).**
+   Variants of the top readings (よ→りょ/びょ/…, っ inserted or removed,
+   long vowels, and every one-kana deletion, substitution and insertion)
+   scored with the CTC forward probability added nothing (253 → 252
+   offered). The right reading usually scores far below what was heard:
+   りょこう is 24 nats under よこー, びょういん 13 under よいん. Widening the
+   beam (64 × 16 instead of 16 × 8) did nothing either.
+4. **Readings heard at three speeds (built).** `recognizeCtc` runs the
+   model on the clip at 1×, 0.9× and 1.1× (linear resampling) and ranks the
+   alternatives by their mean CTC log-probability over the three
+   (`ctcScore` in `src/worker/ctc.js`, unit-tested against brute force).
+   Greedy at 1× stays first: ranking the first choice by the score too gave
+   +26 first choices on the personal set but lost 3 of 13 on the benchmark,
+   mostly by adding long vowels (か→かあ, ひと→ひっとう), and the personal
+   list over-samples long vowels (`tools/wk-readings.py` keeps them), so
+   that gain isn't trustworthy. Five speeds (adding 0.95×/1.05×) gave 266,
+   not worth the cost. ~32 → ~85 ms per reading in Node (three model runs).
+5. **English alternatives anywhere in the answer, ranked by score
+   (built).** A logits processor records every step; alternatives branch
+   off the greedy decode at any step where another text token was within 5%
+   (not just the first token), the four likeliest branch points (by path
+   probability) are completed greedily, and all candidates are ranked by
+   whole-answer log-probability. Branching at the first token only but
+   ranking by score changed nothing; two branches anywhere, little; four
+   with greedy kept first, offered +9 / +4 but first choice unchanged. A
+   1 s budget stops decoding alternatives on a slow device. Cost on the 60
+   held-out clips in Node: Moonshine 118 → 222 ms mean, Whisper 347 → 429
+   ms (three alternatives: 173 / 376 ms, one fewer offered).
+6. **Homophones (built).** `tools/make-homophones.py` builds
+   `src/shared/homophones.js` (1,636 words, 33 KB) from CMUdict
+   (BSD-2-Clause) and SCOWL ≤ 35 (common words only; notices in
+   `THIRD_PARTY_NOTICES.md`): eye → i / aye, tale → tail, son → sun, right
+   → write / rite. Normalisation attaches them; one word is changed at a
+   time, and in a phrase not the grammatical glue ("to pour" never becomes
+   "two pour"). Placement matters: right after the best answer they pushed
+   better model candidates out (Whisper 281 → 276 offered); after the
+   model's candidates they're neutral to slightly positive (+1 Whisper
+   personal, +1 Moonshine benchmark). CMUdict has *pour* and *poor* as
+   different sounds, so that pair isn't covered.
+
+Still missed with the right answer nowhere in the choices: hand→and,
+legs→links, ear→you're, cow→cal, meat→need; readings where the generic
+model hears a different consonant (りょ→よ, ちから→きから). Fine-tuning
+remains the fix for those.
 
 ---
 

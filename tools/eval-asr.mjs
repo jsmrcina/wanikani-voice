@@ -10,7 +10,8 @@
 // the noise checks, which pass only if they produce no answer. --personal:
 // the personal English list (personal/words.json, tools/wk-meanings.mjs)
 // recorded into personal/recordings/en, by default only its held-out
-// "test" split (--personal all for every recorded clip). Uses
+// "test" split (--personal all for every recorded clip); with --ja, the
+// 400 recorded readings (personal/recordings/ja). Uses
 // transformers.js on Node (native onnxruntime), so absolute speed differs from
 // Firefox's WASM backend; accuracy should match.
 import { readdir, readFile } from 'node:fs/promises';
@@ -31,7 +32,13 @@ const lang = args.includes('--ja') ? 'ja' : 'en';
 // --models-root DIR: evaluate models from elsewhere (e.g. personal fine-tuned exports).
 const rootIdx = args.indexOf('--models-root');
 const setName = setIdx >= 0 ? args[setIdx + 1] : 'real';
-const models = args.filter((a, i) => !a.startsWith('--') && !['--set', '--models-root', '--personal', '--only'].includes(args[i - 1]));
+const models = args.filter((a, i) => !a.startsWith('--') && !['--set', '--models-root', '--personal', '--only', '--opts', '--choices'].includes(args[i - 1]));
+// --opts JSON: extra options for recognize() (English decoding experiments).
+const optsIdx = args.indexOf('--opts');
+const recognizeOpts = optsIdx >= 0 ? JSON.parse(args[optsIdx + 1]) : {};
+// --choices JSON: extra options for buildChoices() (e.g. {"homophones":false}).
+const choicesIdx = args.indexOf('--choices');
+const choiceOpts = choicesIdx >= 0 ? JSON.parse(args[choicesIdx + 1]) : {};
 
 env.allowRemoteModels = false;
 env.allowLocalModels = true;
@@ -40,8 +47,11 @@ env.localModelPath = (args.includes('--models-root') ? resolve(args[args.indexOf
 // Load the extension's normaliser (a classic script) into this process.
 const sandbox = { globalThis: {} };
 sandbox.globalThis = sandbox;
-vm.runInNewContext(await readFile(join(ROOT, 'src/shared/normalize.js'), 'utf8'), sandbox);
-const { normalizeAnswer } = sandbox.WKV.normalize;
+vm.createContext(sandbox);
+for (const file of ['src/shared/homophones.js', 'src/shared/normalize.js']) {
+  vm.runInContext(await readFile(join(ROOT, file), 'utf8'), sandbox);
+}
+const { normalizeAnswer, buildChoices } = sandbox.WKV.normalize;
 
 export function decodeWav(buf) {
   // Minimal PCM16 mono WAV reader (what tools/make-test-audio.py writes).
@@ -69,10 +79,11 @@ if (personalIdx >= 0) {
   const split = args[personalIdx + 1] && !args[personalIdx + 1].startsWith('--') ? args[personalIdx + 1] : 'test';
   const words = JSON.parse(await readFile(join(ROOT, 'personal/words.json'), 'utf8'));
   fixtureDir = join(ROOT, 'personal/recordings');
-  const recorded = new Set((await readdir(join(fixtureDir, 'en')).catch(() => [])).map(f => f.replace(/\.wav$/, '')));
-  fixtures = words.en.filter(w => (split === 'all' || w.split === split) && recorded.has(w.slug))
-    .map(w => ({ file: `en/${w.slug}.wav`, said: w.say, expected: w.expected, group: w.group }));
-  console.log(`personal English, ${split} split: ${fixtures.length} recorded clips`);
+  const recorded = new Set((await readdir(join(fixtureDir, lang)).catch(() => [])).map(f => f.replace(/\.wav$/, '')));
+  // The readings have no split: the generic model never trained on any of them.
+  fixtures = words[lang].filter(w => (split === 'all' || lang === 'ja' || w.split === split) && recorded.has(w.slug))
+    .map(w => ({ file: `${lang}/${w.slug}.wav`, said: w.say, expected: w.expected, group: w.group }));
+  console.log(`personal ${lang === 'ja' ? 'readings' : `English, ${split} split`}: ${fixtures.length} recorded clips`);
 } else if (real) {
   const words = JSON.parse(await readFile(join(ROOT, 'tools/recorder/words.json'), 'utf8'));
   fixtureDir = join(ROOT, 'personal/fixtures', setName);
@@ -126,8 +137,9 @@ for (const name of candidates) {
     let candidates;
     if (ctc) candidates = await recognizeCtc(asr, vocab, audio, Tensor);
     else if (lang === 'ja') candidates = [await recognizeKana(asr, audio, tokenizerJson, LogitsProcessor)];
-    else candidates = await recognize(asr, audio, { alternatives: 2, LogitsProcessorClass: LogitsProcessor });
-    const choices = [...new Set(candidates.map(c => normalizeAnswer(c, mode)).filter(n => n.ok).map(n => n.text))].slice(0, 3);
+    else candidates = await recognize(asr, audio, { alternatives: 4, LogitsProcessorClass: LogitsProcessor, ...recognizeOpts });
+    const built = buildChoices(candidates, mode, choiceOpts);
+    const choices = built.ok ? built.choices : [];
     if (f.expected && choices.includes(f.expected)) inTop += 1;
     if (f.expected) {
       const r = choices.indexOf(f.expected);

@@ -16,7 +16,7 @@
 //               | { type: 'error', id?, model?, message }
 //
 // Both return a few candidates, best first, for the user to choose from:
-// Whisper (English) via alternative first tokens, the hiragana CTC model
+// English models via alternative tokens at any step, the hiragana CTC model
 // (Japanese readings) via greedy + beam search.
 import { env, HubertForCTC, LogitsProcessor, pipeline, Tensor } from '@huggingface/transformers';
 // The same onnxruntime entry transformers.js uses (mapped to the WASM-only
@@ -149,7 +149,7 @@ self.onmessage = async ({ data }) => {
       }
       const candidates = kind === 'ctc'
         ? await recognizeCtc(asr, vocab, data.audio, Tensor)
-        : (await recognize(asr, data.audio, { alternatives: 2, LogitsProcessorClass: LogitsProcessor }))
+        : (await recognize(asr, data.audio, { alternatives: 4, LogitsProcessorClass: LogitsProcessor }))
           .map(text => String(text).replace(NON_SPEECH, ' ').trim());
       self.postMessage({ type: 'result', id: data.id, candidates, ms: Math.round(performance.now() - t0) });
     }

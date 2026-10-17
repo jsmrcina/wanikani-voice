@@ -62,3 +62,48 @@ export function ctcBeamSearch(logits, frames, vocab, { blank = 0, beam = 16, per
     .sort((a, b) => b.logProb - a.logProb)
     .slice(0, topK);
 }
+
+// Per-frame log-softmax of raw logits (frames x vocab, row-major).
+export function logSoftmax(logits, frames, vocab) {
+  const out = new Float32Array(frames * vocab);
+  for (let t = 0; t < frames; t++) {
+    const o = t * vocab;
+    let max = -Infinity;
+    for (let v = 0; v < vocab; v++) max = Math.max(max, logits[o + v]);
+    let sum = 0;
+    for (let v = 0; v < vocab; v++) sum += Math.exp(logits[o + v] - max);
+    const lse = max + Math.log(sum);
+    for (let v = 0; v < vocab; v++) out[o + v] = logits[o + v] - lse;
+  }
+  return out;
+}
+
+// log P(ids | audio) under CTC: the forward algorithm over every alignment
+// of the (collapsed) label sequence. logp: logSoftmax() output.
+export function ctcScore(logp, frames, vocab, ids, blank = 0) {
+  if (!ids.length) {
+    let s = 0;
+    for (let t = 0; t < frames; t++) s += logp[t * vocab + blank];
+    return s;
+  }
+  // Extended labels: blank, l1, blank, l2, ..., blank.
+  const ext = [blank];
+  for (const id of ids) ext.push(id, blank);
+  const S = ext.length;
+  if (frames < ids.length) return -Infinity;
+  let alpha = new Float64Array(S).fill(-Infinity);
+  alpha[0] = logp[ext[0]];
+  alpha[1] = logp[ext[1]];
+  for (let t = 1; t < frames; t++) {
+    const next = new Float64Array(S).fill(-Infinity);
+    const o = t * vocab;
+    for (let s = 0; s < S; s++) {
+      let a = alpha[s];
+      if (s > 0) a = logSumExp(a, alpha[s - 1]);
+      if (s > 1 && ext[s] !== blank && ext[s] !== ext[s - 2]) a = logSumExp(a, alpha[s - 2]);
+      next[s] = a === -Infinity ? a : a + logp[o + ext[s]];
+    }
+    alpha = next;
+  }
+  return logSumExp(alpha[S - 1], alpha[S - 2]);
+}

@@ -4,6 +4,7 @@
 importScripts(
   '../shared/browser-shim.js',
   '../shared/settings.js',
+  '../shared/homophones.js',
   '../shared/normalize.js',
   '../shared/wire.js',
   'offscreen-host.js',

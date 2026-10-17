@@ -83,7 +83,7 @@
     let opening = null;
     let preroll = [];
     let prerollLen = 0;
-    let recording = null; // { chunks, speechMs, onEnd, vad, quietMs, startedMs, hands }
+    let recording = null; // { chunks, totalMs, speechRunMs, heardSpeech, audible, quietMs, handsFree, onEnd, ending }
     const detector = createDetector();
 
     function onAudio(e) {
@@ -111,7 +111,7 @@
         if (r.speechRunMs >= VAD.startMs) r.heardSpeech = true;
         if (r.handsFree && r.heardSpeech) r.quietMs = quiet ? r.quietMs + VAD.frameMs : 0;
       }
-      if ((r.handsFree && r.quietMs >= VAD.endMs) || r.totalMs >= MAX_SEC * 1000) r.onEnd?.();
+      if (!r.ending && ((r.handsFree && r.quietMs >= VAD.endMs) || r.totalMs >= MAX_SEC * 1000)) r.onEnd?.();
     }
 
     async function getStream() {
@@ -191,15 +191,28 @@
       prerollLen = 0;
     }
 
-    // Stops collecting. Returns { audio, heardSpeech, audible } or null if not
-    // recording. heardSpeech: a sustained run above the noise floor (used for
-    // hands-free endpointing); audible: anything above it at all. Whether a
-    // clip really contains speech is decided by Silero VAD in the worker.
-    function stop() {
+    // Stops collecting. Resolves to { audio, heardSpeech, audible }, or null
+    // if not recording or cancelled meanwhile. heardSpeech: a sustained run
+    // above the noise floor (used for hands-free endpointing); audible:
+    // anything above it at all. Whether a clip really contains speech is
+    // decided by Silero VAD in the worker.
+    // tailMs: keep recording this much longer first. Push-to-talk keys are
+    // often let go as the last sound is still being said, and the chunk
+    // being captured at that moment (up to ~85 ms) would be lost too.
+    function stop({ tailMs = 0 } = {}) {
       const r = recording;
-      recording = null;
-      if (!r || !ctx) return null;
-      return { audio: resample(r.chunks, ctx.sampleRate), heardSpeech: r.heardSpeech, audible: r.audible };
+      if (!r || !ctx) {
+        recording = null;
+        return Promise.resolve(null);
+      }
+      const finish = () => {
+        if (recording !== r) return null; // cancelled during the tail
+        recording = null;
+        return { audio: resample(r.chunks, ctx.sampleRate), heardSpeech: r.heardSpeech, audible: r.audible };
+      };
+      if (!tailMs) return Promise.resolve(finish());
+      r.ending = true;
+      return new Promise(resolve => setTimeout(() => resolve(finish()), tailMs));
     }
 
     function cancel() {

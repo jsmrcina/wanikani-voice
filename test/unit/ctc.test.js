@@ -1,5 +1,5 @@
 // CTC prefix beam search (src/worker/ctc.js). Results land in #ctc-results.
-import { ctcBeamSearch } from '/src/worker/ctc.js';
+import { ctcBeamSearch, ctcScore, logSoftmax } from '/src/worker/ctc.js';
 
 const V = 4; // 0 = blank, 1 = あ, 2 = い, 3 = う
 // Builds frames x V logits from per-frame probability rows.
@@ -23,4 +23,21 @@ const alt = ctcBeamSearch(frames([
 check('alternatives order', alt.slice(0, 2).map(h => h.ids), [[1, 2], [1, 3]]);
 check('sorted by probability', alt[0].logProb >= alt[1].logProb, true);
 
-document.getElementById('ctc-results').textContent = JSON.stringify({ total: 4, failures });
+// ctcScore = log of the summed probability of every frame path that
+// collapses to the labels (checked by brute force over 4 frames).
+const rows = [[0.5, 0.3, 0.1, 0.1], [0.2, 0.2, 0.5, 0.1], [0.6, 0.1, 0.2, 0.1], [0.1, 0.1, 0.7, 0.1]];
+const logp = logSoftmax(frames(rows), 4, V);
+const collapse = path => path.filter((v, i) => v !== 0 && v !== path[i - 1]);
+for (const labels of [[1, 2], [2, 2], [2], [1, 3, 2], []]) {
+  let total = 0;
+  for (let n = 0; n < V ** 4; n++) {
+    const path = [0, 1, 2, 3].map(t => Math.floor(n / V ** t) % V);
+    if (JSON.stringify(collapse(path)) === JSON.stringify(labels)) {
+      total += path.reduce((p, v, t) => p * rows[t][v], 1);
+    }
+  }
+  const got = ctcScore(logp, 4, V, labels);
+  check(`ctcScore ${labels}`, Math.abs(got - Math.log(total)) < 1e-4 || (total === 0 && got === -Infinity), true);
+}
+
+document.getElementById('ctc-results').textContent = JSON.stringify({ total: 9, failures });

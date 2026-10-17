@@ -29,6 +29,7 @@
   let misses = 0;            // failed attempts on the current question
   let handsFreePaused = false; // hands-free stopped after too many misses
   let choices = [];          // readings offered for the current answer
+  let rejected = [];         // answers recorded over (or cleared) on this question
   let chosen = 0;
 
   // What the background can recognise: mode -> model name (null = not yet),
@@ -174,6 +175,7 @@
   function onNewQuestion(q) {
     generation += 1;
     misses = 0;
+    rejected = [];
     handsFreePaused = false;
     question = q;
     pttHeld = false;
@@ -231,8 +233,15 @@
     return `Microphone error: ${err?.message ?? err}`;
   }
 
+  // Recording again (or clearing) while an answer is in the box rejects it.
+  function rememberRejected() {
+    const value = answerIO.value()?.trim();
+    if (state === 'filled' && value && !rejected.includes(value)) rejected.push(value);
+  }
+
   async function startListening() {
     if (!question) return;
+    rememberRejected();
     clearFollowUp();
     const token = ++listenToken;
     if (isFake()) {
@@ -268,12 +277,18 @@
     setState('listening', 'Listening…');
   }
 
-  async function finishListening() {
+  // Keeps recording this long after push-to-talk is let go (see mic.stop).
+  const PTT_TAIL_MS = 200;
+
+  // tail: the user let go of push-to-talk (rather than hands-free ending).
+  async function finishListening({ tail = false } = {}) {
     if (state !== 'listening' || !question) return;
-    listenToken += 1;
+    const token = ++listenToken;
     const gen = generation;
     const mode = question.mode;
-    const request = { type: 'wkv:transcribe', mode };
+    // Answers already recorded over on this question: the recogniser leaves
+    // them out of the choices. The user's own earlier answers, not page content.
+    const request = { type: 'wkv:transcribe', mode, rejected: [...rejected] };
     if (isFake()) {
       const text = indicator.fakeUtterance();
       if (!text.trim()) {
@@ -282,9 +297,12 @@
       }
       request.fakeUtterance = text;
     } else {
-      const clip = mic.stop();
-      if (!clip) {
-        enterReady();
+      setState('processing');
+      const clip = await mic.stop({ tailMs: tail ? PTT_TAIL_MS : 0 });
+      if (gen !== generation) return; // question moved on
+      // Not recording, or cancelled during the tail (tab hidden, say).
+      if (token !== listenToken || !clip) {
+        if (state === 'processing') enterReady();
         return;
       }
       // Pure silence never leaves the page; anything audible goes to the
@@ -296,7 +314,7 @@
       }
       request.audio = WKV.wire.packAudio(clip.audio);
     }
-    setState('processing');
+    if (state !== 'processing') setState('processing');
     let result;
     try {
       // The whole request: a mode and the user's speech. No page content.
@@ -314,17 +332,19 @@
       setState('error', "Couldn't fill the answer box");
       return;
     }
-    if (settings.submitMode === 'auto-submit') {
+    // Heard only answers already recorded over: say so rather than look stuck.
+    const again = result.repeated ? `Heard “${result.text}” again. ` : '';
+    if (settings.submitMode === 'auto-submit' && !result.repeated) {
       setState('filled', result.text);
       guardKeyboard();
       answerIO.submit();
     } else if (result.choices?.length > 1) {
       choices = result.choices;
       chosen = 0;
-      setState('filled', choicesMessage());
+      setState('filled', again + choicesMessage());
       indicator.setChoices(choices, chosen, question?.mode === 'ja-kana' ? 'ja' : 'en');
     } else {
-      setState('filled', touchOnly()
+      setState('filled', again ? `${again}Type your answer, or hold ${holdWhat()} to try again` : touchOnly()
         ? `${result.text} — tap Submit, or hold the mic to retry`
         : `${result.text} — Enter to submit, or ${keyLabel(settings.pttKey)} to retry`);
     }
@@ -503,7 +523,7 @@
       return;
     }
     pttHeld = false;
-    finishListening();
+    finishListening({ tail: true });
   }
 
   // Finger slid off the mic button (or the system took the touch over).
@@ -539,6 +559,7 @@
   // on-screen keyboard would otherwise be needed).
   function onClear() {
     if (state !== 'filled') return;
+    rememberRejected();
     answerIO.fill('', { focus: false });
     enterReady();
   }
