@@ -1200,6 +1200,10 @@ remains the fix for those.
      check live: the 200 ms push-to-talk tail and per-answer time in
      Firefox. A later store submission needs a new version number (0.3.1 or
      up) if 0.3.0 was signed on AMO's unlisted channel.
+   - **v0.3.1** (2026-10-17): 0.3.0 plus the *Keep the microphone open*
+     setting and the precise privacy policy. Submitted to AMO's listed
+     channel (in review); Chrome zip built for upload in the developer
+     dashboard.
 2. **Training inside the extension** (deferred 2026-10-04). Train only the
    kana head (0.69M weights), in plain JS/WASM, from a recorder in the
    settings page. Clips and weights stay in IndexedDB, and the CTC loss and

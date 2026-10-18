@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Voice Answers for WaniKani: Unofficial Tool",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "An unofficial tool: answer WaniKani reviews by voice. Speech recognition runs entirely on your device.",
   "browser_specific_settings": {
     "gecko": {

@@ -13,6 +13,8 @@ Status: **public** at https://chromewebstore.google.com/detail/voice-answers-for
 - v0.2.6: submitted unlisted 2026-10-07, approved, tested, then made public.
 - v0.2.7 (renamed "…: Unofficial Tool" for WaniKani's branding guidelines):
   submitted 2026-10-13, in review.
+- v0.3.1 (better recognition; *Keep the microphone open* setting): zip built
+  2026-10-17 for upload.
 
 **Microsoft Edge Add-ons: dropped (2026-10-07).** Its developer registration
 requires a contact address that is shown publicly on the developer profile,
