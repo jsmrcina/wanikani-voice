@@ -1,10 +1,13 @@
 // Microphone capture for the review tab.
 //
-// The mic stays open while voice answers are enabled on the review page (the
-// browser shows its "microphone in use" indicator), so a push-to-talk press
-// doesn't lose its first syllable to device start-up. Audio is only kept while
-// recording, plus a short pre-roll ring buffer; it never leaves this tab
-// except as the clip handed to the on-device recognizer.
+// By default the mic stays open while voice answers are enabled on the review
+// page (the browser shows its "microphone in use" indicator), so a
+// push-to-talk press doesn't lose its first syllable to device start-up.
+// Audio is only kept while recording, plus a 0.3 s pre-roll ring buffer that
+// is constantly overwritten and used only when a recording starts; it never
+// leaves this tab except as the clip handed to the on-device recognizer.
+// With the keepMicOpen setting off, main.js closes the mic after each
+// push-to-talk recording instead.
 //
 // Output: 16 kHz mono Float32Array, which is what the speech models take.
 (function (WKV) {

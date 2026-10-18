@@ -15,6 +15,9 @@
       if (radio) radio.checked = true;
     }
     $('pttKey').textContent = s.pttKey;
+    $('keepMicOpen').checked = s.keepMicOpen;
+    // Hands-free listens continuously, so the choice only applies to push-to-talk.
+    $('keepMicOpen').disabled = s.inputMode !== 'push-to-talk';
     $('autoAdvance').checked = s.autoAdvance;
     $('autoAdvanceDelay').value = s.autoAdvanceDelayMs / 1000;
     $('autoAdvanceDelay').disabled = !s.autoAdvance;
@@ -31,6 +34,7 @@
         radio.addEventListener('change', e => save({ [name]: e.target.value }));
       }
     }
+    $('keepMicOpen').addEventListener('change', e => save({ keepMicOpen: e.target.checked }));
     $('autoAdvance').addEventListener('change', e => save({ autoAdvance: e.target.checked }));
     $('autoAdvanceOnlyCorrect').addEventListener('change', e => save({ autoAdvanceOnlyCorrect: e.target.checked }));
     $('indicatorPosition').addEventListener('change', e => save({ indicatorPosition: e.target.value }));

@@ -40,6 +40,9 @@ window.addEventListener('message', async e => {
         await browser.storage.local.set(e.data.replace);
       }
       result = await browser.storage.local.get();
+    } else if (e.data.type === 'wkv-test:mic') {
+      // Whether the (fake) microphone is open: its track stops when it's closed.
+      result = fakeMic ? fakeMic.dest.stream.getAudioTracks().some(t => t.readyState === 'live') : false;
     } else if (e.data.type === 'wkv-test:say') {
       result = await say(e.data.url);
     } else if (e.data.type === 'wkv-test:diag') {

@@ -258,6 +258,7 @@
     } catch (err) {
       if (token !== listenToken) return;
       mic.cancel();
+      releaseMicIfIdle();
       // No automatic retry: a blocked mic would just fail again.
       setState('error', micErrorMessage(err));
       if (err?.name === 'AudioBlockedError') retryOnGesture();
@@ -265,12 +266,14 @@
     }
     if (token !== listenToken || state !== 'listening') {
       mic.cancel();
+      releaseMicIfIdle();
       return;
     }
     // The first push-to-talk press may have been spent on the permission
     // prompt; don't record the tail end of it.
     if (firstOpen && !handsFree() && !pttHeld) {
       mic.cancel();
+      releaseMicIfIdle();
       enterReady(`Microphone ready: hold ${holdWhat()} and speak`);
       return;
     }
@@ -299,6 +302,7 @@
     } else {
       setState('processing');
       const clip = await mic.stop({ tailMs: tail ? PTT_TAIL_MS : 0 });
+      releaseMicIfIdle();
       if (gen !== generation) return; // question moved on
       // Not recording, or cancelled during the tail (tab hidden, say).
       if (token !== listenToken || !clip) {
@@ -353,6 +357,13 @@
   function cancelCapture() {
     listenToken += 1;
     mic?.cancel();
+    releaseMicIfIdle();
+  }
+
+  // With keepMicOpen off, the microphone is open only while push-to-talk
+  // records: closed again as soon as a recording ends or is cancelled.
+  function releaseMicIfIdle() {
+    if (!settings.keepMicOpen && !handsFree() && mic && !mic.isRecording()) mic.close();
   }
 
   function cancelListening() {

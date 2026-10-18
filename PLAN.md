@@ -44,6 +44,7 @@ phone. Next steps are in §8.
 | Scope | Reviews only for now | Activates only on `/subjects/review` |
 | Distribution | Possibly public. Don't block AMO | See §6 |
 | Numbers | Below 10 as words, above 10 as numerals | 0–10 → words, 11+ → numerals; 10 → "ten" (confirmed) |
+| Open microphone (2026-10-17) | Option; **default: kept open between answers** (0.3 s rolling pre-roll, so the first syllable isn't cut off); policy states exactly what happens to that sound | `keepMicOpen` (default on). Off: push-to-talk opens the mic per press and closes it after; PRIVACY.md → *The microphone* |
 
 All options are in the extension's settings page, which is also the toolbar
 button's popup.

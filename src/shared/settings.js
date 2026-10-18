@@ -10,6 +10,12 @@
     inputMode: 'push-to-talk',
     // 'Shift' = either Shift key; otherwise a KeyboardEvent.code ('KeyJ', ...).
     pttKey: 'Shift',
+    // Push-to-talk: keep the microphone open between answers, so the 0.3 s
+    // before a press can be put in front of the recording (the first
+    // syllable isn't lost to the press or to the device starting up). Off:
+    // the microphone opens on each press and closes after it. Hands-free
+    // listens continuously either way.
+    keepMicOpen: true,
     // 'fill-only': put the answer in the box and let the user press Enter.
     // 'auto-submit': also submit it.
     submitMode: 'fill-only',

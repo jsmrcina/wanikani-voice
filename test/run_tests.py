@@ -574,6 +574,29 @@ def test_speech_push_to_talk(b):
     assert b.diag()["models"].get("whisper-base.en", {}).get("status") == "ready"
 
 
+
+@needs_voice
+def test_mic_closed_between_answers(b):
+    """keepMicOpen off: the microphone opens on the press and is closed again
+    once the answer is in; on (the default) it stays open."""
+    b.set_options(recognizer="local", keepMicOpen=False)
+    b.open_review()
+    b.wait_model_ready()
+    b.d.find_element(By.ID, "user-response").click()
+    ActionChains(b.d).key_down(Keys.SHIFT).perform()
+    b.wait(lambda: b.message() == "Listening…", 5, "mic opened on the press")
+    time.sleep(b.play(SPEECH_PREFIX + "fire.wav") + 0.2)
+    ActionChains(b.d).key_up(Keys.SHIFT).perform()
+    b.wait_state("filled", timeout=20)
+    assert b.input_value() == "fire", b.input_value()
+    assert b.bridge("wkv-test:mic") is False, "mic should be closed after the answer"
+    b.set_options(recognizer="local")
+    b.open_review()
+    b.wait_model_ready()
+    b.speak(SPEECH_PREFIX + "fire.wav")
+    b.wait_state("filled", timeout=20)
+    assert b.bridge("wkv-test:mic") is True, "mic should stay open by default"
+
 @needs_voice
 def test_speech_numbers_and_phrases(b):
     b.set_options(recognizer="local", submitMode="auto-submit", autoAdvance=True, autoAdvanceDelayMs=200)
@@ -1058,7 +1081,7 @@ TESTS = [test_unit, test_inactive_off_review_page, test_lesson_quiz, test_defaul
          test_custom_model_wrong_language_rejected, test_custom_model_broken_falls_back,
          test_options_custom_models,
          test_auto_advance_only_correct,
-         test_hands_free_gives_up_after_misses, test_panel_position, test_speech_push_to_talk,
+         test_hands_free_gives_up_after_misses, test_panel_position, test_speech_push_to_talk, test_mic_closed_between_answers,
          test_speech_numbers_and_phrases, test_reading_choices, test_answer_choices_english, test_retry_drops_rejected_answer,
          test_speech_japanese,
          test_speech_fast_english, test_speech_silence_not_sent,

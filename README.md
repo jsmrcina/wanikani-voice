@@ -179,6 +179,7 @@ Everything works by touch. The panel is a bar at the bottom of the screen
 |---|---|
 | Listening | push-to-talk · hands-free (listens on each question, stops after 3 misses in a row) |
 | Push-to-talk key | **Shift** (either side) · any other key (not shown on touch-only devices) |
+| Keep the microphone open between answers | **On**, so the start of your answer isn't cut off · off: the microphone opens only while you hold the key or button (your first syllable may be clipped). See [Privacy](#privacy) |
 | After recognition | fill in only · fill in and submit |
 | After grading | stay · go to the next question after a delay (optionally only when correct) |
 | Panel position | top right (bottom right on Android) · top left · bottom right · bottom left |
@@ -197,6 +198,7 @@ Firefox is excluded (EasyEffects: input blocklist).
 | Guarantee | How it's enforced |
 |---|---|
 | Your voice never leaves the computer | Recognition runs in a WASM worker inside the extension. Models and runtime ship in the package. Remote model loading is disabled. The extension's CSP allows connections only to itself (`connect-src 'self'`) |
+| The open microphone is used only when you press | By default the microphone stays open between answers so the 0.3 s before a press can be put in front of the recording (the first syllable isn't cut off). That sound sits in a circular buffer in memory, constantly overwritten, never saved and never sent; it reaches the speech model only when you press. Settings → *Keep the microphone open between answers* turns this off (the mic then opens only while you hold the key or button; the first syllable may be clipped). Details: [PRIVACY.md](PRIVACY.md#the-microphone) |
 | No network requests at all | `test/policy.py` fails on any network API or outside URL in `src/`. Every test run routes all traffic through a recording proxy and **fails if anything goes anywhere but the browser vendor's own hosts**: a full run sees only Firefox's traffic to Mozilla (or Chromium's to Google) |
 | The question is never used | Only `page-reader.js` reads the page, and only the question-type labels. The recogniser's input is the audio plus `en` / `ja-kana`. WaniKani's quiz events are timing signals; their payloads (which contain the item) are never read. All of this is checked by `test/policy.py` |
 | Minimal permissions | `storage`, plus access to `www.wanikani.com` only (Chrome adds `offscreen`, for the speech worker). Settings live in `storage.local` (never synced). `data_collection_permissions: none`. Privacy policy: [PRIVACY.md](PRIVACY.md) |
