@@ -1,8 +1,9 @@
 """Exports a fine-tuned Moonshine checkpoint (tools/finetune-moonshine.py) in
 the form the extension loads, the same as the bundled models/moonshine-base:
     python tools/export-moonshine.py personal/models/moonshine-base-ft
-writes <dir>/onnx/{encoder_model,decoder_model_merged}_quantized.onnx and the
-config and tokenizer files next to <dir>/checkpoint, ready for
+writes <dir>/onnx/{encoder_model,decoder_model_merged}{,_quantized}.onnx,
+<dir>/onnx/encoder_model_fp16.onnx and the config and tokenizer files next
+to <dir>/checkpoint, ready for
     node tools/pack-model.mjs <dir> --language en --name "My voice (English)"
 
 Steps (validated 2026-10-06: the stock model exported this way scores within
@@ -14,7 +15,14 @@ one clip of onnx-community's on 300 recordings, 226 vs 227 first choice):
    none; a single unpadded clip needs all ones anyway.
 3. Dynamic uint8 quantisation, per tensor, of MatMul and Gather (Conv stays
    float), inside the decoder's If branches too: onnx-community's recipe.
-4. Configs and tokenizer copied from the bundled model (same architecture).
+4. The encoder also in float16 with float32 inputs and outputs
+   (onnxconverter-common, keep_io_types), like onnx-community's
+   encoder_model_fp16.onnx: the bundled precision since 2026-10-18 (an
+   8-bit encoder costs 5 of 300 first choices), at twice the 8-bit size.
+5. Configs and tokenizer copied from the bundled model (same architecture).
+
+Needs torch, transformers, optimum-onnx, onnx, onnxruntime and
+onnxconverter-common.
 """
 import shutil
 import subprocess
@@ -24,6 +32,7 @@ from pathlib import Path
 
 import onnx
 from onnx import TensorProto, helper
+from onnxconverter_common import float16
 from onnxruntime.quantization import QuantType, quantize_dynamic
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -52,6 +61,22 @@ def mask_to_ones(graph, mask, like, dims):
         graph.node.insert(0, n)
 
 
+def to_fp16(model):
+    """The model in float16 with float32 inputs and outputs. The converter
+    declares the outputs of the graph's own Cast-to-float nodes float16 but
+    leaves the Casts as they were, which onnxruntime refuses to load; they
+    are retargeted to float16 to match (the result then differs from float32
+    by as much as onnx-community's encoder_model_fp16.onnx does)."""
+    model = float16.convert_float_to_float16(model, keep_io_types=True)
+    fp16 = {v.name for v in model.graph.value_info if v.type.tensor_type.elem_type == TensorProto.FLOAT16}
+    for node in model.graph.node:
+        if node.op_type == "Cast" and node.output[0] in fp16:
+            for attr in node.attribute:
+                if attr.name == "to":
+                    attr.i = TensorProto.FLOAT16
+    return model
+
+
 def main():
     if len(sys.argv) != 2:
         sys.exit(__doc__)
@@ -71,8 +96,10 @@ def main():
         mask_to_ones(dec.graph, "encoder_attention_mask", "encoder_hidden_states", 2)
         onnx.save(dec, tmp / "decoder_model_merged.onnx")
         (out / "onnx").mkdir(parents=True, exist_ok=True)
+        onnx.save(to_fp16(enc), out / "onnx/encoder_model_fp16.onnx")
         for name in ("encoder_model", "decoder_model_merged"):
             onnx.checker.check_model(str(tmp / f"{name}.onnx"))
+            shutil.copy(tmp / f"{name}.onnx", out / "onnx" / f"{name}.onnx")
             quantize_dynamic(str(tmp / f"{name}.onnx"), str(out / "onnx" / f"{name}_quantized.onnx"),
                              weight_type=QuantType.QUInt8, per_channel=False, reduce_range=False,
                              op_types_to_quantize=["MatMul", "Gather"], extra_options={"EnableSubgraph": True})

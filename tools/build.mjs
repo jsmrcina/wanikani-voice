@@ -15,7 +15,7 @@
 // - --personal: uses your fine-tuned hiragana model from
 //   personal/models/distilhubert-hiragana (tools/finetune-hiragana.py) and marks
 //   the build as personal; tools/package.mjs refuses to publish it
-import { cp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as esbuild from 'esbuild';
@@ -122,6 +122,12 @@ export async function build() {
     }
     for (const file of Object.keys(model.files)) {
       await copyIfChanged(join(ROOT, 'models', name, file), join(OUT, 'models', name, file));
+    }
+    // Nor a file it no longer lists (e.g. after a change of precision).
+    const built = await readdir(join(OUT, 'models', name), { recursive: true, withFileTypes: true });
+    for (const entry of built.filter(e => e.isFile())) {
+      const file = join(entry.parentPath, entry.name).slice(join(OUT, 'models', name).length + 1);
+      if (!(file in model.files)) await rm(join(OUT, 'models', name, file));
     }
   }
   const personal = process.argv.includes('--personal');

@@ -4,18 +4,25 @@
 // tools/finetune-moonshine.py + tools/export-moonshine.py.
 //
 //   node tools/pack-model.mjs MODEL_DIR --language en|ja-kana [--name NAME] [--out FILE]
+//                             [--encoder q8|fp16|fp32] [--decoder q8|fp16|fp32]
 //
 // MODEL_DIR is a folder in the layout transformers.js loads (config.json,
 // onnx/..., and for Whisper / Moonshine the tokenizer files). The kind
 // (Whisper, Moonshine or the hiragana CTC model) is detected from config.json, and the file is checked
 // the same way the extension will check it.
+//
+// --encoder / --decoder: the precision of a Whisper or Moonshine model's
+// encoder and decoder (default: the 8-bit files, *_quantized.onnx). A
+// Moonshine encoder in float16 is what the extension ships; full precision
+// (fp32 for both) is a little more accurate again, at four times the size.
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { zip } from './lib/zip.mjs';
 
-const SEQ2SEQ = ['config.json', 'generation_config.json', 'preprocessor_config.json', 'tokenizer.json',
-    'tokenizer_config.json', 'onnx/encoder_model_quantized.onnx', 'onnx/decoder_model_merged_quantized.onnx'];
-const REQUIRED = { whisper: SEQ2SEQ, moonshine: SEQ2SEQ, ctc: ['config.json', 'onnx/model_quantized.onnx'] };
+// The extension's own checks (classic script; attaches WKV.modelStore).
+globalThis.WKV = {};
+await import('../src/shared/model-store.js');
+const { requiredFiles, SUFFIX } = globalThis.WKV.modelStore;
 const SLOT_KINDS = { en: ['whisper', 'moonshine'], 'ja-kana': ['ctc'] };
 
 const args = process.argv.slice(2);
@@ -33,9 +40,20 @@ if (!SLOT_KINDS[language].includes(kind)) {
   process.exit(1);
 }
 const name = opt('--name') ?? basename(resolve(dir));
-const meta = { format: 1, language, kind, name };
+const dtype = {};
+for (const [flag, part] of [['--encoder', 'encoder_model'], ['--decoder', 'decoder_model_merged']]) {
+  const d = opt(flag);
+  if (d === undefined || d === 'q8') continue;
+  if (kind === 'ctc' || !(d in SUFFIX)) {
+    console.error(`${flag} ${d}: ${kind === 'ctc' ? 'only for Whisper and Moonshine models' : `one of ${Object.keys(SUFFIX).join(', ')}`}`);
+    process.exit(2);
+  }
+  dtype[part] = d;
+}
+// Format 1 (8-bit throughout) still installs in versions before 0.3.2.
+const meta = Object.keys(dtype).length ? { format: 2, language, kind, name, dtype } : { format: 1, language, kind, name };
 const entries = [{ name: 'wkv-model.json', data: Buffer.from(`${JSON.stringify(meta, null, 2)}\n`) }];
-for (const file of REQUIRED[kind]) {
+for (const file of requiredFiles(kind, dtype)) {
   entries.push({ name: file, data: await readFile(join(dir, file)), store: file.endsWith('.onnx') });
 }
 const out = resolve(opt('--out') ?? join('dist/models', `${name}.wkv-model.zip`));

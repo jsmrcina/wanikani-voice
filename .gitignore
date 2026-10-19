@@ -7,6 +7,7 @@ build-chrome/
 node_modules/
 # Evaluation-only model candidates (re-fetch with tools/fetch-models.mjs).
 models/moonshine-tiny/
+models/moonshine-base-fp32/
 models/distil-small.en/
 models/whisper-small.en/
 models/whisper-small/

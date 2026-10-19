@@ -36,7 +36,8 @@
 // archives. AMO requires sources plus build instructions whenever a
 // submission contains bundled code (build/dist/asr-worker.js); the source
 // zip holds every tracked file needed to rebuild, including the bundled
-// models, and leaves out tests, personal data and node_modules.
+// models, and leaves out tests, personal data, node_modules and models that
+// aren't bundled.
 // --verify rebuilds from the source zip in a temp folder (npm ci + build) and
 // checks the result is identical to the packaged add-on, as a reviewer would.
 import { execFileSync } from 'node:child_process';
@@ -74,9 +75,14 @@ async function sha256(file) {
 
 // Tracked files a reviewer needs to rebuild: everything except tests,
 // the private submodule and generated output.
-function sourceFiles() {
+async function sourceFiles() {
   const tracked = run('git', ['ls-files', '-z'], { maxBuffer: 64 << 20 }).split('\0').filter(Boolean);
-  return tracked.filter(f => !/^(test\/|personal(\/|$)|build\/|dist\/|store\/screenshots\/|\.gitmodules$)/.test(f));
+  // Models that aren't bundled (whisper-tiny.en, used only by the tests)
+  // aren't needed to rebuild, and would push the archive past AMO's limit.
+  const { models } = JSON.parse(await readFile(join(ROOT, 'models/models.json'), 'utf8'));
+  const unbundled = Object.keys(models).filter(name => !models[name].bundled).map(name => `models/${name}/`);
+  return tracked.filter(f => !/^(test\/|personal(\/|$)|build\/|dist\/|store\/screenshots\/|\.gitmodules$)/.test(f)
+    && !unbundled.some(dir => f.startsWith(dir)));
 }
 
 function sourceReadme(version, commit, dirty) {
@@ -186,7 +192,7 @@ async function main() {
   console.log(`  ${relative(ROOT, xpi)}  ${mb(xpiSize)}`);
   if (xpiSize > AMO_LIMIT) throw new Error(`package is over AMO's ${mb(AMO_LIMIT)} limit`);
 
-  const files = sourceFiles();
+  const files = await sourceFiles();
   const entries = [];
   for (const f of files) entries.push({ name: f, data: await readFile(join(ROOT, f)) });
   entries.push({ name: 'SOURCE-README.md', data: Buffer.from(sourceReadme(version, commit, dirty)) });

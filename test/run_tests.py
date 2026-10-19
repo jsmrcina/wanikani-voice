@@ -823,11 +823,12 @@ def pack_test_models():
     """Model files for the custom-model tests: tiny.en packed for English, the
     hiragana model mislabelled... and a Whisper model with broken weights."""
     TEST_MODELS.mkdir(parents=True, exist_ok=True)
-    pack = lambda d, lang, out, name: subprocess.run(
-        ["node", "tools/pack-model.mjs", str(d), "--language", lang, "--name", name, "--out", str(TEST_MODELS / out)],
+    pack = lambda d, lang, out, name, *extra: subprocess.run(
+        ["node", "tools/pack-model.mjs", str(d), "--language", lang, "--name", name, "--out", str(TEST_MODELS / out), *extra],
         cwd=ROOT, check=True, capture_output=True)
     pack(ROOT / "models/whisper-tiny.en", "en", "tiny.wkv-model.zip", "test tiny.en")
-    pack(ROOT / "models/moonshine-base", "en", "moonshine.wkv-model.zip", "test moonshine")
+    # Format 2: a float16 encoder with an 8-bit decoder, as bundled.
+    pack(ROOT / "models/moonshine-base", "en", "moonshine.wkv-model.zip", "test moonshine", "--encoder", "fp16")
     pack(ROOT / "models/distilhubert-hiragana", "ja-kana", "hiragana.wkv-model.zip", "test hiragana")
     broken = Path(tempfile.mkdtemp(prefix="wkv-broken-"))
     shutil.copytree(ROOT / "models/whisper-tiny.en", broken, dirs_exist_ok=True)

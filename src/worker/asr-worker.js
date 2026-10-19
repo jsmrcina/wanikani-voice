@@ -56,6 +56,13 @@ env.customCache = {
   async put() {},
 };
 
+// Precision of the built-in models' ONNX files (as listed in
+// models/models.json), as transformers.js names them; the rest are 8-bit.
+// Moonshine's encoder is float16: the 8-bit one costs 5 of 300 first
+// choices on real recordings (2026-10-18), for 20 MB more.
+const BUILTIN_DTYPE = { 'moonshine-base': { encoder_model: 'fp16', decoder_model_merged: 'q8' } };
+
+// Returns the custom model's precision.
 async function loadCustomFiles(model, slot) {
   const record = await globalThis.WKV.modelStore.get(slot);
   if (!record || record.id !== model) throw new Error('custom model not found in storage');
@@ -75,6 +82,10 @@ async function loadCustomFiles(model, slot) {
   for (const [path, buffer] of Object.entries(record.files)) {
     customFiles.set(`${env.localModelPath}${model}/${path}`, buffer);
   }
+  // Models installed before format 2 are 8-bit; one precision throughout is
+  // passed as a plain name, as for the built-in models.
+  const precisions = new Set(Object.values(record.dtype ?? { model: 'q8' }));
+  return precisions.size === 1 ? [...precisions][0] : record.dtype;
 }
 
 const pipelines = new Map(); // model -> Promise<{ kind, asr, vocab? }>
@@ -88,7 +99,7 @@ function vad() {
 }
 
 async function loadModel(model, kind, slot, options) {
-  if (slot) await loadCustomFiles(model, slot);
+  options.dtype = slot ? await loadCustomFiles(model, slot) : BUILTIN_DTYPE[model] ?? 'q8';
   if (kind === 'ctc') {
     const asr = await HubertForCTC.from_pretrained(model, options);
     // The exported config carries the kana vocabulary (tools/export-dual-ctc.py).
@@ -103,7 +114,6 @@ function load(model, kind, slot) {
     const files = new Map();
     const p = loadModel(model, kind, slot, {
       device: 'wasm',
-      dtype: 'q8',
       progress_callback: info => {
         if (info.status !== 'progress' || !info.total) return;
         files.set(info.file, info);

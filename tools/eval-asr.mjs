@@ -1,7 +1,7 @@
 // Offline accuracy check for the bundled speech models (spike S5).
 //
 //   node tools/eval-asr.mjs [model ...] [--real | --set NAME | --personal [SPLIT]] [--only a,b] [--ja] [--show-misses]
-//                           [--opts JSON] [--choices JSON] [--dump FILE]
+//                           [--opts JSON] [--choices JSON] [--dump FILE] [--dtype D]
 //
 // Runs each model over the English fixtures with the same normalisation the
 // extension uses, and reports exact-match accuracy and decode time.
@@ -33,13 +33,20 @@ const lang = args.includes('--ja') ? 'ja' : 'en';
 // --models-root DIR: evaluate models from elsewhere (e.g. personal fine-tuned exports).
 const rootIdx = args.indexOf('--models-root');
 const setName = setIdx >= 0 ? args[setIdx + 1] : 'real';
-const models = args.filter((a, i) => !a.startsWith('--') && !['--set', '--models-root', '--personal', '--only', '--opts', '--choices', '--dump'].includes(args[i - 1]));
+const models = args.filter((a, i) => !a.startsWith('--') && !['--set', '--models-root', '--personal', '--only', '--opts', '--choices', '--dump', '--dtype'].includes(args[i - 1]));
 // --opts JSON: extra options for recognize() (English decoding experiments).
 const optsIdx = args.indexOf('--opts');
 const recognizeOpts = optsIdx >= 0 ? JSON.parse(args[optsIdx + 1]) : {};
 // --choices JSON: extra options for buildChoices() (e.g. {"homophones":false}).
 const choicesIdx = args.indexOf('--choices');
 const choiceOpts = choicesIdx >= 0 ? JSON.parse(args[choicesIdx + 1]) : {};
+// --dtype D: model precision, as transformers.js names it (q8, fp32, fp16,
+// q4, q4f16, bnb4, int8), or JSON per file, e.g.
+// {"encoder_model":"fp32","decoder_model_merged":"q8"}. Default: the
+// model's "dtype" in models/models.json (what the extension loads), or q8.
+const dtypeIdx = args.indexOf('--dtype');
+const dtypeArg = dtypeIdx < 0 ? null : args[dtypeIdx + 1].startsWith('{') ? JSON.parse(args[dtypeIdx + 1]) : args[dtypeIdx + 1];
+const { models: manifest } = JSON.parse(await readFile(join(ROOT, 'models/models.json'), 'utf8'));
 // --dump FILE: every clip's choices as JSON (one file per model: FILE.<model>.json).
 const dumpIdx = args.indexOf('--dump');
 
@@ -109,11 +116,12 @@ const vad = await createVad(ortNode, join(ROOT, 'models/silero-vad/onnx/model.on
 const candidates = models.length ? models : lang === 'ja' ? ['distilhubert-hiragana'] : ['whisper-base.en'];
 
 for (const name of candidates) {
+  const dtype = dtypeArg ?? manifest[name]?.dtype ?? 'q8';
   // Japanese: the hiragana CTC model, or multilingual Whisper limited to hiragana.
   const ctc = name.includes('hiragana');
   const asr = ctc
-    ? await HubertForCTC.from_pretrained(name, { dtype: 'q8', device: 'cpu' })
-    : await pipeline('automatic-speech-recognition', name, { dtype: 'q8', device: 'cpu' });
+    ? await HubertForCTC.from_pretrained(name, { dtype, device: 'cpu' })
+    : await pipeline('automatic-speech-recognition', name, { dtype, device: 'cpu' });
   const tokenizerJson = lang === 'ja' && !ctc
     ? JSON.parse(await readFile(join(ROOT, 'models', name, 'tokenizer.json'), 'utf8')) : null;
   const vocab = ctc ? asr.config.kana_vocab : null;

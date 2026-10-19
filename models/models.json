@@ -27,8 +27,29 @@
         "preprocessor_config.json": "fa43a7017ef85cd1d0fba0d9aae77c8adb16990ae6f11115631f41ec5d8aa679",
         "tokenizer.json": "7b913404bdd039af4756783218af4440bc07fb7d6d8258d677e34f95b3ec416f",
         "tokenizer_config.json": "edaee394565d428ea98a663ae7209cdcfeefc5585c42d7a570ff7c986df2cd15",
-        "onnx/encoder_model_quantized.onnx": "1dd9ab0a7f987113d30affcba5a068d11c8f90fa0223caa3e491ade431ad9751",
+        "onnx/encoder_model_fp16.onnx": "30eb888737aa9b5fd7e89131ba4efade0364b54ad3e8029e00b607fd8b5acda0",
         "onnx/decoder_model_merged_quantized.onnx": "cc9f3cd6698a369c6008b41aa60aa3fb3322e7f03c9bdf19d8e6b7200afca4f3"
+      },
+      "dtype": {
+        "encoder_model": "fp16",
+        "decoder_model_merged": "q8"
+      }
+    },
+    "moonshine-base-fp32": {
+      "repo": "onnx-community/moonshine-base-ONNX",
+      "revision": "b1e9b6aae3c3c7298f10c3798393fdf38e8fbbad",
+      "license": "MIT (Useful Sensors Moonshine)",
+      "bundled": false,
+      "comment": "Full precision, offered as a separate download (a custom model file made with tools/pack-model.mjs --encoder fp32 --decoder fp32): 9 more of 300 first choices than the 8-bit model, at 247 MB.",
+      "dtype": "fp32",
+      "files": {
+        "config.json": "fab7241d1e9fc6c2370c4c6dfb5da79bb54d67ed9ab6b507ac51d29d2abe01d1",
+        "generation_config.json": "f9b3f711b57be7def2e50a8942f64f36ee0a55fad5b84ff93a687b6c5bcc1d44",
+        "preprocessor_config.json": "fa43a7017ef85cd1d0fba0d9aae77c8adb16990ae6f11115631f41ec5d8aa679",
+        "tokenizer.json": "7b913404bdd039af4756783218af4440bc07fb7d6d8258d677e34f95b3ec416f",
+        "tokenizer_config.json": "edaee394565d428ea98a663ae7209cdcfeefc5585c42d7a570ff7c986df2cd15",
+        "onnx/encoder_model.onnx": "153e128e7abd64a74ee47f2c3f585c3171c4d46cbb368b032827934c4e01e779",
+        "onnx/decoder_model_merged.onnx": "58778763ca8438963190244d6b26572bdca2cedec56a4b91e828f3f2d69ef3c5"
       }
     },
     "distil-small.en": {

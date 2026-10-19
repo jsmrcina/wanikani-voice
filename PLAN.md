@@ -1090,6 +1090,45 @@ legs→links, ear→you're, cow→cal, meat→need; readings where the generic
 model hears a different consonant (りょ→よ, ちから→きから). Fine-tuning
 remains the fix for those.
 
+### Model precision (2026-10-18)
+
+Moonshine's published accuracy is for float models; the bundled export was
+8-bit throughout. Every onnx-community variant at the pinned revision,
+measured with `eval-asr --dtype` (300 personal / 25-clip benchmark, first
+choice / offered):
+
+| Encoder + decoder | Size | Personal | Benchmark | Decision |
+|---|---|---|---|---|
+| q8 + q8 (bundled until now) | 63 MB | 237 / 267 | 21 / 23 | |
+| **fp16 + q8** | 83 MB | **242 / 271** | 21 / 23 | **bundled** |
+| fp32 + q8 | 123 MB | 242 / 272 | 20 / 24 | |
+| q8 + fp32 | 208 MB | 240 / 266 | 20 / 23 | |
+| **fp32 + fp32** | 247 MB | **246 / 271** | 21 / 23 | **separate download** |
+| q4, bnb4 (4-bit) | 98, 95 MB | 234 / 265, 239 / 265 | 19 / 22, 19 / 21 | |
+| int8 (integer-op 8-bit) | 63 MB | 218 / 246 | 16 / 19 | |
+| fp16 + fp16 | | doesn't load (onnxruntime type error in the published decoder) | | |
+
+- **The encoder is what 8-bit hurts.** The decoder's precision matters
+  less, and costs far more (166 MB at fp32).
+- **Speed.** In headless Firefox, one WASM thread, 25 clips: 8-bit 189 ms
+  mean, fp16 encoder 232 ms, fp32 214 ms (onnxruntime computes the fp16
+  graph in float32, adding casts). Load time 0.9–1.6 s.
+- **Size.** The xpi stays under AMO's 200 MiB limit with the fp16 encoder
+  (~171 MB). The source archive would have been ~193 MB, so it now leaves
+  out the models that aren't bundled (whisper-tiny.en, kept in the
+  repository for the custom-model tests).
+  Full precision can't be bundled alongside Whisper, so it ships as a
+  custom model file (`models.json` entry `moonshine-base-fp32`, packed with
+  `pack-model --encoder fp32 --decoder fp32`). That is model file format 2,
+  which records each file's precision; format 1 (8-bit) files still
+  install.
+- **Fine-tuned Moonshine.** `export-moonshine.py` now also writes a float16
+  encoder (onnxconverter-common, after retargeting the Casts it leaves
+  inconsistent) and the float32 files. Benchmark 23 / 24 at q8, fp16
+  encoder and fp32 alike, so its 8-bit file stays the default. Its personal
+  numbers (q8 265, fp16 encoder 269, fp32 269 first choice) can't be
+  trusted: it was trained on those clips.
+
 ---
 
 ## 5. Risks

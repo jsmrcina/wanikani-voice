@@ -88,7 +88,7 @@ Building it yourself:
 ```bash
 git lfs pull     # models and test audio live in Git LFS
 npm ci
-npm run build    # -> build/ (~185 MB: three speech models, a speech detector, the WASM runtime)
+npm run build    # -> build/ (~225 MB: three speech models, a speech detector, the WASM runtime)
 ```
 
 Then `about:debugging#/runtime/this-firefox` → **Load Temporary Add-on…** →
@@ -122,8 +122,8 @@ end of recording to the recognised answer. Whisper always processes a 30 s
 window, however short the answer, while Moonshine and the readings model
 process only what you said, which is why *fast* is so much faster. On 25
 recorded meanings, *fast* got 20–21 right first time (the right answer among
-its choices: 21–22), *accurate* 22 (25). The download is ~150 MB (about
-205 MB installed).
+its choices: 21–22), *accurate* 22 (25). The download is ~170 MB (about
+225 MB installed).
 
 That desktop CPU has one of the fastest single cores available, so treat
 its numbers as best case. Time scales roughly with single-core speed: on a
@@ -305,6 +305,10 @@ sequenceDiagram
 - **Whisper** decoding starts from a fixed, question-independent prompt of
   dictionary-style words, which nudges it towards short answers ("Hand."
   rather than "And").
+- **Moonshine** runs with a float16 encoder and an 8-bit decoder: on 300
+  real recordings the all-8-bit model got 5 fewer right first time, for
+  20 MB less. Full precision gets 4 more again (below, *Full-precision
+  English model*).
 - **Moonshine** has no prompt. On single words it tends to stop before
   saying anything or to say the word twice ("king king"), so it must produce
   at least one token (the speech gate has already found speech), and a
@@ -353,6 +357,23 @@ or for readings with your own:
   cache hook.
 - **If it doesn't load:** that language falls back to the built-in model,
   and the panel says so.
+- **Precision:** `--encoder` and `--decoder` (`q8`, the default, `fp16` or
+  `fp32`) pick which of a Whisper or Moonshine model's ONNX files go in.
+
+**Full-precision English model.** The built-in Moonshine is partly 8-bit to
+keep the add-on small. A full-precision copy is a separate download,
+`moonshine-base-fp32.wkv-model.zip` (236 MB), attached to the GitHub
+releases; choose it under Custom models → English. On 300 real recordings
+it got 246 right first time against 242 for the built-in model (237 for
+all 8-bit), and offered the right answer for 271. It decodes as fast in
+Firefox (~0.2 s per answer on a desktop) but holds about 250 MB of weights
+instead of 83 MB. To make it yourself:
+
+```bash
+node tools/fetch-models.mjs moonshine-base-fp32   # pinned onnx-community files, checked by sha256
+node tools/pack-model.mjs models/moonshine-base-fp32 --language en --name "Moonshine base, full precision" \
+  --encoder fp32 --decoder fp32 --out dist/models/moonshine-base-fp32.wkv-model.zip
+```
 
 Fine-tuning the reading model on your own voice (see PLAN.md, Phase 4).
 With a few hundred recordings this took first-choice accuracy from 13/31 to
@@ -386,6 +407,11 @@ node tools/eval-asr.mjs moonshine-base-ft --models-root personal/models --person
 python tools/finetune-moonshine.py --all --epochs 2   # final model: every recording, the epoch count found above
 node tools/pack-model.mjs personal/models/moonshine-base-ft --language en --name "My voice (English)"
 ```
+
+The export also writes a float16 encoder and the float32 files. For the
+fine-tuned model, precision made no difference on the 25 older recordings
+(23 right first time at 8-bit, float16 encoder and full precision alike),
+so the 8-bit default is enough; `--encoder fp16` is there if you want it.
 
 A custom English model can be a Moonshine or a Whisper one.
 
