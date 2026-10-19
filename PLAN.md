@@ -1243,6 +1243,11 @@ choice / offered):
      setting and the precise privacy policy. Submitted to AMO's listed
      channel (in review); Chrome zip built for upload in the developer
      dashboard.
+   - **v0.3.2** (2026-10-18): Moonshine with a float16 encoder (Phase notes
+     under "Model precision"); custom model file format 2. GitHub
+     pre-release only, with the full-precision Moonshine model file
+     attached; **not submitted to either store**. Signed on AMO's unlisted
+     channel, so a store submission needs 0.3.3 or up.
 2. **Training inside the extension** (deferred 2026-10-04). Train only the
    kana head (0.69M weights), in plain JS/WASM, from a recorder in the
    settings page. Clips and weights stay in IndexedDB, and the CTC loss and
