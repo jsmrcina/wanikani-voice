@@ -1248,6 +1248,8 @@ choice / offered):
      pre-release only, with the full-precision Moonshine model file
      attached; **not submitted to either store**. Signed on AMO's unlisted
      channel, so a store submission needs 0.3.3 or up.
+   - **v0.3.3** (2026-10-19): 0.3.2 for the stores, after a day of use on
+     the phone. Store packages built (AMO listed, Chrome zip).
 2. **Training inside the extension** (deferred 2026-10-04). Train only the
    kana head (0.69M weights), in plain JS/WASM, from a recorder in the
    settings page. Clips and weights stay in IndexedDB, and the CTC loss and
