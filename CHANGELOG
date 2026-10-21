@@ -9,8 +9,8 @@ Accuracy numbers below are from real recordings of WaniKani items:
 300 English meanings and 400 readings.
 
 
-0.4.2 (upcoming store release)
-------------------------------
+0.4.2
+-----
 Readings
 - Impossible kana are never offered: a small ゃ/ゅ/ょ after anything but an
   i-row kana (ゆゅ, んょ), two small kana in a row, っ before a vowel.

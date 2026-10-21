@@ -32,15 +32,17 @@ Say your WaniKani answers instead of typing them. Hold Shift (or, on a phone, th
 <b>Features</b>
 • English meanings and radical names (Moonshine, fast, by default; or OpenAI Whisper, accurate).
 • Readings in hiragana, from a speech model that writes kana directly, so it never has to guess a reading from kanji.
-• Alternatives: if it also heard something else (hand / and, じん / にん), press 1–3 (or tap) to switch before submitting.
+• Alternatives: if it also heard something else (hand / and, じん / にん), press its number (or tap it) to switch before submitting. Choose 1 to 5 choices, separately for English and readings. Impossible kana spellings are never offered.
 • Push-to-talk (Shift, configurable) or hands-free.
 • Fill only, or fill and submit; optional auto-advance (or only after a correct answer).
 • Works in reviews and lesson quizzes.
 • Firefox for Android: everything works by touch (hold the mic button to talk; Submit, Clear and Next buttons), and the panel stays above the on-screen keyboard.
+• Optional WaniKani dictionary: answers that are the meaning or reading of any WaniKani item are offered first. You make the dictionary file with a script from the source repository and your own WaniKani API token; the add-on itself never goes online.
+• Optional: ignore a wrong answer you submitted by accident (Escape or Backspace, or tap Ignore). The question comes back unanswered and WaniKani doesn't count the mistake, like the Double-Check script's re-type.
 • Advanced: load your own fine-tuned model per language. Tools to fine-tune on your own voice are in the source repository.
 
 <b>Requirements</b>
-No GPU needed: everything runs on the CPU. On a fast desktop answers take about 0.1 s (English, fast), 1.5 s (English, accurate) and 0.4 s (readings); on a Pixel 9 Pro XL about 0.3 s, 4 s and 0.5 s. The models use about 430 MB of memory while a review is open (720 MB with accurate English). Firefox 140+ on desktop, 142+ on Android; the download is about 150 MB. Avoid system noise gates or suppressors on the microphone (e.g. EasyEffects): they cut off the start of words.
+No GPU needed: everything runs on the CPU. On a fast desktop answers take about 0.1 s (English, fast), 1.5 s (English, accurate) and 0.4 s (readings); on a Pixel 9 Pro XL about 0.3 s, 4 s and 0.5 s. The models use about 430 MB of memory while a review is open (720 MB with accurate English). Firefox 140+ on desktop, 142+ on Android; the download is about 165 MB. Avoid system noise gates or suppressors on the microphone (e.g. EasyEffects): they cut off the start of words.
 
 <b>Notes</b>
 An unofficial tool: not affiliated with or endorsed by WaniKani or Tofugu. Open source (MIT). This extension was created with AI: all of its code was written by Anthropic's Claude Opus 5.5 (in Claude Code), directed and tested by a human.
@@ -71,7 +73,13 @@ Paste into "Notes to Reviewer" when submitting:
 > package. Remote loading is disabled and the CSP is `connect-src 'self'`.
 >
 > Permissions: `storage` (settings) and `https://www.wanikani.com/*`
-> (the content script that fills the answer box). The microphone is
+> (the content script that fills the answer box).
+> `src/page/ignore-answer.js` runs in the page's own world (MAIN), only
+> for the optional "ignore a wrong answer" setting: it wraps WaniKani's
+> quiz queue so a wrong answer the user chooses to ignore isn't recorded.
+> It talks to the content script only through a DOM event and a `data-`
+> attribute, and passes every answer straight through while the setting is
+> off. The microphone is
 > requested from the WaniKani page only when the user presses the
 > push-to-talk key. `wasm-unsafe-eval` is needed for WebAssembly
 > inference.
@@ -96,8 +104,8 @@ the real settings page.
 | `1-listening.png` | Hold Shift and say the answer: the panel turns red while it listens |
 | `2-recognising.png` | Recognised on your own computer; speech never leaves Firefox |
 | `3-filled-in.png` | The answer is filled in; check it and press Enter |
-| `4-reading-choices.png` | Readings in hiragana; press 1–3 if it heard a different reading |
-| `5-settings.png` | Push-to-talk or hands-free, auto-submit, auto-advance, English speed, custom models |
+| `4-reading-choices.png` | Readings in hiragana; press a number if it heard a different reading |
+| `5-settings.png` | Push-to-talk or hands-free, auto-submit, auto-advance, ignoring a wrong answer, number of choices, WaniKani dictionary, custom models |
 | `6-android.png` | Firefox for Android: hold the mic button to answer, then tap a reading and Submit |
 
 `6-android.png` (1280×800, uploaded 2026-10-07) combines the two phone

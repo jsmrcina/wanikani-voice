@@ -6,7 +6,8 @@ and chromedriver):
 
 - store/screenshots/5-settings.png (1280x800): the real settings page,
   rendered in headless Chromium through the test harness
-  (test/options/index.html, default settings), under a heading.
+  (test/options/index.html, default settings), under a heading. It is cut
+  in two at a section boundary and shown as two columns, so it fits.
 - store/promo-440x280.png: the Chrome Web Store's small promo tile (required;
   no text, works on a light grey page).
 """
@@ -39,7 +40,8 @@ def gradient(w, h):
 
 
 def settings_panel():
-    """The settings page (its <main>) as rendered by Chromium, 2x scale."""
+    """The settings page (its <main>) as rendered by Chromium, 2x scale, and
+    where to cut it in two: the section boundary nearest its middle."""
     class Quiet(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *a, **kw):
             super().__init__(*a, directory=str(ROOT), **kw)
@@ -50,7 +52,7 @@ def settings_panel():
     threading.Thread(target=server.serve_forever, daemon=True).start()
     opts = webdriver.ChromeOptions()
     opts.binary_location = shutil.which("chromium")
-    for flag in ("--headless=new", "--window-size=400,1400", "--force-device-scale-factor=2",
+    for flag in ("--headless=new", "--window-size=400,3000", "--force-device-scale-factor=2",
                  "--hide-scrollbars", "--force-color-profile=srgb"):
         opts.add_argument(flag)
     driver = webdriver.Chrome(options=opts, service=Service(shutil.which("chromedriver")))
@@ -59,7 +61,13 @@ def settings_panel():
         main = driver.find_element(By.TAG_NAME, "main")
         driver.implicitly_wait(5)
         driver.find_element(By.CSS_SELECTOR, ".model-row .model-status:not(:empty)")
-        return Image.open(io.BytesIO(main.screenshot_as_png)).convert("RGB")
+        img = Image.open(io.BytesIO(main.screenshot_as_png)).convert("RGB")
+        tops = driver.execute_script(
+            "const m = arguments[0].getBoundingClientRect().top;"
+            "return [...arguments[0].querySelectorAll('fieldset')]"
+            ".map(f => f.getBoundingClientRect().top - m);", main)
+        cut = min(tops, key=lambda t: abs(t * 2 - img.height / 2)) * 2
+        return img, round(cut) - 8
     finally:
         driver.quit()
         server.shutdown()
@@ -71,13 +79,18 @@ def settings_screenshot():
     title = ImageFont.truetype(FONT.format("Bold"), 46)
     sub = ImageFont.truetype(FONT.format("Regular"), 28)
     draw.text((640, 64), "Push-to-talk or hands-free", font=title, fill=TITLE, anchor="mm")
-    draw.text((640, 121), "Auto-submit, auto-advance, English speed, custom models", font=sub, fill=SUBTITLE, anchor="mm")
-    panel = settings_panel()
-    scale = min(612 / panel.height, 420 / panel.width)
-    panel = panel.resize((round(panel.width * scale), round(panel.height * scale)), Image.LANCZOS)
-    x, y = (1280 - panel.width) // 2, 180
-    draw.rectangle((x - 1, y - 1, x + panel.width, y + panel.height), outline=(214, 208, 228))
-    img.paste(panel, (x, y))
+    draw.text((640, 121), "Auto-submit, auto-advance, ignore a slip, choices, WaniKani dictionary",
+              font=sub, fill=SUBTITLE, anchor="mm")
+    panel, cut = settings_panel()
+    columns = [panel.crop((0, 0, panel.width, cut)), panel.crop((0, cut, panel.width, panel.height))]
+    gap = 40
+    scale = min(612 / max(c.height for c in columns), (1200 - gap) / 2 / panel.width)
+    columns = [c.resize((round(c.width * scale), round(c.height * scale)), Image.LANCZOS) for c in columns]
+    x = (1280 - 2 * columns[0].width - gap) // 2
+    for col in columns:
+        draw.rectangle((x - 1, 179, x + col.width, 180 + col.height), outline=(214, 208, 228))
+        img.paste(col, (x, 180))
+        x += col.width + gap
     out = ROOT / "store/screenshots/5-settings.png"
     img.save(out, optimize=True)
     print("wrote", out.relative_to(ROOT))

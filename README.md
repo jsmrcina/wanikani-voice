@@ -17,9 +17,9 @@ anywhere.
   Android, where everything works by touch.
 - **Readings** in hiragana: a small speech model that writes kana directly,
   so it never has to guess a reading from kanji.
-- **Choices:** besides its best guess, the panel offers up to two other
-  answers it heard (*hand* for *and*, にん for じん). Press **1–3** to switch
-  before you submit.
+- **Choices:** besides its best guess, the panel offers other answers it
+  heard (*hand* for *and*, にん for じん): two by default, up to four in the
+  settings. Press a choice's number to switch before you submit.
 - **Your rules:** it never looks at the question, only whether a meaning or
   a reading is asked for. A wrong answer goes in exactly as you said it.
 
@@ -28,7 +28,7 @@ anywhere.
        alt="A WaniKani reading question with the extension's panel offering three hiragana readings to choose from">
 </p>
 
-Version 0.4.1. What changed in each release: [CHANGELOG](CHANGELOG). The design notes, measurements and roadmap are in [PLAN.md](PLAN.md).
+Version 0.4.2. What changed in each release: [CHANGELOG](CHANGELOG). The design notes, measurements and roadmap are in [PLAN.md](PLAN.md).
 
 ## Contents
 - [Screenshots](#screenshots)
