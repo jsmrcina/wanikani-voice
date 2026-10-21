@@ -1311,6 +1311,13 @@ readings and 25 meanings.
    - **v0.3.3** (2026-10-19): 0.3.2 for the stores, after a day of use on
      the phone. Submitted to AMO's listed channel 2026-10-19 (in review,
      version 6598425); Chrome zip uploaded by the user.
+   - **v0.4.0** (2026-10-20): the feedback round (impossible kana, ず/づ,
+     choice counts, WaniKani dictionary, Ignore), signed unlisted from the
+     working tree for testing on the desktop and the phone.
+   - **v0.4.1** (2026-10-20): 0.4.0 plus "Escape or Backspace" wording, all
+     ignored answers kept out of the choices, and test mode out of the
+     settings page. Signed unlisted (not in either store yet), so the next
+     store submission needs 0.4.2 or up.
 2. **Training inside the extension** (deferred 2026-10-04). Train only the
    kana head (0.69M weights), in plain JS/WASM, from a recorder in the
    settings page. Clips and weights stay in IndexedDB, and the CTC loss and
