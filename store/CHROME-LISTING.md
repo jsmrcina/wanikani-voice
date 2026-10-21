@@ -18,7 +18,8 @@ Status: **public** at https://chromewebstore.google.com/detail/voice-answers-for
 - v0.3.3 (Moonshine float16 encoder; custom model file format 2): submitted
   2026-10-19, in review.
 - v0.4.2 (impossible kana, ず/づ spellings, 1–5 choices, WaniKani dictionary,
-  Ignore): zip built 2026-10-21 for upload.
+  Ignore): submitted 2026-10-21 with the updated listing, privacy
+  justifications, test instructions and settings screenshot; in review.
 
 **Microsoft Edge Add-ons: dropped (2026-10-07).** Its developer registration
 requires a contact address that is shown publicly on the developer profile,
@@ -99,10 +100,10 @@ An unofficial tool: not affiliated with or endorsed by WaniKani or Tofugu. Open 
   not searchable); switch to Public after testing the store build.
 - Regions: all.
 
-## Notes for the reviewer ("Test instructions")
+## Notes for the reviewer ("Test instructions", max 500 characters)
 ```
-The extension needs a WaniKani account with reviews or lessons available (wanikani.com, free levels 1-3 are enough). On a review page, hold Shift and say an answer (e.g. "fire"); the recognised text is filled into the answer box. Settings: toolbar button.
+Needs a WaniKani account with reviews or lessons (free levels 1-3 suffice). On a review page, hold Shift and say an answer (e.g. "fire"); it is filled into the answer box. Settings: toolbar button.
 
-Everything runs locally: the speech models (ONNX, in models/) and onnxruntime-web's WebAssembly runtime (vendor/ort/, unmodified) are inside the package; dist/asr-worker.js is our src/worker code bundled with @huggingface/transformers 4.3.0 and onnxruntime-web by esbuild, unminified. Source: https://github.com/jsmrcina/wanikani-voice (build: npm ci && node tools/build.mjs --target chrome). The extension makes no network requests; CSP connect-src 'self'. The offscreen document only hosts the speech worker. src/page/ignore-answer.js runs in the page (MAIN world) only for the optional "ignore a wrong answer" setting; it talks to the content script through a DOM event and a data- attribute.
+All local: models/ (ONNX), vendor/ort/ (unmodified onnxruntime-web), dist/asr-worker.js (src/worker bundled by esbuild, unminified). No network requests. src/page/ignore-answer.js runs in the page only for the optional Ignore setting. Source: github.com/jsmrcina/wanikani-voice
 ```
 

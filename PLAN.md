@@ -1322,7 +1322,7 @@ readings and 25 meanings.
      desktop and the phone. Store listings updated (description, release
      notes, reviewer notes for the page-world Ignore script). Submitted
      to AMO's listed channel 2026-10-21 (in review, version 6605799); the
-     Chrome zip is uploaded by the user.
+     Chrome Web Store submitted the same day (in review).
 2. **Training inside the extension** (deferred 2026-10-04). Train only the
    kana head (0.69M weights), in plain JS/WASM, from a recorder in the
    settings page. Clips and weights stay in IndexedDB, and the CTC loss and
