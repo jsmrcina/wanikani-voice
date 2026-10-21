@@ -1320,7 +1320,9 @@ readings and 25 meanings.
      store submission needs 0.4.2 or up.
    - **v0.4.2** (2026-10-21): 0.4.1 for the stores, after testing on the
      desktop and the phone. Store listings updated (description, release
-     notes, reviewer notes for the page-world Ignore script).
+     notes, reviewer notes for the page-world Ignore script). Submitted
+     to AMO's listed channel 2026-10-21 (in review, version 6605799); the
+     Chrome zip is uploaded by the user.
 2. **Training inside the extension** (deferred 2026-10-04). Train only the
    kana head (0.69M weights), in plain JS/WASM, from a recorder in the
    settings page. Clips and weights stay in IndexedDB, and the CTC loss and
