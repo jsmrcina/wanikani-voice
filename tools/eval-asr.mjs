@@ -1,7 +1,7 @@
 // Offline accuracy check for the bundled speech models (spike S5).
 //
 //   node tools/eval-asr.mjs [model ...] [--real | --set NAME | --personal [SPLIT]] [--only a,b] [--ja] [--show-misses]
-//                           [--opts JSON] [--choices JSON] [--dump FILE] [--dtype D]
+//                           [--opts JSON] [--choices JSON] [--dump FILE] [--dtype D] [--dictionary FILE]
 //
 // Runs each model over the English fixtures with the same normalisation the
 // extension uses, and reports exact-match accuracy and decode time.
@@ -33,13 +33,20 @@ const lang = args.includes('--ja') ? 'ja' : 'en';
 // --models-root DIR: evaluate models from elsewhere (e.g. personal fine-tuned exports).
 const rootIdx = args.indexOf('--models-root');
 const setName = setIdx >= 0 ? args[setIdx + 1] : 'real';
-const models = args.filter((a, i) => !a.startsWith('--') && !['--set', '--models-root', '--personal', '--only', '--opts', '--choices', '--dump', '--dtype'].includes(args[i - 1]));
+const models = args.filter((a, i) => !a.startsWith('--') && !['--set', '--models-root', '--personal', '--only', '--opts', '--choices', '--dump', '--dtype', '--dictionary'].includes(args[i - 1]));
 // --opts JSON: extra options for recognize() (English decoding experiments).
 const optsIdx = args.indexOf('--opts');
 const recognizeOpts = optsIdx >= 0 ? JSON.parse(args[optsIdx + 1]) : {};
 // --choices JSON: extra options for buildChoices() (e.g. {"homophones":false}).
 const choicesIdx = args.indexOf('--choices');
 const choiceOpts = choicesIdx >= 0 ? JSON.parse(args[choicesIdx + 1]) : {};
+// As in the extension (src/worker/asr-worker.js), more than 3 choices also
+// draws on more candidates.
+const moreCandidates = (choiceOpts.max ?? 3) > 3;
+// --dictionary FILE: rank by a WaniKani dictionary (tools/wk-dictionary.mjs),
+// normalised as the background page does.
+const dictIdx = args.indexOf('--dictionary');
+const dictionaryFile = dictIdx >= 0 ? JSON.parse(await readFile(args[dictIdx + 1], 'utf8')) : null;
 // --dtype D: model precision, as transformers.js names it (q8, fp32, fp16,
 // q4, q4f16, bnb4, int8), or JSON per file, e.g.
 // {"encoder_model":"fp32","decoder_model_merged":"q8"}. Default: the
@@ -126,6 +133,8 @@ for (const name of candidates) {
     ? JSON.parse(await readFile(join(ROOT, 'models', name, 'tokenizer.json'), 'utf8')) : null;
   const vocab = ctc ? asr.config.kana_vocab : null;
   const mode = lang === 'ja' ? 'ja-kana' : 'en';
+  const dictionary = dictionaryFile && new Set((mode === 'en' ? dictionaryFile.meanings : dictionaryFile.readings)
+    .map(a => normalizeAnswer(a, mode)).filter(n => n.ok).map(n => n.text));
   let inTop = 0;
   let hits = 0;
   let totalMs = 0;
@@ -150,10 +159,10 @@ for (const name of candidates) {
     // Same candidate handling as the background page: normalise, drop
     // invalid ones, de-duplicate, keep three.
     let candidates;
-    if (ctc) candidates = await recognizeCtc(asr, vocab, audio, Tensor);
+    if (ctc) candidates = await recognizeCtc(asr, vocab, audio, Tensor, moreCandidates ? 5 : 3);
     else if (lang === 'ja') candidates = [await recognizeKana(asr, audio, tokenizerJson, LogitsProcessor)];
-    else candidates = await recognize(asr, audio, { alternatives: 4, LogitsProcessorClass: LogitsProcessor, budgetMs: null, ...recognizeOpts });
-    const built = buildChoices(candidates, mode, choiceOpts);
+    else candidates = await recognize(asr, audio, { alternatives: moreCandidates ? 6 : 4, LogitsProcessorClass: LogitsProcessor, budgetMs: null, ...recognizeOpts });
+    const built = buildChoices(candidates, mode, { ...choiceOpts, dictionary });
     const choices = built.ok ? built.choices : [];
     dump.push({ file: f.file, expected: f.expected, split: f.split, choices });
     if (f.expected && choices.includes(f.expected)) inTop += 1;

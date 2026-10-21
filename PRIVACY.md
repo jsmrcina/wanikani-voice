@@ -1,6 +1,6 @@
 # Privacy policy: Voice Answers for WaniKani: Unofficial Tool
 
-Last updated: 2026-10-17. Applies to the extension in every store (Firefox
+Last updated: 2026-10-20. Applies to the extension in every store (Firefox
 Add-ons, Chrome Web Store, also used by Microsoft Edge and other Chromium
 browsers) and to builds from this repository.
 
@@ -18,6 +18,8 @@ all.
 | The kind of question | Whether WaniKani asks for a meaning or a reading, read from the page to pick a speech model. The question itself is never read | Your device, in memory only |
 | Your settings | Push-to-talk key, panel position, English speed and similar | The browser's local extension storage on your device (not synced) |
 | Custom models you choose | Speech model files you load in the settings | The extension's storage on your device |
+| A WaniKani dictionary you choose (optional) | A file of WaniKani meanings and readings you make yourself with the project's `tools/wk-dictionary.mjs` and your own API token, outside the extension. Used only to put answers that are WaniKani words first | The browser's local extension storage on your device. The extension never contacts WaniKani's API and never sees your token |
+| WaniKani's quiz state, when you ignore a wrong answer (optional) | With *Offer to ignore a wrong answer* on, a small script in the review page takes back a wrong answer you ask to ignore: it restores the count and queue position WaniKani changed for it, inside the page. Nothing about the question or the answer is passed to the rest of the extension | WaniKani's page, in memory |
 
 ## The microphone
 
@@ -58,8 +60,9 @@ access from its own pages.
 ## Permissions
 
 - **Access to www.wanikani.com:** to show the panel on review and lesson
-  quiz pages, read the kind of question and fill in the answer box.
-- **Storage:** to keep your settings and custom models on your device.
+  quiz pages, read the kind of question and fill in the answer box, and
+  (only with the ignore setting on) to take back a wrong answer.
+- **Storage:** to keep your settings, custom models and dictionary on your device.
 - **Offscreen document (Chrome and other Chromium browsers only):** to run the speech
   recognition worker in the background of the browser.
 - **Microphone:** asked for by the browser for www.wanikani.com when you

@@ -82,5 +82,22 @@
     if (el && document.activeElement === el) el.blur();
   }
 
-  WKV.answerIO = { isPresent, fill, value, submit: pressSubmit, advance: pressSubmit, isGraded, isCorrect, isInput, blur };
+  // Ignoring a wrong answer goes through src/page/ignore-answer.js, which
+  // runs in the page's own context. The only things shared with it: whether
+  // the setting is on (data-wkv-ignore-enabled, set here), whether a wrong
+  // answer can be ignored right now (data-wkv-ignore="pending", set there),
+  // and a request to do it (the "wkv-ignore-answer" event).
+  function setIgnoreEnabled(on) {
+    if (on) document.documentElement.dataset.wkvIgnoreEnabled = 'true';
+    else delete document.documentElement.dataset.wkvIgnoreEnabled;
+  }
+  const canIgnore = () => document.documentElement.dataset.wkvIgnore === 'pending' && isGraded() && !isCorrect();
+  function ignore() {
+    if (!canIgnore()) return false;
+    window.dispatchEvent(new Event('wkv-ignore-answer'));
+    return true;
+  }
+
+  WKV.answerIO = { isPresent, fill, value, submit: pressSubmit, advance: pressSubmit, isGraded, isCorrect, isInput, blur,
+    setIgnoreEnabled, canIgnore, ignore };
 })(globalThis.WKV = globalThis.WKV || {});

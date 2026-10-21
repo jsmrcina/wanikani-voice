@@ -182,6 +182,40 @@
     return out;
   }
 
+  // Small ゃゅょ only ever follow an i-row kana (きゃ, じゅ, ぴょ).
+  const YOON_BASE = 'きしちにひみりぎじぢびぴ';
+  const SMALL_KANA = 'ぁぃぅぇぉゃゅょゎ';
+
+  // Kana sequences no word can contain: a small ゃゅょ after anything but an
+  // i-row kana (ゆゅ, んょ), a small kana after another small kana, ん, っ or
+  // ー, and っ before a vowel, ん, っ or a small kana. っ at the end is
+  // possible: some kanji readings end in it (合 がっ). Checked on the
+  // spelling alone, never against the question; no reading among WaniKani's
+  // 6,924 fails it (2026-10-20).
+  function impossibleKana(s) {
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      const prev = s[i - 1];
+      if ('ゃゅょ'.includes(ch) && !YOON_BASE.includes(prev)) return true;
+      if (SMALL_KANA.includes(ch) && (!prev || SMALL_KANA.includes(prev) || 'んっー'.includes(prev))) return true;
+      if (ch === 'っ' && ('あいうえおんっー'.includes(s[i + 1]) || SMALL_KANA.includes(s[i + 1]))) return true;
+    }
+    return false;
+  }
+
+  // ず/づ and じ/ぢ sound the same in modern Japanese, so the model can't
+  // tell which was meant (つづく, ちぢむ, はなぢ): each spelling with one of
+  // them swapped. Convention, not correction: the swap is the same for every
+  // question.
+  const SAME_SOUND = { ず: 'づ', づ: 'ず', じ: 'ぢ', ぢ: 'じ' };
+  function sameSoundSpellings(s) {
+    const out = [];
+    for (let i = 0; i < s.length; i++) {
+      if (SAME_SOUND[s[i]]) out.push(s.slice(0, i) + SAME_SOUND[s[i]] + s.slice(i + 1));
+    }
+    return out;
+  }
+
   function normalizeKana(raw) {
     const folded = katakanaToHiragana(String(raw).normalize('NFKC')).replace(KANA_PUNCT, '');
     const s = expandLongVowels(folded);
@@ -194,12 +228,16 @@
     if (!HIRAGANA_ONLY.test(s)) return { ok: false, reason: 'Expected kana only' };
     // No reading starts with ん, っ or a small kana: that's a hum or a cough.
     if (/^[んっぁぃぅぇぉゃゅょゎ]/.test(s)) return { ok: false, reason: "Didn't catch that" };
+    if (impossibleKana(s)) return { ok: false, reason: 'Not a possible reading' };
+    const result = { ok: true, text: s };
+    const spellings = sameSoundSpellings(s);
+    if (spellings.length) result.spellings = spellings;
     // A few WaniKani readings really do contain ー (びーだま, ビー玉), so when
     // ー was heard, the form that keeps it is offered as an alternative.
     if (folded !== s && /^[\u3041-\u3096\u309d\u309e][\u3041-\u3096\u309d\u309eー]*$/.test(folded)) {
-      return { ok: true, text: s, alternates: [folded] };
+      result.alternates = [folded];
     }
-    return { ok: true, text: s };
+    return result;
   }
 
   function normalizeAnswer(raw, mode) {
@@ -222,23 +260,32 @@
   // out (Whisper, 300 personal recordings, 2026-10-16: right answer offered
   // 281 -> 276; after the candidates 285 -> 286). `exclude`: answers the
   // user already rejected on this question by recording again; they are
-  // left out unless nothing else is left (then `repeated` is set). Shared by
+  // left out unless nothing else is left (then `repeated` is set).
+  // Same-sound spellings (ず/づ, じ/ぢ) of the best answer go with the
+  // homophones (`spellingsEarly`: straight after the best answer instead).
+  // `dictionary`: a Set of every WaniKani answer for this mode (the user's
+  // imported dictionary, never just this question's); answers in it move
+  // ahead of answers that aren't, otherwise in the same order. Shared by
   // the background page and tools/eval-asr.mjs. Returns
   // { ok, text, choices, repeated? } or the first candidate's rejection
   // { ok: false, reason }.
-  function buildChoices(candidates, mode, { exclude = [], max = 3, homophones = true } = {}) {
+  function buildChoices(candidates, mode, { exclude = [], max = 3, homophones = true, dictionary = null, spellingsEarly = false } = {}) {
     const normalized = candidates.map(c => normalizeAnswer(c, mode));
     // The likeliest reading of the clip is a hesitation: that's no answer,
     // whatever a less likely alternative made of it ("um" -> "um in", seen
     // with the fine-tuned Moonshine 2026-10-16).
     if (normalized[0]?.hesitation) return normalized[0];
     const valid = normalized.filter(n => n.ok);
-    const ordered = [...new Set([
+    const spellings = valid[0]?.spellings ?? [];
+    let ordered = [...new Set([
       ...(valid[0] ? [valid[0].text] : []),
+      ...(spellingsEarly ? spellings : []),
       ...valid.slice(1).map(n => n.text),
       ...(homophones ? valid[0]?.homophones ?? [] : []),
+      ...(spellingsEarly ? [] : spellings),
       ...valid.flatMap(n => n.alternates ?? []),
     ])];
+    if (dictionary?.size) ordered = [...ordered.filter(t => dictionary.has(t)), ...ordered.filter(t => !dictionary.has(t))];
     if (!ordered.length) return normalized[0] ?? { ok: false, reason: "Didn't catch that" };
     const rejected = new Set(exclude);
     const fresh = ordered.filter(t => !rejected.has(t));

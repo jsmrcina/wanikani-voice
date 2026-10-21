@@ -30,6 +30,7 @@
   let handsFreePaused = false; // hands-free stopped after too many misses
   let choices = [];          // readings offered for the current answer
   let rejected = [];         // answers recorded over (or cleared) on this question
+  let ignored = null;        // a wrong answer just ignored: rejected on the retry
   let chosen = 0;
 
   // What the background can recognise: mode -> model name (null = not yet),
@@ -71,6 +72,7 @@
       submit: next === 'filled' && settings.submitMode !== 'auto-submit',
       clear: next === 'filled' && touchOnly(),
       next: next === 'waiting',
+      ignore: next === 'waiting' && answerIO.canIgnore(),
     });
     if (next !== 'filled' && choices.length) {
       choices = [];
@@ -175,7 +177,10 @@
   function onNewQuestion(q) {
     generation += 1;
     misses = 0;
-    rejected = [];
+    // After Ignore the same question comes back: what was ignored (and
+    // anything rejected before on it) isn't offered again.
+    rejected = ignored ? [...new Set([...rejected, ignored])] : [];
+    ignored = null;
     handsFreePaused = false;
     question = q;
     pttHeld = false;
@@ -191,7 +196,12 @@
     pttHeld = false;
     cancelCapture();
     clearFollowUp();
-    if (settings.autoAdvance && settings.autoAdvanceOnlyCorrect && !answerIO.isCorrect()) {
+    // A wrong answer that can be ignored waits for the user, auto-advance or not.
+    if (answerIO.canIgnore()) {
+      setState('waiting', touchOnly()
+        ? 'Not quite. Tap Ignore to take it back, or Next'
+        : 'Not quite. Escape or Backspace to ignore it, Enter for the next question');
+    } else if (settings.autoAdvance && settings.autoAdvanceOnlyCorrect && !answerIO.isCorrect()) {
       setState('waiting', touchOnly()
         ? 'Not quite. Tap Next when you\'re ready'
         : 'Not quite. Press Enter for the next question when you\'re ready');
@@ -489,6 +499,13 @@
 
   function onKeyDown(e) {
     if (!settings.enabled) return;
+    // Backspace or Escape ignores a wrong answer, as in Double-Check.
+    if ((e.key === 'Backspace' || e.key === 'Escape') && !e.ctrlKey && !e.altKey && !e.metaKey &&
+        !indicator.ownsEvent(e) && state === 'waiting' && onIgnore()) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return;
+    }
     // 1–3 pick another offered reading (only while one is in the box).
     const digit = /^(?:Digit|Numpad)([1-9])$/.exec(e.code);
     if (digit && !e.ctrlKey && !e.altKey && !e.metaKey && !indicator.ownsEvent(e) && choosing()) {
@@ -579,6 +596,16 @@
     guardKeyboard();
     answerIO.advance();
   }
+  // Takes back a wrong answer (setting ignoreWrongAnswers): WaniKani puts the
+  // question back unanswered, and the answer box empties.
+  function onIgnore() {
+    if (state !== 'waiting' || !answerIO.canIgnore()) return false;
+    const value = answerIO.value().trim();
+    guardKeyboard();
+    if (!answerIO.ignore()) return false;
+    ignored = value || null;
+    return true;
+  }
 
   function onKeyPress(e) {
     if (settings.enabled && isPttEvent(e)) swallow(e);
@@ -613,12 +640,13 @@
   function activate() {
     active = true;
     indicator = WKV.indicator.create({
-      onToggle, onFakeUtterance, onPick: pick, onSubmit, onNext, onClear,
+      onToggle, onFakeUtterance, onPick: pick, onSubmit, onNext, onClear, onIgnore,
       onTalkStart: pttStart, onTalkEnd: pttEnd, onTalkCancel: pttCancel,
     });
     indicator.setDevMode(isFake());
     indicator.setPosition(settings.indicatorPosition);
     mic = WKV.audio.createMic();
+    answerIO.setIgnoreEnabled(settings.enabled && settings.ignoreWrongAnswers);
     state = 'off';
     question = null;
     lastGraded = false;
@@ -651,6 +679,7 @@
     mic?.close();
     mic = null;
     disconnectBackground();
+    answerIO.setIgnoreEnabled(false);
     observer?.disconnect();
     window.removeEventListener('keydown', onKeyDown, true);
     window.removeEventListener('keyup', onKeyUp, true);
@@ -677,6 +706,7 @@
     const wasFake = isFake();
     settings = next;
     if (!active) return;
+    answerIO.setIgnoreEnabled(next.enabled && next.ignoreWrongAnswers);
     indicator.setPosition(next.indicatorPosition);
     if (wasFake !== isFake()) {
       indicator.setDevMode(isFake());

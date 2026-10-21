@@ -10,7 +10,7 @@
 
   function render(s) {
     $('enabled').checked = s.enabled;
-    for (const name of ['inputMode', 'submitMode', 'recognizer', 'englishSpeed']) {
+    for (const name of ['inputMode', 'submitMode', 'englishSpeed']) {
       const radio = document.querySelector(`input[name="${name}"][value="${s[name]}"]`);
       if (radio) radio.checked = true;
     }
@@ -24,12 +24,17 @@
     $('autoAdvanceOnlyCorrect').checked = s.autoAdvanceOnlyCorrect;
     $('autoAdvanceOnlyCorrect').disabled = !s.autoAdvance;
     $('indicatorPosition').value = s.indicatorPosition;
+    $('choicesEnglish').value = String(s.choicesEnglish);
+    $('choicesReadings').value = String(s.choicesReadings);
+    $('ignoreWrongAnswers').checked = s.ignoreWrongAnswers;
+    $('useDictionary').checked = s.useDictionary;
+    $('useDictionary').disabled = !s.dictionaryInfo;
   }
 
   function bind() {
     const save = WKV.settings.save;
     $('enabled').addEventListener('change', e => save({ enabled: e.target.checked }));
-    for (const name of ['inputMode', 'submitMode', 'recognizer', 'englishSpeed']) {
+    for (const name of ['inputMode', 'submitMode', 'englishSpeed']) {
       for (const radio of document.querySelectorAll(`input[name="${name}"]`)) {
         radio.addEventListener('change', e => save({ [name]: e.target.value }));
       }
@@ -38,6 +43,12 @@
     $('autoAdvance').addEventListener('change', e => save({ autoAdvance: e.target.checked }));
     $('autoAdvanceOnlyCorrect').addEventListener('change', e => save({ autoAdvanceOnlyCorrect: e.target.checked }));
     $('indicatorPosition').addEventListener('change', e => save({ indicatorPosition: e.target.value }));
+    for (const id of ['choicesEnglish', 'choicesReadings']) {
+      $(id).append(...[1, 2, 3, 4, 5].map(n => new Option(n === 3 ? '3 (default)' : String(n), String(n))));
+      $(id).addEventListener('change', e => save({ [id]: Number(e.target.value) }));
+    }
+    $('ignoreWrongAnswers').addEventListener('change', e => save({ ignoreWrongAnswers: e.target.checked }));
+    $('useDictionary').addEventListener('change', e => save({ useDictionary: e.target.checked }));
     $('autoAdvanceDelay').addEventListener('change', e => {
       const seconds = Math.min(10, Math.max(0, Number(e.target.value) || 0));
       save({ autoAdvanceDelayMs: Math.round(seconds * 1000) });

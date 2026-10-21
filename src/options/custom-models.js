@@ -11,7 +11,7 @@
   const IN_POPUP = new URLSearchParams(location.search).has('popup');
 
   function render(settings) {
-    for (const row of document.querySelectorAll('.model-row')) {
+    for (const row of document.querySelectorAll('.model-row[data-slot]')) {
       const meta = settings.customModels?.[row.dataset.slot];
       const status = row.querySelector('.model-status');
       if (status.classList.contains('busy')) continue;
@@ -23,7 +23,7 @@
     }
   }
 
-  for (const row of document.querySelectorAll('.model-row')) {
+  for (const row of document.querySelectorAll('.model-row[data-slot]')) {
     const slot = row.dataset.slot;
     const status = row.querySelector('.model-status');
     const show = (text, kind = '') => {

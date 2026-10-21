@@ -384,7 +384,8 @@ decoding and normalisation:
 `src/background/background.js` (worker lifecycle, model status pushed to
 review tabs, heartbeat, diagnostics), `tools/build.mjs` → `build/`.
 Indicator shows model loading progress; Japanese questions show a "type this
-one" state. Test mode (typed text) remains as an option.
+one" state. Test mode (typed text) remains, for the tests; since 0.4.1 it
+isn't offered in the settings page.
 
 ### S4 findings: Japanese model choice (2026-10-04)
 Your 25 raw readings (JLPT N5/N4: single-mora answers, じん/にん/ひと, long
@@ -1130,6 +1131,65 @@ choice / offered):
   trusted: it was trained on those clips.
 
 ---
+
+### User feedback round (2026-10-20, branch `feedback-2026-10`)
+
+Five requests from use. Measured on the 400 personal readings and 300
+personal meanings (Moonshine), first choice / offered; benchmarks 31
+readings and 25 meanings.
+
+| Change | Readings | Meanings | Decision |
+|---|---|---|---|
+| Before | 163 / 270 | 242 / 271 | |
+| **Impossible kana dropped** (ゆゅ, small ゃ after ん, small after small, っ before a vowel / ん) | **166** / 270 | | kept |
+| **ず↔づ, じ↔ぢ spellings offered**, after the model's candidates | 166 / 270 | | kept |
+| …the same, straight after the best answer | 166 / 269 | | dropped |
+| **5 choices**, same candidates | 166 / 284 | 242 / 272 | setting, 1–5 |
+| 5 choices, 5-deep beam / 6 English alternatives | 166 / **288** | 242 / **274** | when the setting is > 3 |
+| 3 choices with the bigger pools | 166 / 270 | 242 / 271 (decode ~2× slower) | not at 3 |
+| **WaniKani dictionary ranking**, 3 choices | **248 / 284** | **259 / 272** | setting, off by default |
+| Dictionary, 5 choices | 253 / 294 | 261 / 274 | |
+
+- **Impossible kana.** Checked against all 6,924 WaniKani readings: none
+  rejected once っ at the end was allowed (合 がっ, 早 さっ). It changes only
+  which candidates are valid, the same for every question.
+- **ず/づ.** Only 25 WaniKani readings contain づ or ぢ (of 6,924; one in
+  the personal set, つづける), so the spellings go after what the model
+  heard. Placed second, they pushed one right reading out.
+- **Dictionary (P2, F4, F5).** WaniKani's content can't be bundled
+  (Terms §C.4; the API's "respect the limitations put in place by the
+  subscriptions"), so each user makes it from their own account with
+  `tools/wk-dictionary.mjs` (about 15 requests, paced under WaniKani's 60 a
+  minute by `tools/lib/wanikani-api.mjs`) and imports the file. A download
+  from the settings page with a pasted token was built and then dropped
+  (2026-10-20): it would have broken P2, the add-on making no network
+  requests at all. The Set is every item's answers alike, so it
+  never says which answer this question wants (F4). It reorders, never
+  replaces (F5): what was heard is still offered. Caveat: when a clip's
+  likeliest reading isn't a WaniKani word but a less likely one is, the
+  WaniKani word goes first, so a genuinely wrong answer can be shown as a
+  different (still not necessarily right) WaniKani word. Hence opt-in. The
+  personal sets are made of the user's own WaniKani items, so every
+  expected answer is in the dictionary, as in real reviews.
+- **Ignore a wrong answer.** WaniKani's quiz-input grades and immediately
+  calls quiz-queue's `submitAnswer`; for a wrong answer that only bumps
+  `stats[type].incorrect`, moves the item back in the active queue and fires
+  `didAnswerQuestion`. Nothing reaches the server until an item completes
+  (`api.itemComplete`, both halves right). So `src/page/ignore-answer.js`
+  (page context, `"world": "MAIN"`) snapshots the item's stats, the queue
+  order and the statistics counts just before, and restores them on Ignore;
+  the recent-answers log (WaniKani's local history) is held back until the
+  user moves on, as Double-Check does. Unlike Double-Check, WaniKani grades
+  and shows the wrong answer normally (item info included). Off by default,
+  wraps nothing while off, stands down when Double-Check is installed
+  (`window.doublecheck`). Its only output is `data-wkv-ignore` on `<html>`
+  (policy-checked). Verified against WaniKani's controllers read
+  2026-10-20, the mock, and in use on the live site (2026-10-20).
+- **Test mode out of the settings page (2026-10-20).** The typed stand-in
+  for speech (`recognizer: 'fake'`) stays for the end-to-end tests, which
+  set it through their storage bridge, but users can no longer pick it. An
+  update resets a saved `'fake'` to `'local'`, since it couldn't be
+  switched back.
 
 ## 5. Risks
 

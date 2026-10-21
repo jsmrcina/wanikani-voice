@@ -19,7 +19,10 @@
   const ENGLISH_MODELS = { accurate: 'whisper-base.en', fast: 'moonshine-base' };
   const JAPANESE_MODEL = 'distilhubert-hiragana';
   const KINDS = { 'whisper-base.en': 'whisper', 'moonshine-base': 'moonshine', 'distilhubert-hiragana': 'ctc' };
-  const MAX_CHOICES = 3;
+  // How many answers are offered: settings.choicesEnglish / choicesReadings,
+  // 1-5.
+  const choicesFor = (settings, mode) => Math.min(5, Math.max(1, Math.round(
+    Number(mode === 'en' ? settings.choicesEnglish : settings.choicesReadings)) || 3));
   const MODES = new Set(['en', 'ja-kana']);
 
   // Custom models chosen in the settings (src/shared/model-store.js) replace
@@ -79,6 +82,14 @@
     const stored = await browser.storage.local.get(Object.keys(WKV.settings.ANDROID_DEFAULTS));
     const missing = Object.fromEntries(Object.entries(WKV.settings.ANDROID_DEFAULTS).filter(([k]) => !(k in stored)));
     if (Object.keys(missing).length) await WKV.settings.save(missing);
+  });
+
+  // Test mode is no longer in the settings page (0.4.1): an install that had
+  // it on goes back to the speech models, since it couldn't be switched off.
+  browser.runtime.onInstalled.addListener(async ({ reason }) => {
+    if (reason !== 'update') return;
+    const { recognizer } = await browser.storage.local.get('recognizer');
+    if (recognizer === 'fake') await WKV.settings.save({ recognizer: 'local' });
   });
 
   // ---- worker ---------------------------------------------------------------
@@ -152,11 +163,11 @@
     getWorker().postMessage({ type: 'load', model, kind: kindOf(model), slot: slotOf(model) });
   }
 
-  function runWorker(model, audio) {
+  function runWorker(model, audio, choices) {
     return new Promise(resolve => {
       const id = nextId++;
       pending.set(id, { resolve });
-      getWorker().postMessage({ type: 'transcribe', id, model, kind: kindOf(model), slot: slotOf(model), audio }, [audio.buffer]);
+      getWorker().postMessage({ type: 'transcribe', id, model, kind: kindOf(model), slot: slotOf(model), audio, choices }, [audio.buffer]);
     });
   }
 
@@ -165,6 +176,7 @@
   async function transcribe(msg) {
     if (!MODES.has(msg.mode)) return { ok: false, reason: 'Unknown mode' };
     const settings = await WKV.settings.load();
+    const max = choicesFor(settings, msg.mode);
     let candidates;
     let ms;
     if (settings.recognizer === 'fake') {
@@ -176,7 +188,7 @@
       // The clip arrives packed (src/shared/wire.js).
       const audio = WKV.wire.unpackAudio(msg.audio);
       if (!audio?.length) return { ok: false, reason: "Didn't catch that" };
-      const res = await runWorker(model, audio);
+      const res = await runWorker(model, audio, max);
       if (res.type === 'error') return { ok: false, reason: `Recognizer error: ${res.message}` };
       if (res.noSpeech) return { ok: false, reason: "Didn't hear anything" };
       candidates = res.candidates;
@@ -187,8 +199,31 @@
     // minus answers already rejected on this question (msg.rejected: what
     // was in the answer box each time the user recorded again).
     const rejected = Array.isArray(msg.rejected) ? msg.rejected.filter(r => typeof r === 'string') : [];
-    return { raw: candidates[0], ms, ...WKV.normalize.buildChoices(candidates, msg.mode, { exclude: rejected, max: MAX_CHOICES }) };
+    const dictionary = settings.useDictionary ? (await dictionarySets())[msg.mode] : null;
+    return { raw: candidates[0], ms, ...WKV.normalize.buildChoices(candidates, msg.mode, { exclude: rejected, max, dictionary }) };
   }
+
+  // The WaniKani dictionary imported in the settings (storage.local
+  // "dictionary", see src/options/dictionary.js): every item's meanings and
+  // readings, normalised the way answers are, as a Set per mode. Every item
+  // alike, so it never tells the recogniser what this question's answer is.
+  let dictionaryPromise = null;
+  function dictionarySets() {
+    dictionaryPromise ??= browser.storage.local.get('dictionary').then(({ dictionary }) => {
+      const sets = { en: new Set(), 'ja-kana': new Set() };
+      for (const [mode, list] of [['en', dictionary?.meanings], ['ja-kana', dictionary?.readings]]) {
+        for (const answer of Array.isArray(list) ? list : []) {
+          const n = WKV.normalize.normalizeAnswer(String(answer), mode);
+          if (n.ok) sets[mode].add(n.text);
+        }
+      }
+      return sets;
+    });
+    return dictionaryPromise;
+  }
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && 'dictionary' in changes) dictionaryPromise = null;
+  });
 
   const startedAt = Date.now();
   let lastDecodeMs = null; // worker time for the most recent transcription

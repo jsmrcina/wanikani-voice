@@ -16,6 +16,18 @@
     // the microphone opens on each press and closes after it. Hands-free
     // listens continuously either way.
     keepMicOpen: true,
+    // How many answers the panel offers (the best one and alternatives),
+    // 1-5, for English and for readings.
+    choicesEnglish: 3,
+    choicesReadings: 3,
+    // Rank answers that are some WaniKani item's meaning or reading ahead of
+    // ones that aren't. Needs a dictionary file imported in the settings
+    // (stored in storage.local "dictionary"; dictionaryInfo is its summary).
+    useDictionary: false,
+    dictionaryInfo: null,
+    // When WaniKani marks an answer wrong, offer to ignore it: the question
+    // comes back as if it hadn't been answered (src/page/ignore-answer.js).
+    ignoreWrongAnswers: false,
     // 'fill-only': put the answer in the box and let the user press Enter.
     // 'auto-submit': also submit it.
     submitMode: 'fill-only',
@@ -38,6 +50,8 @@
     englishSpeed: 'fast',
     // 'local': the bundled on-device speech model.
     // 'fake': test mode; text typed into the indicator stands in for speech.
+    // Used by the end-to-end tests (test/run_tests.py); not in the settings
+    // page since 0.4.1.
     recognizer: 'local',
   });
 

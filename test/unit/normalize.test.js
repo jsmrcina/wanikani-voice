@@ -52,6 +52,13 @@
     ['っか', 'ja-kana', null],
     ['うん', 'ja-kana', 'うん'],
     ['ー', 'ja-kana', null],
+    // Impossible kana: small ゃゅょ after a non-i-row kana, small after small,
+    // っ before a vowel. っ at the end is a real kanji reading (合 がっ).
+    ['ゆゅ', 'ja-kana', null],
+    ['きゃゅ', 'ja-kana', null],
+    ['かっう', 'ja-kana', null],
+    ['がっ', 'ja-kana', 'がっ'],
+    ['きゃく', 'ja-kana', 'きゃく'],
     ['人', 'ja-kana', null],
     ['じん人', 'ja-kana', null],
     ['jin', 'ja-kana', null],
@@ -93,6 +100,13 @@
     [['Um.', 'Um in.'], {}, undefined],                  // best is a hesitation: no answer
     [['きょー', 'きよ'], {}, ['きょう', 'きよ', 'きょー']],   // ー spellings last
     [['びーだま'], {}, ['びいだま', 'びーだま']],
+    [['つずく', 'つすく'], {}, ['つずく', 'つすく', 'つづく']],   // ず/づ after what was heard
+    [['ちじむ'], {}, ['ちじむ', 'ちぢむ']],
+    [['ゆゅ', 'ゆう'], {}, ['ゆう']],                         // impossible spelling dropped
+    [['and', 'hand'], { dictionary: new Set(['hand']) }, ['hand', 'and']],
+    [['sand', 'band'], { dictionary: new Set(['hand']) }, ['sand', 'band']],
+    [['じん', 'にん'], { max: 1 }, ['じん']],
+    [['hand', 'and', 'band', 'sand', 'land', 'wand'], { max: 5 }, ['hand', 'and', 'band', 'sand', 'land']],
   ];
   for (const [cands, opts, want, repeated] of choiceCases) {
     const mode = /^[a-z]/.test(cands[0]) ? 'en' : 'ja-kana';

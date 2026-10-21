@@ -16,13 +16,12 @@
 // the Japanese one, for:
 //   python3 tools/recorder/server.py --words personal/words.json --set personal
 import { readFile, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
+import { API, createClient, readToken } from './lib/wanikani-api.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const API = 'https://api.wanikani.com/v2';
 const args = process.argv.slice(2);
 const opt = (name, fallback) => {
   const i = args.indexOf(`--${name}`);
@@ -56,16 +55,8 @@ function sample(list, n) {
   return copy.slice(0, n);
 }
 
-const token = (await readFile(join(homedir(), '.config/wanikani-voice/api-token'), 'utf8')).trim();
-async function* paged(url) {
-  while (url) {
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, 'Wanikani-Revision': '20170710' } });
-    if (!res.ok) throw new Error(`${url.split('?')[0]}: HTTP ${res.status}`);
-    const page = await res.json();
-    yield* page.data;
-    url = page.pages.next_url;
-  }
-}
+// Within WaniKani's rate limit (tools/lib/wanikani-api.mjs).
+const { paged } = createClient(await readToken());
 
 const ids = [];
 for await (const a of paged(`${API}/assignments?unlocked=true`)) ids.push(a.data.subject_id);

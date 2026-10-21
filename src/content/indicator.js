@@ -166,7 +166,7 @@
     return [...doc.body.childNodes].map(n => document.importNode(n, true));
   }
 
-  function create({ onToggle, onFakeUtterance, onPick, onTalkStart, onTalkEnd, onTalkCancel, onSubmit, onNext, onClear }) {
+  function create({ onToggle, onFakeUtterance, onPick, onTalkStart, onTalkEnd, onTalkCancel, onSubmit, onNext, onClear, onIgnore }) {
     // An extension reload leaves the previous instance's badge orphaned in
     // the page; remove it. Only our own top-level elements are looked at.
     for (const el of [...document.documentElement.children]) {
@@ -188,6 +188,7 @@
         <div class="actions">
           <button class="submit primary" type="button" hidden>Submit</button>
           <button class="clear" type="button" hidden>Clear</button>
+          <button class="ignore" type="button" hidden title="Take back this wrong answer and answer again">Ignore</button>
           <button class="next" type="button" hidden>Next</button>
         </div>
         <div class="dev">
@@ -209,6 +210,7 @@
     const submitButton = root.querySelector('.submit');
     const nextButton = root.querySelector('.next');
     const clearButton = root.querySelector('.clear');
+    const ignoreButton = root.querySelector('.ignore');
     if (ICON_SVG) root.querySelector('.logo').append(...parse(ICON_SVG));
     else root.querySelector('.logo').remove();
 
@@ -249,6 +251,7 @@
     submitButton.addEventListener('click', () => onSubmit?.());
     nextButton.addEventListener('click', () => onNext?.());
     clearButton.addEventListener('click', () => onClear?.());
+    ignoreButton.addEventListener('click', () => onIgnore?.());
     root.querySelector('.send').addEventListener('click', () => onFakeUtterance());
     // Keys typed in the test field must not reach WaniKani's hotkeys.
     for (const type of ['keydown', 'keypress', 'keyup']) {
@@ -295,13 +298,15 @@
     }
 
     // Which on-panel action buttons are offered: Submit and Clear (an answer
-    // is filled in) and Next (the answer has been graded).
-    function setActions({ submit = false, clear = false, next = false } = {}) {
+    // is filled in), Next (the answer has been graded) and Ignore (it was
+    // marked wrong, and the setting is on).
+    function setActions({ submit = false, clear = false, next = false, ignore = false } = {}) {
       submitButton.hidden = !submit;
       clearButton.hidden = !clear;
       nextButton.hidden = !next;
-      actions.classList.toggle('on', submit || clear || next);
-      host.dataset.actions = [submit && 'submit', clear && 'clear', next && 'next'].filter(Boolean).join(' ');
+      ignoreButton.hidden = !ignore;
+      actions.classList.toggle('on', submit || clear || next || ignore);
+      host.dataset.actions = [submit && 'submit', clear && 'clear', ignore && 'ignore', next && 'next'].filter(Boolean).join(' ');
     }
 
     // Keep the panel in the visible part of the page. Firefox for Android

@@ -53,6 +53,16 @@
         "src/content/main.js"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.wanikani.com/*"
+      ],
+      "js": [
+        "src/page/ignore-answer.js"
+      ],
+      "run_at": "document_idle",
+      "world": "MAIN"
     }
   ],
   "action": {

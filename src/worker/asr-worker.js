@@ -7,7 +7,8 @@
 // (connect-src 'self') blocks any other network access as a second layer.
 //
 // Messages in:  { type: 'load', model, kind: 'whisper' | 'ctc', slot? }
-//               { type: 'transcribe', id, model, kind, slot?, audio: Float32Array (16 kHz mono) }
+//               { type: 'transcribe', id, model, kind, slot?, audio: Float32Array (16 kHz mono), choices? }
+//               (choices: how many answers will be offered, 1-5, default 3)
 //               (slot is set for a custom model: 'en' or 'ja-kana')
 // Messages out: { type: 'progress', model, loaded, total }
 //               { type: 'loaded', model, ms }
@@ -157,9 +158,14 @@ self.onmessage = async ({ data }) => {
         self.postMessage({ type: 'result', id: data.id, noSpeech: true, ms: Math.round(performance.now() - t0) });
         return;
       }
+      // More candidates only when more choices are shown: at 5 choices,
+      // readings offered 284 -> 288 of 400 with a 5-deep beam, English
+      // 272 -> 274 of 300 with 6 alternatives (2026-10-20); at 3 they gain
+      // nothing and English decodes slower.
+      const more = (data.choices ?? 3) > 3;
       const candidates = kind === 'ctc'
-        ? await recognizeCtc(asr, vocab, data.audio, Tensor)
-        : (await recognize(asr, data.audio, { alternatives: 4, LogitsProcessorClass: LogitsProcessor }))
+        ? await recognizeCtc(asr, vocab, data.audio, Tensor, more ? 5 : 3)
+        : (await recognize(asr, data.audio, { alternatives: more ? 6 : 4, LogitsProcessorClass: LogitsProcessor }))
           .map(text => String(text).replace(NON_SPEECH, ' ').trim());
       self.postMessage({ type: 'result', id: data.id, candidates, ms: Math.round(performance.now() - t0) });
     }

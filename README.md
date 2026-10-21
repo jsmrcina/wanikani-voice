@@ -38,6 +38,7 @@ Version 0.3.3. The design notes, measurements and roadmap are in [PLAN.md](PLAN.
 - [Using it](#using-it)
 - [Privacy](#privacy)
 - [How it works](#how-it-works)
+- [WaniKani dictionary](#wanikani-dictionary)
 - [Custom and fine-tuned models](#custom-and-fine-tuned-models)
 - [Development](#development)
 - [Licence](#licence)
@@ -144,12 +145,19 @@ tag for the kind of answer expected, and a mic button.
 1. **Hold Shift**, say the answer, release. The first press asks for the
    microphone.
 2. The answer is filled in. If other answers were also likely, they appear
-   as numbered choices: **1–3** switch between them, as long as you haven't
-   started typing your own. Words that sound the same (*eye* / *I*, *tail* /
-   *tale*) are offered too, since no speech model can tell them apart.
+   as numbered choices: **1–3** switch between them (up to 5 choices, set
+   per language in the settings), as long as you haven't started typing
+   your own. Words that sound the same (*eye* / *I*, *tail* / *tale*) are
+   offered too, since no speech model can tell them apart, and so are the
+   other spellings of ず/づ and じ/ぢ, which sound identical (つづく, はなぢ).
+   Kana that no word can contain (ゆゅ, small ゃ after ん) are never offered.
 3. Not what you said? **Hold Shift and say it again.** The answer you
    recorded over isn't offered again for this question.
 4. **Enter** submits (default), and Enter again moves on, as usual on WaniKani.
+5. Submitted the wrong choice by accident? With *Offer to ignore a wrong
+   answer* on (off by default), press **Escape** or **Backspace** (or the panel's
+   **Ignore**) while it's red: the question comes back unanswered, as with
+   the Double-Check script's re-type, and WaniKani doesn't count it.
 
 The panel border shows what's happening: red while listening, blue while
 recognising, green when an answer is filled in, amber for "didn't hear
@@ -182,9 +190,11 @@ Everything works by touch. The panel is a bar at the bottom of the screen
 | Keep the microphone open between answers | **On**, so the start of your answer isn't cut off · off: the microphone opens only while you hold the key or button (your first syllable may be clipped). See [Privacy](#privacy) |
 | After recognition | fill in only · fill in and submit |
 | After grading | stay · go to the next question after a delay (optionally only when correct) |
+| Offer to ignore a wrong answer | **off** · on: Escape, Backspace or *Ignore* takes a wrong answer back (stays off while the Double-Check script is installed) |
+| Answers offered | **3** · 1 to 5, separately for English and readings |
+| WaniKani dictionary | **off** · on, with a dictionary file imported: answers that are some WaniKani item's meaning or reading come first (see below) |
 | Panel position | top right (bottom right on Android) · top left · bottom right · bottom left |
 | English speed | fast (Moonshine base) · accurate (Whisper base.en, slower) |
-| Speech recognition | on-device · test mode (type instead of speaking) |
 | Custom models | your own fine-tuned model per language (see below) |
 
 **Microphone tip:** system noise gates and suppressors (for example an
@@ -203,6 +213,8 @@ Firefox is excluded (EasyEffects: input blocklist).
 | The question is never used | Only `page-reader.js` reads the page, and only the question-type labels. The recogniser's input is the audio plus `en` / `ja-kana`. WaniKani's quiz events are timing signals; their payloads (which contain the item) are never read. All of this is checked by `test/policy.py` |
 | Minimal permissions | `storage`, plus access to `www.wanikani.com` only (Chrome adds `offscreen`, for the speech worker). Settings live in `storage.local` (never synced). `data_collection_permissions: none`. Privacy policy: [PRIVACY.md](PRIVACY.md) |
 | Custom models stay local | A chosen model file is read from disk into the extension's IndexedDB |
+| The dictionary stays local | Made by `tools/wk-dictionary.mjs` from your own API token, outside the extension; the settings page reads the file you choose into `storage.local`. The extension never calls WaniKani's API |
+| Ignore touches only WaniKani's own state | `src/page/ignore-answer.js` runs in the page's context (it has to reach WaniKani's quiz controllers), only while the setting is on. It puts back the count and queue position WaniKani changed for the wrong answer; nothing about the question or answer leaves it (its only output is a `data-wkv-ignore` status, checked by `test/policy.py`) |
 
 ## How it works
 
@@ -345,6 +357,33 @@ otherwise "hear" something in silence.
 | Readings: 31 words, generic model | 13/31 |
 | Readings: 31 words, fine-tuned on the author's voice | 24/31 |
 
+### WaniKani dictionary
+
+Settings → **WaniKani dictionary** ranks answers that are the meaning or
+reading of some WaniKani item (any item at any level, plus your own
+synonyms; never just the current question) ahead of ones that aren't. It
+only reorders what the recogniser heard: an answer that isn't a WaniKani
+word is still offered, and a wrong answer still goes in as you said it.
+On 400 recorded readings it took the right reading first from 166 to 248
+(offered among 3 choices: 270 → 284), and on 300 recorded meanings from
+242 to 259.
+
+WaniKani's content may not be redistributed, so it isn't bundled: you make
+the file yourself from your own account (a read-only token: WaniKani →
+Settings → API Tokens), and WaniKani's API applies your subscription's
+limits. Requests stay within WaniKani's rate limit, about 15 in all
+(`tools/lib/wanikani-api.mjs`):
+
+```bash
+mkdir -p ~/.config/wanikani-voice        # your API token goes in api-token (or set WANIKANI_API_TOKEN)
+node tools/wk-dictionary.mjs            # -> dist/wanikani.wkv-dict.json (~430 KB, 9,400 items)
+```
+
+Then choose the file in the settings. It stays on your computer; the
+extension itself never contacts WaniKani. Make it again after WaniKani adds
+items. The file is WaniKani's content from your account: keep it to
+yourself.
+
 ### Custom and fine-tuned models
 
 Settings → **Custom models** lets you replace the built-in model for English
@@ -415,8 +454,8 @@ so the 8-bit default is enough; `--encoder fp16` is there if you want it.
 
 A custom English model can be a Moonshine or a Whisper one.
 
-The WaniKani token is used only by `wk-readings.py` and `wk-meanings.mjs`;
-the extension never calls the WaniKani API.
+The token file is used only by the tools (`wk-readings.py`,
+`wk-meanings.mjs`, `wk-dictionary.mjs`); the extension never reads it.
 
 ## Development
 
@@ -438,10 +477,14 @@ node tools/build.mjs --target chrome && .venv/bin/python test/run_tests.py --bro
   of `build/` that also matches `http://localhost`, with a bridge for
   settings, a fake microphone, diagnostics and custom-model installs
   (`test/hooks/`).
+  - **Typed answers:** most tests switch on a test mode, not in the
+    settings page, where text typed into the panel stands in for speech
+    (`a|b|c` for alternatives), so they run without any recordings.
   - **Real speech:** WAV clips are played into the fake microphone.
   - **Also covered:** push-to-talk and hands-free, choices in both
-    languages, lesson quizzes, custom models (including fallback), the
-    settings page, and the background surviving Firefox's idle unloading.
+    languages, ignoring a wrong answer, the dictionary, lesson quizzes,
+    custom models (including fallback), the settings page, and the
+    background surviving Firefox's idle unloading.
 - **Privacy audit:** the run fails if any request goes anywhere but the
   browser vendor's hosts.
 - **Chrome:** the same suite in headless Chromium with `build-chrome/`,

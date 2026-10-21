@@ -9,6 +9,11 @@
   - didAnswerQuestion fires on grading AND again on advancing, immediately
     followed by willShowNextQuestion
   - a wrong-type answer un-hides .quiz-input__exception-container
+  - WaniKani's Stimulus controllers, reduced to what src/page/ignore-answer.js
+    uses (read from WaniKani's quiz_input / quiz_queue controllers
+    2026-10-20): quiz-input grades and calls quiz-queue's submitAnswer at
+    once, which counts a wrong answer and moves the item back in the queue;
+    the next submit calls nextItem. #mock-stats shows the queue's state.
 -->
 <html lang="en">
 <head>
@@ -29,7 +34,8 @@
 <body>
   <header>Mock review</header>
   <div class="character-header"><div class="character-header__characters"></div></div>
-  <div class="quiz-input">
+  <div data-controller="quiz-queue quiz-statistics"><span class="percent">100%</span></div>
+  <div class="quiz-input" data-controller="quiz-input">
     <label for="user-response" class="quiz-input__question-type-container">
       <span class="quiz-input__question-category"></span>
       <span class="quiz-input__question-type"></span>
@@ -47,6 +53,7 @@
     </div>
   </div>
   <pre id="mock-log">[]</pre>
+  <pre id="mock-stats">{}</pre>
   <script>
     const QUEUE = [
       { chars: '火', category: 'Radical', type: 'Name', answer: 'fire' },
@@ -84,13 +91,66 @@
       input.focus();
     }
 
-    function submit() {
-      const q = QUEUE[index % QUEUE.length];
-      if (graded) {
+    // ---- WaniKani's controllers, reduced ----
+    const stats = new Map(); // item index -> { meaning, reading }
+    const quizQueue = {
+      stats: {
+        get: item => stats.get(item.id) ?? { meaning: { incorrect: 0, complete: false }, reading: { incorrect: 0, complete: false } },
+        set: (item, stat) => stats.set(item.id, stat),
+      },
+      activeQueue: QUEUE.map((_, i) => i),
+      currentItem: null,
+      questionType: null,
+    };
+    const statistics = { answeredCount: 0, incorrectCount: 0, percentCorrectTarget: $('.percent') };
+    function showStats() {
+      $('#mock-stats').textContent = JSON.stringify({ stats: Object.fromEntries(stats), activeQueue: quizQueue.activeQueue,
+        answered: statistics.answeredCount, incorrect: statistics.incorrectCount, unanswered });
+    }
+    const queueController = {
+      quizQueue,
+      submitAnswer(answer, results) {
+        const pass = results.action === 'pass';
+        const stat = quizQueue.stats.get(quizQueue.currentItem);
+        const type = quizQueue.questionType;
+        stat[type].complete = pass;
+        if (!pass) stat[type].incorrect += 1;
+        quizQueue.stats.set(quizQueue.currentItem, stat);
+        if (!pass) quizQueue.activeQueue = [...quizQueue.activeQueue.filter(i => i !== quizQueue.currentItem.id), quizQueue.currentItem.id];
+        statistics.answeredCount += 1;
+        if (!pass) statistics.incorrectCount += 1;
+        showStats();
+        window.dispatchEvent(new CustomEvent('didAnswerQuestion',
+          { detail: { subject: QUEUE[quizQueue.currentItem.id], results } }));
+      },
+      nextItem() {
+        const q = QUEUE[index % QUEUE.length];
         window.dispatchEvent(new CustomEvent('didAnswerQuestion', { detail: { subject: q } }));
         window.dispatchEvent(new CustomEvent('willShowNextQuestion', { detail: { subject: q } }));
         index += 1;
         setTimeout(show, 50);
+      },
+    };
+    const inputController = {
+      inputTarget: input,
+      inputContainerTarget: container,
+      inputChars: '',
+      get currentQuestionType() { return QUEUE[index % QUEUE.length].type === 'Reading' ? 'reading' : 'meaning'; },
+      set inputEnabled(on) { input.setAttribute('enabled', String(on)); },
+      get inputEnabled() { return input.getAttribute('enabled') === 'true'; },
+      clearException() { $('.quiz-input__exception-container').hidden = true; },
+      bindWanakana() {},
+    };
+    queueController.element = document.querySelector('[data-controller~="quiz-queue"]');
+    const controllers = { 'quiz-queue': queueController, 'quiz-statistics': statistics, 'quiz-input': inputController };
+    window.Stimulus = { getControllerForElementAndIdentifier: (el, name) => (el ? controllers[name] : undefined) };
+    let unanswered = 0;
+    window.addEventListener('didUnanswerQuestion', () => { graded = false; unanswered += 1; showStats(); });
+
+    function submit() {
+      const q = QUEUE[index % QUEUE.length];
+      if (graded) {
+        queueController.nextItem();
         return;
       }
       const value = input.value.trim();
@@ -106,8 +166,9 @@
       input.setAttribute('enabled', 'false');
       container.setAttribute('correct', String(pass));
       record({ index, answer: value, pass });
-      window.dispatchEvent(new CustomEvent('didAnswerQuestion',
-        { detail: { subject: q, results: { action: pass ? 'pass' : 'fail' } } }));
+      quizQueue.currentItem = { id: index % QUEUE.length };
+      quizQueue.questionType = q.type === 'Reading' ? 'reading' : 'meaning';
+      queueController.submitAnswer(value, { action: pass ? 'pass' : 'fail' });
     }
 
     $('.quiz-input__submit-button').addEventListener('click', submit);

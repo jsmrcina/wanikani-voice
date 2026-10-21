@@ -25,6 +25,15 @@ EVENT_DETAIL = re.compile(r"\.detail\b")
 NETWORK = re.compile(
     r"\bfetch\s*\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon|RTCPeerConnection|https?://"
 )
+# Scripts in src/page/ run in WaniKani's own context. They may work with its
+# objects, but nothing may leave them except the fixed data-wkv-ignore
+# status: no messages, no event payloads, no other attributes.
+PAGE_WORLD_OUTPUT = re.compile(
+    r"postMessage|runtime\.|sendMessage|localStorage|sessionStorage|indexedDB|document\.cookie|"
+    r"new\s+CustomEvent\s*\([^)]*,|dispatchEvent\s*\(\s*new\s+(?!CustomEvent\('didUnanswerQuestion'\)|Event\()"
+)
+PAGE_WORLD_DATASET = re.compile(r"dataset\.(\w+)")
+PAGE_WORLD_DATASET_ALLOWED = {"wkvIgnore", "wkvIgnoreEnabled"}
 # URLs allowed to appear in source (none are fetched).
 URL_ALLOWLIST = ("https://www.wanikani.com/", "http://www.w3.org/2000/svg")
 
@@ -67,6 +76,12 @@ def check() -> list[str]:
             problems.append(f"{rel}: references question/item content: {QUESTION_SELECTORS.search(code).group(0)}")
         if in_content and EVENT_DETAIL.search(code):
             problems.append(f"{rel}: reads an event payload (.detail)")
+        if path.parent.name == "page":
+            if PAGE_WORLD_OUTPUT.search(code):
+                problems.append(f"{rel}: page-context script sends data out: {PAGE_WORLD_OUTPUT.search(code).group(0)}")
+            for m in PAGE_WORLD_DATASET.finditer(code):
+                if m.group(1) not in PAGE_WORLD_DATASET_ALLOWED:
+                    problems.append(f"{rel}: page-context script sets data-* other than the ignore status: {m.group(1)}")
         for m in NETWORK.finditer(code):
             text = code[m.start(): m.start() + 60]
             if not text.startswith(URL_ALLOWLIST):

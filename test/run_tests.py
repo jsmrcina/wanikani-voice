@@ -119,7 +119,8 @@ def build_test_extension(target="firefox") -> Path:
             shutil.copy(item, out / item.name)
     manifest = json.loads((out / "manifest.json").read_text())
     manifest["host_permissions"].append("http://localhost/*")
-    manifest["content_scripts"][0]["matches"].append("http://localhost/*")
+    for cs in manifest["content_scripts"]:  # the content scripts and the page-context hook
+        cs["matches"].append("http://localhost/*")
     # WebDriver can't drive moz-extension:// pages, so tests set settings
     # through a bridge content script that only exists in this build.
     shutil.copy(ROOT / "test/hooks/settings-bridge.js", out / "settings-bridge.js")
@@ -791,6 +792,145 @@ def test_auto_advance_only_correct(b):
     b.wait(lambda: b.mode() == "en" and len(b.mock_log()) == 2, 5, "auto-advanced after a correct answer")
 
 
+def mock_stats(b):
+    """The mock's quiz-queue state: per-item stats, the active queue, and the
+    statistics panel's counts (test/mock/review.html)."""
+    return json.loads(b.d.find_element(By.ID, "mock-stats").text or "{}")
+
+
+def ignore_status(b):
+    return b.d.execute_script("return document.documentElement.dataset.wkvIgnore ?? null")
+
+
+def test_ignore_wrong_answer(b):
+    """With the setting on, a wrong answer can be ignored (Escape or Backspace): the
+    count, the queue position and the statistics go back as they were, the
+    same question comes back, and the ignored answer isn't offered again.
+    No auto-advance past an answer that can be ignored."""
+    b.set_options(ignoreWrongAnswers=True, autoAdvance=True, autoAdvanceDelayMs=200)
+    b.open_review()
+    b.wait(lambda: ignore_status(b) == "ready", 5, "hook installed")
+    b.say("Water|Fire")
+    b.wait(lambda: b.input_value() == "water", 5, "filled")
+    b.press_enter()
+    b.wait_state("waiting")
+    assert ignore_status(b) == "pending"
+    assert mock_stats(b)["stats"]["0"]["meaning"]["incorrect"] == 1, mock_stats(b)
+    assert mock_stats(b)["activeQueue"][-1] == 0, mock_stats(b)
+    assert "ignore" in b.host().get_attribute("data-actions").split(), b.host().get_attribute("data-actions")
+    assert b.message() == "Not quite. Escape or Backspace to ignore it, Enter for the next question", b.message()
+    time.sleep(0.5)
+    assert b.state() == "waiting", "auto-advanced past an answer that can be ignored"
+    ActionChains(b.d).send_keys(Keys.ESCAPE).perform()
+    b.wait(lambda: b.state() == "ready", 5, "question back")
+    stats = mock_stats(b)
+    assert stats["stats"]["0"]["meaning"]["incorrect"] == 0, stats
+    assert stats["activeQueue"] == [0, 1, 2, 3, 4, 5], stats
+    assert (stats["answered"], stats["incorrect"], stats["unanswered"]) == (0, 0, 1), stats
+    assert b.input_value() == "" and b.mode() == "en", (b.input_value(), b.mode())
+    assert b.d.find_element(By.ID, "user-response").get_attribute("enabled") == "true"
+    assert b.d.find_element(By.CSS_SELECTOR, ".quiz-input__input-container").get_attribute("correct") is None
+    b.say("Wind")  # wrong again: Backspace works too
+    b.wait(lambda: b.input_value() == "wind", 5, "filled")
+    b.press_enter()
+    b.wait_state("waiting")
+    ActionChains(b.d).send_keys(Keys.BACKSPACE).perform()
+    b.wait(lambda: b.state() == "ready", 5, "question back after Backspace")
+    assert mock_stats(b)["stats"]["0"]["meaning"]["incorrect"] == 0, mock_stats(b)
+    b.say("Water|Wind|Fire")
+    b.wait(lambda: b.input_value() == "fire", 5, "ignored answers not offered again")
+    b.press_enter()
+    b.wait(lambda: b.mock_log()[-1].get("pass") is True, 5, "right answer graded")
+    assert [e.get("index") for e in b.mock_log()] == [0, 0, 0], b.mock_log()  # the same question each time
+
+
+def test_ignore_off_by_default(b):
+    """Off by default: a wrong answer counts, and Backspace does nothing."""
+    b.set_options()
+    b.open_review()
+    b.say("water")
+    b.wait(lambda: b.input_value() == "water", 5, "filled")
+    b.press_enter()
+    b.wait_state("waiting")
+    time.sleep(0.6)  # the hook polls every 0.5 s; it must stay out
+    assert ignore_status(b) is None, ignore_status(b)
+    assert "ignore" not in (b.host().get_attribute("data-actions") or ""), b.host().get_attribute("data-actions")
+    ActionChains(b.d).send_keys(Keys.BACKSPACE).perform()
+    time.sleep(0.3)
+    assert b.state() == "waiting", b.state()
+    assert mock_stats(b)["stats"]["0"]["meaning"]["incorrect"] == 1, mock_stats(b)
+
+
+def test_ignore_stands_down_for_double_check(b):
+    """With the Double-Check script installed, its own re-type is used."""
+    b.set_options(ignoreWrongAnswers=True)
+    b.open_review()
+    b.wait(lambda: ignore_status(b) == "ready", 5, "hook installed")
+    b.d.execute_script("window.doublecheck = {}")
+    b.say("water")
+    b.wait(lambda: b.input_value() == "water", 5, "filled")
+    b.press_enter()
+    b.wait_state("waiting")
+    assert ignore_status(b) == "ready", ignore_status(b)
+    assert "ignore" not in (b.host().get_attribute("data-actions") or "")
+    assert mock_stats(b)["stats"]["0"]["meaning"]["incorrect"] == 1, mock_stats(b)
+
+
+def test_choice_counts(b):
+    """How many answers are offered is set per language, 1 to 5."""
+    b.set_options(choicesEnglish=5, choicesReadings=1)
+    b.open_review()
+    b.say("fire|five|hire|tire|dire|wire")
+    b.wait(lambda: b.input_value() == "fire", 5, "filled")
+    assert b.host().get_attribute("data-choices") == "fire|five|hire|tire|dire", b.host().get_attribute("data-choices")
+    b.press_enter()
+    b.wait_state("waiting")
+    b.press_enter()
+    b.wait(lambda: b.mode() == "ja-kana" and b.state() == "ready", 5, "reading question")
+    b.say("じん|にん|ひと")
+    b.wait(lambda: b.input_value() == "じん", 5, "filled")
+    assert not b.host().get_attribute("data-choices"), b.host().get_attribute("data-choices")
+
+
+def test_dictionary_ranking(b):
+    """With an imported dictionary, answers that are WaniKani meanings or
+    readings come first; nothing heard is replaced."""
+    dictionary = json.loads((ROOT / "test/fixtures/test.wkv-dict.json").read_text(encoding="utf-8"))
+    stored = {"meanings": dictionary["meanings"], "readings": dictionary["readings"]}
+    b.set_options(dictionary=stored)  # imported, but not turned on: no effect
+    b.open_review()
+    b.say("And|Hand")
+    b.wait(lambda: b.input_value() == "and", 5, "dictionary off")
+    b.set_options(dictionary=stored, useDictionary=True)
+    b.open_review()
+    b.say("And|Hand")
+    b.wait(lambda: b.input_value() == "hand", 5, "dictionary word first")
+    assert b.host().get_attribute("data-choices") == "hand|and", b.host().get_attribute("data-choices")
+    b.say("Sand|Band")  # neither is in it: the order heard
+    b.wait(lambda: b.input_value() == "sand", 5, "order kept")
+
+
+def test_options_dictionary(b):
+    """The settings page's dictionary import (in-memory storage)."""
+    b.d.get(b.base + "/test/options/index.html")
+    status = lambda: b.d.find_element(By.CSS_SELECTOR, ".dictionary-status").text
+    b.wait(lambda: status() == "none imported", 5, "rendered")
+    assert b.d.find_element(By.ID, "useDictionary").get_attribute("disabled") is not None
+    field = b.d.find_element(By.CSS_SELECTOR, "#dictionary input[type=file]")
+    b.d.execute_script("arguments[0].hidden = false", field)
+    field.send_keys(str(ROOT / "manifest.json"))
+    b.wait(lambda: "not a dictionary file" in status(), 5, "wrong file refused")
+    field.send_keys(str(ROOT / "test/fixtures/test.wkv-dict.json"))
+    b.wait(lambda: status().startswith("3 meanings, 2 readings"), 5, "imported")
+    store = b.d.execute_script("return window.__store")
+    assert store["dictionary"] == {"meanings": ["Hand", "Fire", "Twenty One"], "readings": ["じん", "にん"]}, store
+    assert store["useDictionary"] is True and store["dictionaryInfo"]["subjects"] == 3, store
+    b.d.find_element(By.CSS_SELECTOR, "#dictionary .reset").click()
+    b.wait(lambda: status() == "none imported", 5, "removed")
+    store = b.d.execute_script("return window.__store")
+    assert "dictionary" not in store and store["useDictionary"] is False, store
+
+
 def test_hands_free_gives_up_after_misses(b):
     b.set_options(inputMode="voice-activity")
     b.open_review()
@@ -939,6 +1079,22 @@ def test_touch_detected(b):
         "touch emulation prefs not honoured"
 
 
+def test_touch_ignore(b):
+    """On a touch screen, the panel's Ignore button takes a wrong answer back."""
+    b.set_options(ignoreWrongAnswers=True)
+    b.open_review()
+    b.wait(lambda: ignore_status(b) == "ready", 5, "hook installed")
+    b.set_utterance("water")
+    b.touch(b.panel(".badge"), hold=0.3)
+    b.wait_state("filled")
+    b.touch(b.panel(".submit"))
+    b.wait_state("waiting")
+    assert b.message() == "Not quite. Tap Ignore to take it back, or Next", b.message()
+    b.touch(b.panel(".ignore"))
+    b.wait(lambda: b.state() == "ready", 5, "question back")
+    assert mock_stats(b)["stats"]["0"]["meaning"]["incorrect"] == 0, mock_stats(b)
+
+
 def test_touch_review_flow(b):
     """A whole review by touch: hold the mic, tap a choice, Submit, Next."""
     b.set_options()
@@ -1069,7 +1225,7 @@ def test_touch_options_hide_ptt_key(b):
     assert not b.d.find_element(By.ID, "ptt-row").is_displayed(), "no key to pick on a phone"
 
 
-TOUCH_TESTS = [test_touch_detected, test_touch_review_flow, test_touch_slide_off_cancels,
+TOUCH_TESTS = [test_touch_detected, test_touch_review_flow, test_touch_ignore, test_touch_slide_off_cancels,
                test_touch_clear, test_touch_drift_still_records, test_touch_mic_stays_put, test_touch_layout, test_touch_options_hide_ptt_key]
 
 TESTS = [test_unit, test_inactive_off_review_page, test_lesson_quiz, test_defaults_fill_only_push_to_talk,
@@ -1081,7 +1237,8 @@ TESTS = [test_unit, test_inactive_off_review_page, test_lesson_quiz, test_defaul
          test_reload_replaces_orphaned_badge, test_custom_model_english, test_custom_model_moonshine,
          test_custom_model_wrong_language_rejected, test_custom_model_broken_falls_back,
          test_options_custom_models,
-         test_auto_advance_only_correct,
+         test_auto_advance_only_correct, test_ignore_wrong_answer, test_ignore_off_by_default,
+         test_ignore_stands_down_for_double_check, test_choice_counts, test_dictionary_ranking, test_options_dictionary,
          test_hands_free_gives_up_after_misses, test_panel_position, test_speech_push_to_talk, test_mic_closed_between_answers,
          test_speech_numbers_and_phrases, test_reading_choices, test_answer_choices_english, test_retry_drops_rejected_answer,
          test_speech_japanese,
