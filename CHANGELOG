@@ -1,0 +1,132 @@
+Voice Answers for WaniKani: Unofficial Tool
+Patch notes: from 0.1.2 (the first listed version, 2026-10-05) to 0.4.2
+
+As always: speech recognition runs entirely on your device, the add-on
+makes no network requests, the question is never read, and a wrong answer
+goes in exactly as you said it.
+
+Accuracy numbers below are from real recordings of WaniKani items:
+300 English meanings and 400 readings.
+
+
+0.4.2 (upcoming store release)
+------------------------------
+Readings
+- Impossible kana are never offered: a small ゃ/ゅ/ょ after anything but an
+  i-row kana (ゆゅ, んょ), two small kana in a row, っ before a vowel.
+  Right reading first: 163 -> 166 of 400. None of WaniKani's 6,924 readings
+  is affected.
+- ず/づ and じ/ぢ sound the same, so the other spelling is offered as a
+  choice too (つずく -> つづく, ちじむ -> ちぢむ).
+
+More choices
+- Settings -> Answers offered: 1 to 5 choices, set separately for English
+  and readings (default 3). At 5, the right reading is among the choices
+  for 288 of 400 recordings (270 at 3).
+
+WaniKani dictionary (optional, off by default)
+- Answers that are the meaning or reading of any WaniKani item (any level,
+  plus your own synonyms; never just the current question) are offered
+  first. Nothing you said is replaced.
+- Right answer first: readings 166 -> 248 of 400, meanings 242 -> 259 of 300.
+- The add-on still never goes online: you make the dictionary file with
+  tools/wk-dictionary.mjs from the source repository, using your own
+  WaniKani API token (about 15 requests, within WaniKani's rate limit),
+  and choose it in Settings -> WaniKani dictionary.
+
+Ignore a wrong answer (optional, off by default)
+- Submitted the wrong choice by accident? While the answer is red, press
+  Escape or Backspace, or tap Ignore on the panel. The question comes back
+  unanswered, and WaniKani doesn't count the mistake: its count, the
+  item's place in the queue and the session score are put back as they
+  were. Works like the Double-Check script's re-type, and stays out of the
+  way when Double-Check is installed.
+- An answer you ignored isn't offered again for that question.
+- No auto-advance past a wrong answer that can still be ignored.
+
+Settings
+- Test mode (typing instead of speaking) is no longer offered in the
+  settings. If you had it on, the update switches back to speech.
+
+
+0.3.3
+-----
+- More accurate English (fast, Moonshine, the default): its encoder runs in
+  float16 instead of 8-bit. Right answer first: 237 -> 242 of 300; among
+  the choices: 267 -> 271. About 0.04 s slower per answer; the download is
+  about 20 MB larger.
+- Custom models can say which precision each part is in, so a
+  full-precision English model can be loaded (a ready-made one,
+  moonshine-base-fp32.wkv-model.zip, is on the GitHub releases page: 246
+  of 300 right first time). Model files made for earlier versions still
+  work.
+
+
+0.3.1
+-----
+Better recognition with the built-in models (Moonshine, right answer first:
+227 -> 237 of 300):
+- Say it again: if you record over an answer (or tap Clear), it isn't
+  offered again for that question. If only it is heard again, the panel
+  says so instead of auto-submitting it.
+- English alternatives can differ in any word, not just the first, and are
+  ranked by how likely the whole answer is.
+- Words that sound alike are offered too (eye / I, tail / tale, son / sun).
+- A bare "and", "so" or "that" ranks a little lower, so "hand" is no longer
+  heard as "and".
+- Readings: alternatives are checked against the clip at three speeds
+  (right reading among the choices: 253 -> 270 of 400), and the ー spelling
+  no longer takes the second choice.
+- Push-to-talk keeps recording 0.2 s after you let go, so the end of a word
+  isn't cut off.
+- A hesitation ("um") is never turned into an answer.
+
+Microphone
+- By default the microphone stays open between answers so the start of
+  your answer isn't cut off: the last 0.3 s sits in memory, constantly
+  overwritten, and is used only when you press. New setting to turn this
+  off (the microphone then opens only while you hold the key or button).
+  The privacy policy now describes this exactly.
+
+
+0.2.7
+-----
+- Renamed "Voice Answers for WaniKani: Unofficial Tool", following
+  WaniKani's branding guidelines; the settings page says it's an
+  unofficial tool, not affiliated with WaniKani or Tofugu.
+
+
+0.2.3 - 0.2.6
+-------------
+Firefox for Android
+- Everything works by touch: hold the panel's mic button to talk (let go
+  away from it to cancel), with Submit, Clear and Next buttons.
+- On phones the panel is a bar at the bottom of the screen with
+  finger-sized buttons, and it stays above the on-screen keyboard.
+- The microphone uses Android's automatic gain (a phone's raw microphone is
+  far quieter than a desktop's).
+
+Chrome and Chromium browsers (Edge, Brave, ...)
+- The add-on is on the Chrome Web Store, with the same features and the
+  same on-device recognition.
+
+Faster English
+- Moonshine is the new default ("fast"): about 0.1 s per answer on a
+  desktop and 0.3 s on a phone. Whisper base.en stays available as
+  "accurate" (about 1.5 s / 4 s).
+- A word or phrase the recogniser repeats ("king king", "barbar") is
+  collapsed to one.
+
+Custom models
+- English models fine-tuned on your own voice (Moonshine or Whisper) can be
+  loaded in the settings, as reading models already could. Tools to
+  fine-tune on your voice are in the source repository.
+
+Smaller things
+- The settings page shows the version number, and its wording no longer
+  assumes Firefox.
+- Choosing a model file from the toolbar popup now works (it opens the
+  settings in a tab), and a model file for the wrong language says where
+  it goes.
+- The pause button moved: pause in the settings or with Alt+Shift+V;
+  pressing the mic while paused turns voice answers back on.
