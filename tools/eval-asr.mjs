@@ -12,7 +12,9 @@
 // the personal English list (personal/words.json, tools/wk-meanings.mjs)
 // recorded into personal/recordings/en, by default only its held-out
 // "test" split (--personal all for every recorded clip); with --ja, the
-// 400 recorded readings (personal/recordings/ja). Uses
+// 400 recorded readings (personal/recordings/ja); --words FILE: another
+// personal list recorded into the same folder (e.g. personal/words-fute.json),
+// whose readings may have a split too. Uses
 // transformers.js on Node (native onnxruntime), so absolute speed differs from
 // Firefox's WASM backend; accuracy should match.
 import { readdir, readFile, writeFile } from 'node:fs/promises';
@@ -33,7 +35,7 @@ const lang = args.includes('--ja') ? 'ja' : 'en';
 // --models-root DIR: evaluate models from elsewhere (e.g. personal fine-tuned exports).
 const rootIdx = args.indexOf('--models-root');
 const setName = setIdx >= 0 ? args[setIdx + 1] : 'real';
-const models = args.filter((a, i) => !a.startsWith('--') && !['--set', '--models-root', '--personal', '--only', '--opts', '--choices', '--dump', '--dtype', '--dictionary'].includes(args[i - 1]));
+const models = args.filter((a, i) => !a.startsWith('--') && !['--set', '--models-root', '--personal', '--words', '--only', '--opts', '--choices', '--dump', '--dtype', '--dictionary'].includes(args[i - 1]));
 // --opts JSON: extra options for recognize() (English decoding experiments).
 const optsIdx = args.indexOf('--opts');
 const recognizeOpts = optsIdx >= 0 ? JSON.parse(args[optsIdx + 1]) : {};
@@ -94,11 +96,12 @@ let fixtureDir;
 const personalIdx = args.indexOf('--personal');
 if (personalIdx >= 0) {
   const split = args[personalIdx + 1] && !args[personalIdx + 1].startsWith('--') ? args[personalIdx + 1] : 'test';
-  const words = JSON.parse(await readFile(join(ROOT, 'personal/words.json'), 'utf8'));
+  const wordsIdx = args.indexOf('--words');
+  const words = JSON.parse(await readFile(wordsIdx >= 0 ? resolve(args[wordsIdx + 1]) : join(ROOT, 'personal/words.json'), 'utf8'));
   fixtureDir = join(ROOT, 'personal/recordings');
   const recorded = new Set((await readdir(join(fixtureDir, lang)).catch(() => [])).map(f => f.replace(/\.wav$/, '')));
-  // The readings have no split: the generic model never trained on any of them.
-  fixtures = words[lang].filter(w => (split === 'all' || lang === 'ja' || w.split === split) && recorded.has(w.slug))
+  // The 400 readings have no split: the generic model never trained on any of them.
+  fixtures = words[lang].filter(w => (split === 'all' || (lang === 'ja' && !w.split) || w.split === split) && recorded.has(w.slug))
     .map(w => ({ file: `${lang}/${w.slug}.wav`, said: w.say, expected: w.expected, group: w.group, split: w.split }));
   console.log(`personal ${lang === 'ja' ? 'readings' : `English, ${split} split`}: ${fixtures.length} recorded clips`);
 } else if (real) {

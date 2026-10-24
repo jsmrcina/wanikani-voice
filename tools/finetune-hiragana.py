@@ -7,8 +7,11 @@ Dev-time only (torch + transformers; a CUDA GPU makes it take minutes):
         [--epochs 30] [--out personal/models/distilhubert-hiragana] [--device cuda]
 
 - Training data: each --data pair is a recorder word list and the folder its
-  clips were saved to (default: the personal list from tools/wk-readings.py).
-  10% is held out for validation.
+  clips were saved to (default: the personal list from tools/wk-readings.py,
+  plus the targeted ふ/て list personal/words-fute.json when it exists).
+  10% is held out for validation. Words marked "split": "test" (e.g. the
+  ふ/て list, personal/words-fute.json) are never trained on; they're scored
+  before and after as a held-out test.
 - Benchmark: the raw evaluation readings (personal/fixtures/real-raw/ja) are
   never trained on; they're scored before and after, like eval-asr's first
   choice (greedy decode + the extension's normalisation rules).
@@ -59,7 +62,7 @@ def collect(pairs):
         for w in words:
             wav = Path(folder) / "ja" / f"{w['slug']}.wav"
             if wav.exists():
-                items.append((wav, w["expected"]))
+                items.append((wav, w["expected"], w.get("split")))
     return items
 
 
@@ -76,7 +79,10 @@ def augment(audio, rng):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--data", nargs="+", default=["personal/words.json:personal/recordings"])
+    default_data = ["personal/words.json:personal/recordings"]
+    if (ROOT / "personal/words-fute.json").exists():
+        default_data.append("personal/words-fute.json:personal/recordings")
+    ap.add_argument("--data", nargs="+", default=default_data)
     ap.add_argument("--epochs", type=int, default=30)
     ap.add_argument("--lr", type=float, default=3e-5)
     ap.add_argument("--batch", type=int, default=8)
@@ -109,7 +115,9 @@ def main():
         out = ev.normalize_kana(text)
         return out
 
-    data = [(w, t, encode(t)) for w, t in collect(args.data)]
+    items = collect(args.data)
+    test = [(w, t) for w, t, split in items if split == "test"]
+    data = [(w, t, encode(t)) for w, t, split in items if split != "test"]
     skipped = [t for _, t, ids in data if ids is None]
     data = [d for d in data if d[2] is not None]
     if skipped:
@@ -121,7 +129,8 @@ def main():
     val, train = data[:n_val], data[n_val:]
     bench_words = json.loads((ROOT / "tools/recorder/words.json").read_text(encoding="utf-8"))["ja"]
     bench = [(ROOT / "personal/fixtures/real-raw/ja" / f"{w['slug']}.wav", w["expected"]) for w in bench_words]
-    print(f"train {len(train)}, validation {len(val)}, benchmark {len(bench)} (never trained on); device {args.device}")
+    print(f"train {len(train)}, validation {len(val)}, benchmark {len(bench)} and test {len(test)}"
+          f" (never trained on); device {args.device}")
 
     # Freeze the convolutional feature encoder (or, with --head-only, the whole
     # encoder); train the rest.
@@ -146,7 +155,7 @@ def main():
         return hits
 
     best = score(val)
-    print(f"before: validation {best}/{len(val)}, benchmark {score(bench)}/{len(bench)}")
+    print(f"before: validation {best}/{len(val)}, benchmark {score(bench)}/{len(bench)}, test {score(test)}/{len(test)}")
     out = (ROOT / args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
     ckpt = out / "checkpoint"
@@ -186,7 +195,7 @@ def main():
             best = v
             model.save_pretrained(ckpt)
     model = AutoModel.from_pretrained(ckpt, trust_remote_code=True).to(args.device)
-    print(f"best: validation {best}/{len(val)}, benchmark {score(bench)}/{len(bench)}")
+    print(f"best: validation {best}/{len(val)}, benchmark {score(bench)}/{len(bench)}, test {score(test)}/{len(test)}")
     # Copy the tokenizer folders next to the checkpoint so the export finds them.
     for sub in ("kana_tokenizer", "phoneme_tokenizer"):
         for f in (src / sub).glob("*"):

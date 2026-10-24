@@ -157,20 +157,27 @@
     if (!mic.isRecording()) return;
     // Keep a little trailing audio, as a real push-to-talk release would.
     busy = true;
-    await new Promise(r => setTimeout(r, 250));
-    const clip = mic.stop();
-    document.body.classList.remove('recording');
-    $('rec-label').textContent = 'Hold to record';
+    let clip, res, blob;
     const w = items[index];
-    const seconds = clip.audio.length / WKV.audio.TARGET_RATE;
-    if (seconds < 0.3) {
-      busy = false;
-      setStatus('Too short: hold while you speak.', 'err');
+    try {
+      clip = await mic.stop({ tailMs: 250 });
+      document.body.classList.remove('recording');
+      $('rec-label').textContent = 'Hold to record';
+      if (!clip) return;
+      const seconds = clip.audio.length / WKV.audio.TARGET_RATE;
+      if (seconds < 0.3) {
+        setStatus('Too short: hold while you speak.', 'err');
+        return;
+      }
+      blob = wav(clip.audio, WKV.audio.TARGET_RATE);
+      res = await fetch(`/save/${w.lang}/${w.slug}`, { method: 'POST', body: blob });
+    } catch (e) {
+      setStatus(`Recording failed: ${e.message}`, 'err');
       return;
+    } finally {
+      busy = false;
     }
-    const blob = wav(clip.audio, WKV.audio.TARGET_RATE);
-    const res = await fetch(`/save/${w.lang}/${w.slug}`, { method: 'POST', body: blob });
-    busy = false;
+    const seconds = clip.audio.length / WKV.audio.TARGET_RATE;
     if (!res.ok) { setStatus(`Save failed: ${(await res.json()).error}`, 'err'); return; }
     done.add(`${w.lang}/${w.slug}`);
     lastUrl = URL.createObjectURL(blob);
