@@ -1332,6 +1332,9 @@ readings and 25 meanings.
      `heard` entries, and an analyzer that counts first-try answers and
      lists cut-short clips and possibly changed answers apart. Signed
      unlisted for testing, so the next store submission needs 0.4.5 or up.
+   - **v0.4.5** (2026-10-26): 0.4.4 plus answers you typed or edited marked
+     in the log (`edited`, with what voice had filled). Signed unlisted for
+     testing, so the next store submission needs 0.4.6 or up.
 2. **Training inside the extension** (deferred 2026-10-04). Train only the
    kana head (0.69M weights), in plain JS/WASM, from a recorder in the
    settings page. Clips and weights stay in IndexedDB, and the CTC loss and

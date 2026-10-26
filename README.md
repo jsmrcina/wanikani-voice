@@ -28,7 +28,7 @@ anywhere.
        alt="A WaniKani reading question with the extension's panel offering three hiragana readings to choose from">
 </p>
 
-Version 0.4.4. What changed in each release: [CHANGELOG](CHANGELOG). The design notes, measurements and roadmap are in [PLAN.md](PLAN.md).
+Version 0.4.5. What changed in each release: [CHANGELOG](CHANGELOG). The design notes, measurements and roadmap are in [PLAN.md](PLAN.md).
 
 ## Contents
 - [Screenshots](#screenshots)
