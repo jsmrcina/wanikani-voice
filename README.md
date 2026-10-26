@@ -459,10 +459,11 @@ A custom English model can be a Moonshine or a Whisper one.
 **Finding what to train on: the activity log.** Settings → **Activity log**
 → *Keep a log of my spoken answers* (off by default) records, for each
 spoken answer, what the recogniser heard and offered, which choice you
-picked, what you recorded over or cleared, what you submitted and whether
-WaniKani marked it correct, and answers you ignored. It's text only (no
-audio, never the question), kept in the extension's IndexedDB on this
-device, and keeps adding to itself across sessions until you clear it.
+picked, what you recorded over or cleared, what you submitted (and whether
+you typed or edited it yourself) and whether WaniKani marked it correct,
+and answers you ignored. It's text only (no audio, never the question),
+kept in the extension's IndexedDB on this device, and keeps adding to
+itself across sessions until you clear it.
 *Export…* saves it as a `.jsonl` file; then:
 
 ```bash

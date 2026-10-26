@@ -27,14 +27,16 @@
   //   noAnswer  reason (e.g. "Didn't hear anything")
   //   pick    index, text, from (what the box held)
   //   retry   how ('record' | 'clear'), text (the answer recorded over or cleared)
-  //   graded  answer, correct, index (in the last choices offered; -1: typed or edited), choices
+  //   graded  answer, correct, index (in the last choices offered, else -1), choices,
+  //           edited (not anything offered on this question: typed or edited),
+  //           filled (if edited: what voice had put in the box)
   //   ignore  answer
   const FIELDS = {
     heard: ['model', 'ms', 'audioMs', 'raw', 'candidates', 'choices', 'repeated', 'rejected'],
     noAnswer: ['reason'],
     pick: ['index', 'text', 'from'],
     retry: ['how', 'text'],
-    graded: ['answer', 'correct', 'index', 'choices'],
+    graded: ['answer', 'correct', 'index', 'choices', 'edited', 'filled'],
     ignore: ['answer'],
   };
   const COMMON = ['s', 'q', 'mode'];

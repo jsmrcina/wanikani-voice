@@ -146,8 +146,9 @@ for (const q of list) {
   s.correct++;
   // How the right answer got there: the first thing heard, another choice
   // of it, a later attempt (recorded again, or after an ignored answer), or
-  // typing.
-  if (graded.index < 0) s.typed++;
+  // typing. edited: not anything offered on the question (logs from 0.4.5
+  // on); older logs only say whether it was among the last choices.
+  if (graded.edited ?? graded.index < 0) s.typed++;
   else if (heard.length > 1) s.again++;
   else if (graded.index === 0) s.firstTry++;
   else s.otherChoice++;

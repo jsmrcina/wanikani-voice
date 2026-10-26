@@ -923,8 +923,43 @@ def test_activity_log(b):
     assert (right["answer"], right["correct"], right["index"], right["q"]) == ("fire", True, 0, wrong["q"] + 1), right
     assert len({e["s"] for e in log}) == 1 and all(isinstance(e["t"], (int, float)) for e in log)
     allowed = {"t", "e", "s", "q", "mode", "model", "ms", "audioMs", "raw", "candidates", "choices", "repeated", "rejected",
-               "index", "text", "from", "how", "answer", "correct"}
+               "index", "text", "from", "how", "answer", "correct", "edited", "filled"}
     assert all(set(e) <= allowed for e in log), log
+    assert not wrong["edited"] and not right["edited"] and "filled" not in right, (wrong, right)
+    activity_log(b, clear=True)
+
+
+def test_activity_log_edited(b):
+    """An answer the user typed or edited is logged as edited, with what voice
+    had put in the box. One offered in an earlier attempt and typed back in
+    (say, in another case) is not."""
+    b.set_options(activityLog=True)
+    activity_log(b, clear=True)
+
+    def submit_typed(text):
+        field = b.d.find_element(By.ID, "user-response")
+        field.clear()
+        field.send_keys(text)
+        b.press_enter()
+        b.wait(lambda: any(e["e"] == "graded" for e in activity_log(b)), 5, "graded logged")
+        return [e for e in activity_log(b) if e["e"] == "graded"][-1]
+
+    b.open_review()
+    b.say("Tail|Tale")
+    b.wait(lambda: b.input_value() == "tail", 5, "filled")
+    b.say("Bat|Bet")  # record over it
+    b.wait(lambda: b.input_value() == "bat", 5, "re-recorded")
+    graded = submit_typed("Tale")  # offered on the first attempt only
+    assert (graded["answer"], graded["index"], graded["edited"]) == ("Tale", -1, False), graded
+    assert "filled" not in graded, graded
+
+    activity_log(b, clear=True)
+    b.open_review()
+    b.say("Tail|Tale")
+    b.wait(lambda: b.input_value() == "tail", 5, "filled")
+    graded = submit_typed("butt")
+    assert (graded["answer"], graded["index"], graded["edited"], graded["filled"]) == ("butt", -1, True, "tail"), graded
+    assert graded["choices"] == ["tail", "tale"], graded
     activity_log(b, clear=True)
 
 
@@ -1314,7 +1349,7 @@ TESTS = [test_unit, test_inactive_off_review_page, test_lesson_quiz, test_defaul
          test_options_custom_models,
          test_auto_advance_only_correct, test_ignore_wrong_answer, test_ignore_off_by_default,
          test_ignore_stands_down_for_double_check, test_choice_counts, test_dictionary_ranking, test_options_dictionary,
-         test_activity_log, test_options_activity_log,
+         test_activity_log, test_activity_log_edited, test_options_activity_log,
          test_hands_free_gives_up_after_misses, test_panel_position, test_speech_push_to_talk, test_mic_closed_between_answers,
          test_speech_numbers_and_phrases, test_reading_choices, test_answer_choices_english, test_retry_drops_rejected_answer,
          test_speech_japanese,

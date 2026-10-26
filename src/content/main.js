@@ -37,6 +37,8 @@
   let logSession = null;
   let questionNo = 0;
   let offered = [];          // the answers last offered on this question
+  let offeredAll = [];       // every answer offered on it, over all attempts
+  let filled = null;         // what voice last put in the answer box
   let voiceUsed = false;     // whether this question was answered by voice
 
   // What the background can recognise: mode -> model name (null = not yet),
@@ -107,6 +109,7 @@
     const from = answerIO.value();
     if (!answerIO.fill(choices[i], { focus: !touchOnly() })) return false;
     if (i !== chosen) log('pick', { index: i, text: choices[i], from });
+    filled = choices[i];
     chosen = i;
     indicator.setChoices(choices, chosen, question?.mode === 'ja-kana' ? 'ja' : 'en');
     return true;
@@ -200,6 +203,8 @@
     ignored = null;
     questionNo += 1;
     offered = [];
+    offeredAll = [];
+    filled = null;
     voiceUsed = false;
     handsFreePaused = false;
     question = q;
@@ -215,7 +220,12 @@
     generation += 1;  // drop anything still in flight for this question
     if (voiceUsed) {
       const answer = answerIO.value().trim();
-      log('graded', { answer, correct: answerIO.isCorrect(), index: offered.indexOf(answer), choices: offered });
+      // Not anything offered on this question, in any attempt: the user
+      // typed or edited it (filled: what voice had put in the box).
+      const same = a => a.toLowerCase().replace(/\s+/g, ' ') === answer.toLowerCase().replace(/\s+/g, ' ');
+      const edited = !offeredAll.some(same);
+      log('graded', { answer, correct: answerIO.isCorrect(), index: offered.indexOf(answer), choices: offered,
+        edited, ...(edited ? { filled } : {}) });
     }
     pttHeld = false;
     cancelCapture();
@@ -381,6 +391,8 @@
       return;
     }
     offered = result.choices?.length ? result.choices : [result.text];
+    offeredAll = [...new Set([...offeredAll, ...offered])];
+    filled = result.text;
     // Heard only answers already recorded over: say so rather than look stuck.
     const again = result.repeated ? `Heard “${result.text}” again. ` : '';
     if (settings.submitMode === 'auto-submit' && !result.repeated) {
