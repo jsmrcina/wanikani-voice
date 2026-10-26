@@ -27,6 +27,7 @@
     $('choicesEnglish').value = String(s.choicesEnglish);
     $('choicesReadings').value = String(s.choicesReadings);
     $('ignoreWrongAnswers').checked = s.ignoreWrongAnswers;
+    $('activityLog').checked = s.activityLog;
     $('useDictionary').checked = s.useDictionary;
     $('useDictionary').disabled = !s.dictionaryInfo;
   }
@@ -49,6 +50,7 @@
     }
     $('ignoreWrongAnswers').addEventListener('change', e => save({ ignoreWrongAnswers: e.target.checked }));
     $('useDictionary').addEventListener('change', e => save({ useDictionary: e.target.checked }));
+    $('activityLog').addEventListener('change', e => save({ activityLog: e.target.checked }));
     $('autoAdvanceDelay').addEventListener('change', e => {
       const seconds = Math.min(10, Math.max(0, Number(e.target.value) || 0));
       save({ autoAdvanceDelayMs: Math.round(seconds * 1000) });

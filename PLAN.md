@@ -1324,6 +1324,14 @@ readings and 25 meanings.
      to AMO's listed channel 2026-10-21 (version 6605799; public the same day); the
      Chrome Web Store submitted the same day (in review). GitHub release
      v0.4.2 (Latest) with the signed .xpi, Chrome zip and source zip.
+   - **v0.4.3** (2026-10-25): 0.4.2 plus the optional activity log
+     (Settings → *Activity log*, off by default; `tools/analyze-log.mjs`).
+     Signed unlisted from the working tree for testing on the desktop and
+     the phone, so the next store submission needs 0.4.4 or up.
+   - **v0.4.4** (2026-10-26): 0.4.3 plus the clip length in the log's
+     `heard` entries, and an analyzer that counts first-try answers and
+     lists cut-short clips and possibly changed answers apart. Signed
+     unlisted for testing, so the next store submission needs 0.4.5 or up.
 2. **Training inside the extension** (deferred 2026-10-04). Train only the
    kana head (0.69M weights), in plain JS/WASM, from a recorder in the
    settings page. Clips and weights stay in IndexedDB, and the CTC loss and

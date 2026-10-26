@@ -7,6 +7,7 @@ importScripts(
   '../shared/homophones.js',
   '../shared/normalize.js',
   '../shared/wire.js',
+  '../shared/activity-log.js',
   'offscreen-host.js',
   'background.js',
 );

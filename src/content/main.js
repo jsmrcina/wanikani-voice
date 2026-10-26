@@ -32,6 +32,12 @@
   let rejected = [];         // answers recorded over (or cleared) on this question
   let ignored = null;        // a wrong answer just ignored: rejected on the retry
   let chosen = 0;
+  // Activity log (settings.activityLog): a random id for this page visit and
+  // a question number within it; never anything about the question itself.
+  let logSession = null;
+  let questionNo = 0;
+  let offered = [];          // the answers last offered on this question
+  let voiceUsed = false;     // whether this question was answered by voice
 
   // What the background can recognise: mode -> model name (null = not yet),
   // and each model's loading state.
@@ -40,6 +46,15 @@
   const modelStatus = new Map();
 
   // ---- helpers -------------------------------------------------------------
+
+  // Appends to the activity log, if it's on: e is the event type, fields what
+  // happened (src/shared/activity-log.js lists both). Only the user's own
+  // answers and what the recogniser heard.
+  function log(e, fields = {}) {
+    if (!settings.activityLog) return;
+    const event = { e, s: logSession, q: questionNo, mode: question?.mode, ...fields };
+    browser.runtime.sendMessage({ type: 'wkv:log', event }).catch(() => {});
+  }
 
   function keyLabel(code) {
     const named = { Shift: 'Shift', Backquote: '`', Space: 'Space', Backslash: '\\', Quote: "'",
@@ -89,7 +104,9 @@
   // Swaps the filled answer for another one the recogniser offered.
   function pick(i) {
     if (state !== 'filled' || i < 0 || i >= choices.length) return false;
+    const from = answerIO.value();
     if (!answerIO.fill(choices[i], { focus: !touchOnly() })) return false;
+    if (i !== chosen) log('pick', { index: i, text: choices[i], from });
     chosen = i;
     indicator.setChoices(choices, chosen, question?.mode === 'ja-kana' ? 'ja' : 'en');
     return true;
@@ -181,6 +198,9 @@
     // anything rejected before on it) isn't offered again.
     rejected = ignored ? [...new Set([...rejected, ignored])] : [];
     ignored = null;
+    questionNo += 1;
+    offered = [];
+    voiceUsed = false;
     handsFreePaused = false;
     question = q;
     pttHeld = false;
@@ -193,6 +213,10 @@
 
   function onGraded() {
     generation += 1;  // drop anything still in flight for this question
+    if (voiceUsed) {
+      const answer = answerIO.value().trim();
+      log('graded', { answer, correct: answerIO.isCorrect(), index: offered.indexOf(answer), choices: offered });
+    }
     pttHeld = false;
     cancelCapture();
     clearFollowUp();
@@ -244,14 +268,17 @@
   }
 
   // Recording again (or clearing) while an answer is in the box rejects it.
-  function rememberRejected() {
+  // how: 'record' or 'clear', for the activity log.
+  function rememberRejected(how) {
     const value = answerIO.value()?.trim();
-    if (state === 'filled' && value && !rejected.includes(value)) rejected.push(value);
+    if (state !== 'filled' || !value) return;
+    log('retry', { how, text: value });
+    if (!rejected.includes(value)) rejected.push(value);
   }
 
   async function startListening() {
     if (!question) return;
-    rememberRejected();
+    rememberRejected('record');
     clearFollowUp();
     const token = ++listenToken;
     if (isFake()) {
@@ -302,6 +329,9 @@
     // Answers already recorded over on this question: the recogniser leaves
     // them out of the choices. The user's own earlier answers, not page content.
     const request = { type: 'wkv:transcribe', mode, rejected: [...rejected] };
+    // Lets the background log what it heard under this question's number.
+    if (settings.activityLog) request.log = { s: logSession, q: questionNo };
+    voiceUsed = true;
     if (isFake()) {
       const text = indicator.fakeUtterance();
       if (!text.trim()) {
@@ -323,6 +353,7 @@
       // worker, where Silero VAD decides if it's speech (Whisper "hears"
       // something in silence or a key click otherwise).
       if (!clip.audible) {
+        log('noAnswer', { reason: "Didn't hear anything" });
         showError("Didn't hear anything");
         return;
       }
@@ -331,13 +362,16 @@
     if (state !== 'processing') setState('processing');
     let result;
     try {
-      // The whole request: a mode and the user's speech. No page content.
+      // The whole request: a mode and the user's speech (plus, with the
+      // activity log on, this page visit's log id and question number). No
+      // page content.
       result = await browser.runtime.sendMessage(request);
     } catch (err) {
       result = { ok: false, reason: `Recognizer error: ${err.message}` };
     }
     if (gen !== generation || state !== 'processing') return; // question moved on
     if (!result?.ok) {
+      log('noAnswer', { reason: result?.reason ?? "Didn't catch that" });
       showError(result?.reason ?? "Didn't catch that");
       return;
     }
@@ -346,6 +380,7 @@
       setState('error', "Couldn't fill the answer box");
       return;
     }
+    offered = result.choices?.length ? result.choices : [result.text];
     // Heard only answers already recorded over: say so rather than look stuck.
     const again = result.repeated ? `Heard “${result.text}” again. ` : '';
     if (settings.submitMode === 'auto-submit' && !result.repeated) {
@@ -587,7 +622,7 @@
   // on-screen keyboard would otherwise be needed).
   function onClear() {
     if (state !== 'filled') return;
-    rememberRejected();
+    rememberRejected('clear');
     answerIO.fill('', { focus: false });
     enterReady();
   }
@@ -603,6 +638,7 @@
     const value = answerIO.value().trim();
     guardKeyboard();
     if (!answerIO.ignore()) return false;
+    log('ignore', { answer: value });
     ignored = value || null;
     return true;
   }
@@ -639,6 +675,8 @@
 
   function activate() {
     active = true;
+    logSession = Math.random().toString(36).slice(2, 10);
+    questionNo = 0;
     indicator = WKV.indicator.create({
       onToggle, onFakeUtterance, onPick: pick, onSubmit, onNext, onClear, onIgnore,
       onTalkStart: pttStart, onTalkEnd: pttEnd, onTalkCancel: pttCancel,

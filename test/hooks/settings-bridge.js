@@ -51,6 +51,8 @@ window.addEventListener('message', async e => {
       // The background fetches the file itself: model files are too big for
       // an extension message in Chrome (64 MB, JSON).
       result = await browser.runtime.sendMessage({ type: 'wkv-test:install-custom', slot: e.data.slot, url: e.data.url, name: e.data.name });
+    } else if (e.data.type === 'wkv-test:log') {
+      result = await browser.runtime.sendMessage({ type: 'wkv-test:log', clear: !!e.data.clear });
     } else if (e.data.type === 'wkv-test:remove-custom') {
       result = await browser.runtime.sendMessage({ type: 'wkv-test:remove-custom', slot: e.data.slot });
     }

@@ -9,6 +9,8 @@ browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     reply = fetch(msg.url).then(r => r.arrayBuffer())
       .then(bytes => WKV.modelStore.install(msg.slot, bytes, msg.name))
       .then(meta => ({ ok: true, meta }), err => ({ ok: false, error: err.message }));
+  } else if (msg?.type === 'wkv-test:log') {
+    reply = (msg.clear ? WKV.activityLog.clear() : Promise.resolve()).then(() => WKV.activityLog.all());
   } else if (msg?.type === 'wkv-test:remove-custom') {
     reply = WKV.modelStore.remove(msg.slot).then(() => ({ ok: true }));
   } else return false;

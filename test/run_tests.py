@@ -876,6 +876,81 @@ def test_ignore_stands_down_for_double_check(b):
     assert mock_stats(b)["stats"]["0"]["meaning"]["incorrect"] == 1, mock_stats(b)
 
 
+def activity_log(b, clear=False):
+    return b.bridge("wkv-test:log", clear=clear)
+
+
+def test_activity_log(b):
+    """With the activity log on, each spoken answer's story is kept in the
+    extension's IndexedDB: heard, picked, recorded over, graded, ignored;
+    never the question. Off (the default), nothing is written."""
+    b.set_options()
+    activity_log(b, clear=True)
+    b.open_review()
+    b.say("fire")
+    b.wait_state("filled")
+    b.press_enter()
+    b.wait_state("waiting")
+    time.sleep(0.3)
+    assert activity_log(b) == [], activity_log(b)
+    b.set_options(activityLog=True, ignoreWrongAnswers=True)
+    b.open_review()
+    b.wait(lambda: ignore_status(b) == "ready", 5, "hook installed")
+    b.say("Water|Wind|Fire")
+    b.wait(lambda: b.input_value() == "water", 5, "filled")
+    ActionChains(b.d).send_keys("2").perform()
+    b.wait(lambda: b.input_value() == "wind", 3, "second choice")
+    b.press_enter()
+    b.wait_state("waiting")
+    ActionChains(b.d).send_keys(Keys.ESCAPE).perform()
+    b.wait(lambda: b.state() == "ready", 5, "question back")
+    b.say("Water|Fire")
+    b.wait(lambda: b.input_value() == "water", 5, "filled again")
+    b.say("Fire|Water")  # record over it
+    b.wait(lambda: b.input_value() == "fire", 5, "re-recorded")
+    b.press_enter()
+    b.wait(lambda: b.mock_log()[-1].get("pass") is True, 5, "right answer graded")
+    b.wait(lambda: any(e["e"] == "graded" and e["correct"] for e in activity_log(b)), 5, "logged")
+    log = activity_log(b)
+    kinds = [e["e"] for e in log]
+    assert kinds == ["heard", "pick", "graded", "ignore", "heard", "retry", "heard", "graded"], kinds
+    heard, pick, wrong, ignore, _, retry, _, right = log
+    assert heard["model"] == "test" and heard["mode"] == "en" and heard["choices"] == ["water", "wind", "fire"], heard
+    assert (pick["index"], pick["text"], pick["from"]) == (1, "wind", "water"), pick
+    assert (wrong["answer"], wrong["correct"], wrong["index"]) == ("wind", False, 1), wrong
+    assert ignore["answer"] == "wind" and ignore["q"] == wrong["q"], ignore
+    assert (retry["how"], retry["text"]) == ("record", "water"), retry
+    assert (right["answer"], right["correct"], right["index"], right["q"]) == ("fire", True, 0, wrong["q"] + 1), right
+    assert len({e["s"] for e in log}) == 1 and all(isinstance(e["t"], (int, float)) for e in log)
+    allowed = {"t", "e", "s", "q", "mode", "model", "ms", "audioMs", "raw", "candidates", "choices", "repeated", "rejected",
+               "index", "text", "from", "how", "answer", "correct"}
+    assert all(set(e) <= allowed for e in log), log
+    activity_log(b, clear=True)
+
+
+def test_options_activity_log(b):
+    """The settings page shows the log's size, exports it and clears it."""
+    b.d.get(b.base + "/test/options/index.html")
+    status = lambda: b.d.find_element(By.CSS_SELECTOR, ".log-status").text
+    b.wait(lambda: status() in ("empty",) or "entr" in status(), 5, "rendered")
+    b.d.execute_script("return WKV.activityLog.clear()")
+    b.d.execute_script("""return Promise.all([
+        WKV.activityLog.append({ e: 'heard', s: 'x', q: 1, mode: 'ja-kana', choices: ['た', 'て'], audioMs: 850, subject: 'never kept' }),
+        WKV.activityLog.append({ e: 'graded', s: 'x', q: 1, mode: 'ja-kana', answer: 'て', correct: true, index: 1 }),
+        WKV.activityLog.append({ e: 'bogus' })])""")
+    b.d.refresh()
+    b.wait(lambda: status().startswith("2 entries since "), 5, "count")
+    jsonl = b.d.execute_script("return WKV.activityLog.toJsonl()")
+    lines = [json.loads(line) for line in jsonl.splitlines()]
+    assert [e["e"] for e in lines] == ["heard", "graded"] and "subject" not in lines[0], lines
+    assert lines[0]["audioMs"] == 850, lines
+    b.d.find_element(By.ID, "activityLog").click()
+    b.wait(lambda: b.d.execute_script("return window.__store.activityLog") is True, 3, "setting saved")
+    b.d.execute_script("window.confirm = () => true")
+    b.d.find_element(By.CSS_SELECTOR, "#activity-log .reset").click()
+    b.wait(lambda: status() == "empty", 5, "cleared")
+
+
 def test_choice_counts(b):
     """How many answers are offered is set per language, 1 to 5."""
     b.set_options(choicesEnglish=5, choicesReadings=1)
@@ -1239,6 +1314,7 @@ TESTS = [test_unit, test_inactive_off_review_page, test_lesson_quiz, test_defaul
          test_options_custom_models,
          test_auto_advance_only_correct, test_ignore_wrong_answer, test_ignore_off_by_default,
          test_ignore_stands_down_for_double_check, test_choice_counts, test_dictionary_ranking, test_options_dictionary,
+         test_activity_log, test_options_activity_log,
          test_hands_free_gives_up_after_misses, test_panel_position, test_speech_push_to_talk, test_mic_closed_between_answers,
          test_speech_numbers_and_phrases, test_reading_choices, test_answer_choices_english, test_retry_drops_rejected_answer,
          test_speech_japanese,

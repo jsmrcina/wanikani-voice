@@ -179,6 +179,7 @@
     const max = choicesFor(settings, msg.mode);
     let candidates;
     let ms;
+    let audioMs;
     if (settings.recognizer === 'fake') {
       // Test mode: "a|b|c" stands in for a recogniser offering alternatives.
       candidates = String(msg.fakeUtterance ?? '').split('|');
@@ -188,6 +189,7 @@
       // The clip arrives packed (src/shared/wire.js).
       const audio = WKV.wire.unpackAudio(msg.audio);
       if (!audio?.length) return { ok: false, reason: "Didn't catch that" };
+      audioMs = Math.round((audio.length / 16000) * 1000); // clips are 16 kHz (src/content/audio.js)
       const res = await runWorker(model, audio, max);
       if (res.type === 'error') return { ok: false, reason: `Recognizer error: ${res.message}` };
       if (res.noSpeech) return { ok: false, reason: "Didn't hear anything" };
@@ -200,7 +202,35 @@
     // was in the answer box each time the user recorded again).
     const rejected = Array.isArray(msg.rejected) ? msg.rejected.filter(r => typeof r === 'string') : [];
     const dictionary = settings.useDictionary ? (await dictionarySets())[msg.mode] : null;
-    return { raw: candidates[0], ms, ...WKV.normalize.buildChoices(candidates, msg.mode, { exclude: rejected, max, dictionary }) };
+    const result = { raw: candidates[0], ms, ...WKV.normalize.buildChoices(candidates, msg.mode, { exclude: rejected, max, dictionary }) };
+    if (settings.activityLog && msg.log) {
+      appendLog({ ...msg.log, e: 'heard', mode: msg.mode, model: modelLabel(settings, msg.mode), ms, audioMs, raw: candidates[0],
+        candidates, choices: result.choices ?? (result.ok ? [result.text] : []), repeated: !!result.repeated, rejected });
+    }
+    return result;
+  }
+
+  // ---- activity log (optional; src/shared/activity-log.js) -------------------
+
+  // Which model heard an answer: the built-in one's name, or "custom: " and
+  // the name a custom model file gives itself.
+  function modelLabel(settings, mode) {
+    if (settings.recognizer === 'fake') return 'test';
+    const model = modelsFor(settings)[mode];
+    const custom = Object.values(settings.customModels ?? {}).find(m => m?.id === model);
+    return custom ? `custom: ${custom.name}` : model;
+  }
+
+  function appendLog(event) {
+    WKV.activityLog.append(event).catch(err => console.warn('[wkv] activity log', err?.message ?? err));
+  }
+
+  // Events from a review tab (picks, retries, grading); written only while
+  // the setting is on.
+  async function logEvent(msg) {
+    if (!(await WKV.settings.load()).activityLog || msg.event?.e === 'heard') return { ok: false };
+    await WKV.activityLog.append(msg.event);
+    return { ok: true };
   }
 
   // The WaniKani dictionary imported in the settings (storage.local
@@ -235,6 +265,7 @@
     if (sender.id !== browser.runtime.id) return false;
     let reply;
     if (msg?.type === 'wkv:transcribe') reply = transcribe(msg);
+    else if (msg?.type === 'wkv:log') reply = logEvent(msg);
     // Diagnostics (used by tests): is this the same background instance, and
     // what state are the models in?
     else if (msg?.type === 'wkv:diag') {

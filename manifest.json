@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Voice Answers for WaniKani: Unofficial Tool",
-  "version": "0.4.2",
+  "version": "0.4.4",
   "description": "An unofficial tool: answer WaniKani reviews by voice. Speech recognition runs entirely on your device.",
   "browser_specific_settings": {
     "gecko": {
@@ -34,6 +34,7 @@
       "src/shared/homophones.js",
       "src/shared/normalize.js",
       "src/shared/wire.js",
+      "src/shared/activity-log.js",
       "src/background/background.js"
     ]
   },

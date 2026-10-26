@@ -28,6 +28,11 @@
     // When WaniKani marks an answer wrong, offer to ignore it: the question
     // comes back as if it hadn't been answered (src/page/ignore-answer.js).
     ignoreWrongAnswers: false,
+    // Keep a local log of what happened to each spoken answer (heard,
+    // offered, picked, recorded over, graded), for finding what to train the
+    // speech models on (src/shared/activity-log.js). Text only; it stays in
+    // the extension's IndexedDB on this device.
+    activityLog: false,
     // 'fill-only': put the answer in the box and let the user press Enter.
     // 'auto-submit': also submit it.
     submitMode: 'fill-only',

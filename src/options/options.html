@@ -115,6 +115,21 @@
         </div>
       </div>
     </fieldset>
+    <fieldset id="activity-log">
+      <legend>Activity log</legend>
+      <label><input type="checkbox" id="activityLog" aria-describedby="log-help"> Keep a log of my spoken answers</label>
+      <p class="help" id="log-help">For training custom models on your voice: what was heard and offered, which choice you
+        picked, answers you recorded over or cleared, and whether WaniKani marked the answer correct. Text only, no audio,
+        and never the question. It stays on this device, adding to itself until you clear it;
+        <code>tools/analyze-log.mjs</code> reads an exported file.</p>
+      <div class="model-row log-row">
+        <div><strong>Log</strong> <span class="log-status"></span></div>
+        <div class="model-actions">
+          <button type="button" class="export">Export…</button>
+          <button type="button" class="reset">Clear</button>
+        </div>
+      </div>
+    </fieldset>
     <p class="version" id="version"></p>
   </main>
   <script src="../shared/browser-shim.js"></script>
@@ -124,5 +139,7 @@
   <script src="options.js"></script>
   <script src="custom-models.js"></script>
   <script src="dictionary.js"></script>
+  <script src="../shared/activity-log.js"></script>
+  <script src="activity-log.js"></script>
 </body>
 </html>

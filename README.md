@@ -28,7 +28,7 @@ anywhere.
        alt="A WaniKani reading question with the extension's panel offering three hiragana readings to choose from">
 </p>
 
-Version 0.4.2. What changed in each release: [CHANGELOG](CHANGELOG). The design notes, measurements and roadmap are in [PLAN.md](PLAN.md).
+Version 0.4.4. What changed in each release: [CHANGELOG](CHANGELOG). The design notes, measurements and roadmap are in [PLAN.md](PLAN.md).
 
 ## Contents
 - [Screenshots](#screenshots)
@@ -196,6 +196,7 @@ Everything works by touch. The panel is a bar at the bottom of the screen
 | Panel position | top right (bottom right on Android) · top left · bottom right · bottom left |
 | English speed | fast (Moonshine base) · accurate (Whisper base.en, slower) |
 | Custom models | your own fine-tuned model per language (see below) |
+| Activity log | **off** · on: keeps a text log of your spoken answers on this device, for finding what to train custom models on (see below) |
 
 **Microphone tip:** system noise gates and suppressors (for example an
 EasyEffects input chain) cut off the start of words and noticeably hurt
@@ -214,6 +215,7 @@ Firefox is excluded (EasyEffects: input blocklist).
 | Minimal permissions | `storage`, plus access to `www.wanikani.com` only (Chrome adds `offscreen`, for the speech worker). Settings live in `storage.local` (never synced). `data_collection_permissions: none`. Privacy policy: [PRIVACY.md](PRIVACY.md) |
 | Custom models stay local | A chosen model file is read from disk into the extension's IndexedDB |
 | The dictionary stays local | Made by `tools/wk-dictionary.mjs` from your own API token, outside the extension; the settings page reads the file you choose into `storage.local`. The extension never calls WaniKani's API |
+| The activity log stays local, and is off by default | With the setting on, the review tab tells the background page what happened to each spoken answer (heard, offered, picked, recorded over, graded, ignored); it writes text-only entries to the extension's IndexedDB on this device. No audio, no question: a question is only a number within its page visit. Exported only by you, as a local file from the settings page |
 | Ignore touches only WaniKani's own state | `src/page/ignore-answer.js` runs in the page's context (it has to reach WaniKani's quiz controllers), only while the setting is on. It puts back the count and queue position WaniKani changed for the wrong answer; nothing about the question or answer leaves it (its only output is a `data-wkv-ignore` status, checked by `test/policy.py`) |
 
 ## How it works
@@ -454,6 +456,35 @@ so the 8-bit default is enough; `--encoder fp16` is there if you want it.
 
 A custom English model can be a Moonshine or a Whisper one.
 
+**Finding what to train on: the activity log.** Settings → **Activity log**
+→ *Keep a log of my spoken answers* (off by default) records, for each
+spoken answer, what the recogniser heard and offered, which choice you
+picked, what you recorded over or cleared, what you submitted and whether
+WaniKani marked it correct, and answers you ignored. It's text only (no
+audio, never the question), kept in the extension's IndexedDB on this
+device, and keeps adding to itself across sessions until you clear it.
+*Export…* saves it as a `.jsonl` file; then:
+
+```bash
+node tools/analyze-log.mjs ~/Downloads/wanikani-voice-log-*.jsonl --words-out personal/words-log.json
+python3 tools/recorder/server.py --words personal/words-log.json --set personal
+python tools/finetune-hiragana.py --data personal/words.json:personal/recordings \
+  personal/words-fute.json:personal/recordings personal/words-log.json:personal/recordings
+```
+
+The analysis counts, per language, how often the first choice on the first
+try was right, how often you picked another one, recorded again or typed,
+and lists the most common confusions: for readings kana by kana (た→て), for
+English whole answers (and → hand). Only answers WaniKani marked correct
+count as the truth (a wrong answer may just be one you didn't know),
+including a correct answer after you ignored a wrong one. Two kinds of miss
+are listed apart: *cut short* (what was heard is the start of the answer,
+probably push-to-talk released early; the clip length is shown) and answers
+that hardly resemble what was heard first, which may be a changed mind
+rather than a mishearing (tail, then butt): check those. `--words-out` turns
+the readings it misheard into a recording list (each hint says what was
+heard; cut-short ones left out), a quarter of it held out as a test split.
+
 The token file is used only by the tools (`wk-readings.py`,
 `wk-meanings.mjs`, `wk-dictionary.mjs`); the extension never reads it.
 
@@ -501,6 +532,7 @@ Tests that need real voice recordings are skipped unless the private
 node tools/fetch-models.mjs [name]                       # pinned, sha256-checked downloads (models/models.json)
 node tools/eval-asr.mjs [model ...] --set real-raw [--ja]  # accuracy on recordings, same pipeline as the extension
 node tools/pack-model.mjs MODEL_DIR --language en|ja-kana  # custom model file for the settings
+node tools/analyze-log.mjs LOG.jsonl [--words-out FILE]    # what an exported activity log says to train on
 ```
 
 Only models marked `"bundled": true` in `models/models.json` ship. The
