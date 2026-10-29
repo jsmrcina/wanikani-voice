@@ -128,12 +128,12 @@ const confusions = { en: new Map(), 'ja-kana': new Map() };
 const missed = { en: new Map(), 'ja-kana': new Map() }; // answer → what was heard first
 const flagged = { cut: [], unlike: [] };
 const count = (map, key, n = 1) => map.set(key, (map.get(key) ?? 0) + n);
-const secs = ms => (ms == null ? '' : ` (${(ms / 1000).toFixed(1)} s)`);
+const secs = (ms, lead) => (ms == null ? '' : ` (${(ms / 1000).toFixed(1)} s${lead == null ? '' : `, speech after ${(lead / 1000).toFixed(2)} s`})`);
 
 for (const q of list) {
   const mode = q.mode ?? 'unknown';
   const s = (stats[mode] ??= { questions: 0, correct: 0, wrong: 0, firstTry: 0, otherChoice: 0, again: 0, typed: 0,
-    retries: 0, noAnswer: 0, ignored: 0, fixed: 0 });
+    retries: 0, noAnswer: 0, ignored: 0, fixed: 0, leads: [] });
   const graded = q.events.filter(e => e.e === 'graded').at(-1);
   const heard = [...(q.after?.events ?? []), ...q.events].filter(e => e.e === 'heard');
   if (!graded && !heard.length && !q.events.some(e => e.e === 'noAnswer')) continue;
@@ -154,9 +154,12 @@ for (const q of list) {
   else s.otherChoice++;
   // The recogniser's first impression on this question (before any retry).
   const first = heard[0]?.choices?.[0] ?? heard[0]?.raw;
+  // Silence before speech on the first attempt (logs from 0.4.6 on), and
+  // whether it was heard right: too little lead-in loses first sounds.
+  if (heard[0]?.leadMs != null) s.leads.push({ ms: heard[0].leadMs, right: first === graded.answer });
   if (first == null || first === graded.answer || !(mode in confusions)) continue;
   s.fixed++;
-  const entry = { mode, heard: first, answer: graded.answer, audioMs: heard[0].audioMs };
+  const entry = { mode, heard: first, answer: graded.answer, audioMs: heard[0].audioMs, leadMs: heard[0].leadMs };
   if (cutShort(first, graded.answer, mode)) { flagged.cut.push(entry); continue; }
   if (similarity(first, graded.answer) < UNLIKE) flagged.unlike.push(entry);
   if (!missed[mode].has(graded.answer)) missed[mode].set(graded.answer, first);
@@ -173,13 +176,21 @@ for (const [mode, s] of Object.entries(stats)) {
   console.log(`     after recording again ${s.again}${pct(s.again, s.correct)}, typed or edited ${s.typed}${pct(s.typed, s.correct)}`);
   console.log(`   recorded over or cleared ${s.retries} times; nothing usable heard ${s.noAnswer} times`);
   console.log(`   heard wrong at first, then fixed: ${s.fixed}${pct(s.fixed, s.correct)}`);
+  if (s.leads.length) {
+    const sorted = s.leads.map(l => l.ms).sort((a, b) => a - b);
+    console.log(`   silence before speech (correct answers, first attempt): median ${sorted[sorted.length >> 1]} ms; heard right first:`);
+    for (const [lo, hi] of [[0, 300], [300, 600], [600, Infinity]]) {
+      const b = s.leads.filter(l => l.ms >= lo && l.ms < hi);
+      if (b.length) console.log(`     ${hi === Infinity ? `${lo} ms or more` : `${lo}-${hi} ms`}: ${b.filter(l => l.right).length} of ${b.length}${pct(b.filter(l => l.right).length, b.length)}`);
+    }
+  }
   const conf = [...(confusions[mode]?.entries() ?? [])].sort((a, b) => b[1] - a[1]).slice(0, top);
   if (conf.length) {
     console.log(mode === 'ja-kana' ? '   kana heard → kana said (most common):' : '   heard → said (most common):');
     for (const [c, n] of conf) console.log(`     ${String(n).padStart(4)}  ${c}`);
   }
 }
-const show = e => `${e.mode === 'ja-kana' ? 'reading' : 'English'}: ${e.heard} → ${e.answer}${secs(e.audioMs)}`;
+const show = e => `${e.mode === 'ja-kana' ? 'reading' : 'English'}: ${e.heard} → ${e.answer}${secs(e.audioMs, e.leadMs)}`;
 if (flagged.cut.length) {
   console.log('\nCut short? What was heard is the start of the answer (push-to-talk released early?);');
   console.log('not counted as confusions or written by --words-out:');

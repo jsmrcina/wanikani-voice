@@ -1,7 +1,7 @@
 // Offline accuracy check for the bundled speech models (spike S5).
 //
 //   node tools/eval-asr.mjs [model ...] [--real | --set NAME | --personal [SPLIT]] [--only a,b] [--ja] [--show-misses]
-//                           [--opts JSON] [--choices JSON] [--dump FILE] [--dtype D] [--dictionary FILE]
+//                           [--words FILE] [--recordings DIR] [--opts JSON] [--choices JSON] [--dump FILE] [--dtype D] [--dictionary FILE]
 //
 // Runs each model over the English fixtures with the same normalisation the
 // extension uses, and reports exact-match accuracy and decode time.
@@ -35,7 +35,7 @@ const lang = args.includes('--ja') ? 'ja' : 'en';
 // --models-root DIR: evaluate models from elsewhere (e.g. personal fine-tuned exports).
 const rootIdx = args.indexOf('--models-root');
 const setName = setIdx >= 0 ? args[setIdx + 1] : 'real';
-const models = args.filter((a, i) => !a.startsWith('--') && !['--set', '--models-root', '--personal', '--words', '--only', '--opts', '--choices', '--dump', '--dtype', '--dictionary'].includes(args[i - 1]));
+const models = args.filter((a, i) => !a.startsWith('--') && !['--set', '--models-root', '--recordings', '--personal', '--words', '--only', '--opts', '--choices', '--dump', '--dtype', '--dictionary'].includes(args[i - 1]));
 // --opts JSON: extra options for recognize() (English decoding experiments).
 const optsIdx = args.indexOf('--opts');
 const recognizeOpts = optsIdx >= 0 ? JSON.parse(args[optsIdx + 1]) : {};
@@ -98,7 +98,10 @@ if (personalIdx >= 0) {
   const split = args[personalIdx + 1] && !args[personalIdx + 1].startsWith('--') ? args[personalIdx + 1] : 'test';
   const wordsIdx = args.indexOf('--words');
   const words = JSON.parse(await readFile(wordsIdx >= 0 ? resolve(args[wordsIdx + 1]) : join(ROOT, 'personal/words.json'), 'utf8'));
-  fixtureDir = join(ROOT, 'personal/recordings');
+  // --recordings DIR: the same lists from another folder of clips (e.g. a
+  // processed copy, to see how a change to the audio affects accuracy).
+  const recIdx = args.indexOf('--recordings');
+  fixtureDir = recIdx >= 0 ? resolve(args[recIdx + 1]) : join(ROOT, 'personal/recordings');
   const recorded = new Set((await readdir(join(fixtureDir, lang)).catch(() => [])).map(f => f.replace(/\.wav$/, '')));
   // The 400 readings have no split: the generic model never trained on any of them.
   fixtures = words[lang].filter(w => (split === 'all' || (lang === 'ja' && !w.split) || w.split === split) && recorded.has(w.slug))

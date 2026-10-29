@@ -922,7 +922,7 @@ def test_activity_log(b):
     assert (retry["how"], retry["text"]) == ("record", "water"), retry
     assert (right["answer"], right["correct"], right["index"], right["q"]) == ("fire", True, 0, wrong["q"] + 1), right
     assert len({e["s"] for e in log}) == 1 and all(isinstance(e["t"], (int, float)) for e in log)
-    allowed = {"t", "e", "s", "q", "mode", "model", "ms", "audioMs", "raw", "candidates", "choices", "repeated", "rejected",
+    allowed = {"t", "e", "s", "q", "mode", "model", "ms", "audioMs", "leadMs", "raw", "candidates", "choices", "repeated", "rejected",
                "index", "text", "from", "how", "answer", "correct", "edited", "filled"}
     assert all(set(e) <= allowed for e in log), log
     assert not wrong["edited"] and not right["edited"] and "filled" not in right, (wrong, right)
@@ -970,7 +970,7 @@ def test_options_activity_log(b):
     b.wait(lambda: status() in ("empty",) or "entr" in status(), 5, "rendered")
     b.d.execute_script("return WKV.activityLog.clear()")
     b.d.execute_script("""return Promise.all([
-        WKV.activityLog.append({ e: 'heard', s: 'x', q: 1, mode: 'ja-kana', choices: ['た', 'て'], audioMs: 850, subject: 'never kept' }),
+        WKV.activityLog.append({ e: 'heard', s: 'x', q: 1, mode: 'ja-kana', choices: ['た', 'て'], audioMs: 850, leadMs: 420, subject: 'never kept' }),
         WKV.activityLog.append({ e: 'graded', s: 'x', q: 1, mode: 'ja-kana', answer: 'て', correct: true, index: 1 }),
         WKV.activityLog.append({ e: 'bogus' })])""")
     b.d.refresh()
@@ -978,7 +978,7 @@ def test_options_activity_log(b):
     jsonl = b.d.execute_script("return WKV.activityLog.toJsonl()")
     lines = [json.loads(line) for line in jsonl.splitlines()]
     assert [e["e"] for e in lines] == ["heard", "graded"] and "subject" not in lines[0], lines
-    assert lines[0]["audioMs"] == 850, lines
+    assert (lines[0]["audioMs"], lines[0]["leadMs"]) == (850, 420), lines
     b.d.find_element(By.ID, "activityLog").click()
     b.wait(lambda: b.d.execute_script("return window.__store.activityLog") is True, 3, "setting saved")
     b.d.execute_script("window.confirm = () => true")

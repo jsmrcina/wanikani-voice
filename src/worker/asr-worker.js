@@ -12,7 +12,7 @@
 //               (slot is set for a custom model: 'en' or 'ja-kana')
 // Messages out: { type: 'progress', model, loaded, total }
 //               { type: 'loaded', model, ms }
-//               { type: 'result', id, candidates: string[] (best first), ms }
+//               { type: 'result', id, candidates: string[] (best first), leadMs, ms }
 //               | { type: 'result', id, noSpeech: true, ms }  (Silero heard no speech)
 //               | { type: 'error', id?, model?, message }
 //
@@ -24,7 +24,7 @@ import { env, HubertForCTC, LogitsProcessor, pipeline, Tensor } from '@huggingfa
 // build in tools/build.mjs), so the bundle has one runtime.
 import * as ort from 'onnxruntime-web/wasm';
 import { recognize, recognizeCtc } from './recognize.js';
-import { createVad } from './vad.js';
+import { createVad, MIN_SPEECH_MS } from './vad.js';
 // Custom models chosen in the settings live in IndexedDB (sets globalThis.WKV.modelStore).
 import '../shared/model-store.js';
 
@@ -154,7 +154,10 @@ self.onmessage = async ({ data }) => {
     } else if (data.type === 'transcribe') {
       const { kind, asr, vocab } = await load(data.model, data.kind, data.slot);
       const t0 = performance.now();
-      if (!(await (await vad()).hasSpeech(data.audio))) {
+      // leadMs: how long the clip runs before speech starts (for the
+      // activity log: too little of it costs words their first sound).
+      const { longestMs, leadMs } = await (await vad()).analyze(data.audio);
+      if (longestMs < MIN_SPEECH_MS) {
         self.postMessage({ type: 'result', id: data.id, noSpeech: true, ms: Math.round(performance.now() - t0) });
         return;
       }
@@ -167,7 +170,7 @@ self.onmessage = async ({ data }) => {
         ? await recognizeCtc(asr, vocab, data.audio, Tensor, more ? 5 : 3)
         : (await recognize(asr, data.audio, { alternatives: more ? 6 : 4, LogitsProcessorClass: LogitsProcessor }))
           .map(text => String(text).replace(NON_SPEECH, ' ').trim());
-      self.postMessage({ type: 'result', id: data.id, candidates, ms: Math.round(performance.now() - t0) });
+      self.postMessage({ type: 'result', id: data.id, candidates, leadMs, ms: Math.round(performance.now() - t0) });
     }
   } catch (err) {
     self.postMessage({ type: 'error', id: data.id, message: String(err?.message ?? err) });

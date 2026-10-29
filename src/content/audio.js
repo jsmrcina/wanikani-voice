@@ -3,7 +3,7 @@
 // By default the mic stays open while voice answers are enabled on the review
 // page (the browser shows its "microphone in use" indicator), so a
 // push-to-talk press doesn't lose its first syllable to device start-up.
-// Audio is only kept while recording, plus a 0.3 s pre-roll ring buffer that
+// Audio is only kept while recording, plus a 0.7 s pre-roll ring buffer that
 // is constantly overwritten and used only when a recording starts; it never
 // leaves this tab except as the clip handed to the on-device recognizer.
 // With the keepMicOpen setting off, main.js closes the mic after each
@@ -15,7 +15,10 @@
 
   const TARGET_RATE = 16000;
   const ANDROID = /Android/.test(navigator.userAgent);
-  const PREROLL_SEC = 0.3;
+  // The speech models need silence before a word to hear its first sound:
+  // English on the held-out personal clips (2026-10-28), right first with
+  // 0.3 s of it 49/60, 0.7 s 51/60, the recordings' own ~0.9 s 52/60.
+  const PREROLL_SEC = 0.7;
   const MAX_SEC = 10;
 
   // Speech detection (hands-free endpointing, and "was anything said?").

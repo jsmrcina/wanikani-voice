@@ -370,7 +370,24 @@ export function changeSpeed(audio, rate) {
   return out;
 }
 
+// Silence put in front of every clip. The reading model loses a word's first
+// sound when speech starts soon after the clip does (しはらう -> ちはらう,
+// ぼうそう -> おうそう), and in a review it often does. Measured 2026-10-28 on
+// the 400 personal recordings with the silence before the word cut to 0.3 s:
+// personal model 331 -> 384 of 400 right first, generic model 118 -> 168;
+// cut to 0.1 s: 98 -> 325 (personal). No change with the recordings' own
+// ~0.9 s lead-in (391 -> 390), nor on the 27 real benchmark clips. Zeros work
+// as well as room noise.
+export const CTC_LEAD_IN_SEC = 0.3;
+
+export function padStart(audio, seconds, rate = 16000) {
+  const out = new Float32Array(Math.round(seconds * rate) + audio.length);
+  out.set(audio, out.length - audio.length);
+  return out;
+}
+
 export async function recognizeCtc(model, vocab, audio, TensorClass, topK = 3, speeds = CTC_SPEEDS) {
+  audio = padStart(audio, CTC_LEAD_IN_SEC);
   const heard = [];
   for (const rate of speeds) {
     const clip = changeSpeed(audio, rate);

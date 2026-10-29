@@ -1,6 +1,6 @@
 # Privacy policy: Voice Answers for WaniKani: Unofficial Tool
 
-Last updated: 2026-10-25. Applies to the extension in every store (Firefox
+Last updated: 2026-10-28. Applies to the extension in every store (Firefox
 Add-ons, Chrome Web Store, also used by Microsoft Edge and other Chromium
 browsers) and to builds from this repository.
 
@@ -13,7 +13,7 @@ all.
 
 | What | How it's used | Where it stays |
 |---|---|---|
-| Your voice (microphone audio) | Recorded only while you hold the push-to-talk key or the panel's mic button (or, in hands-free mode, while a review question is waiting for an answer), plus the 0.3 seconds just before you pressed (see [The microphone](#the-microphone)). Turned into text by speech models that run inside your browser, then discarded | Your device, in memory only. Never stored, never sent anywhere |
+| Your voice (microphone audio) | Recorded only while you hold the push-to-talk key or the panel's mic button (or, in hands-free mode, while a review question is waiting for an answer), plus the 0.7 seconds just before you pressed (see [The microphone](#the-microphone)). Turned into text by speech models that run inside your browser, then discarded | Your device, in memory only. Never stored, never sent anywhere |
 | The recognised answer | Typed into WaniKani's answer box, exactly as you said it | WaniKani's page, like an answer you typed |
 | The kind of question | Whether WaniKani asks for a meaning or a reading, read from the page to pick a speech model. The question itself is never read | Your device, in memory only |
 | Your settings | Push-to-talk key, panel position, English speed and similar | The browser's local extension storage on your device (not synced) |
@@ -35,10 +35,10 @@ page.
 **Why it stays open:** so the start of your answer isn't cut off. Opening a
 microphone takes a moment, and people often start speaking as they press. To
 catch that first syllable (the *h* of "hand"), the extension keeps the last
-0.3 seconds of sound and puts it in front of your recording when you press.
+0.7 seconds of sound and puts it in front of your recording when you press.
 
 **What happens to the sound while you're not pressing anything:**
-- It goes into a **circular buffer** in memory that holds only the last 0.3
+- It goes into a **circular buffer** in memory that holds only the last 0.7
   seconds and is **constantly overwritten**. Anything older is gone.
 - Its loudness is measured, to tell speech from the room's background noise.
 - **It is never used otherwise.** Nothing reaches the speech models unless

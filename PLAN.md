@@ -44,7 +44,7 @@ phone. Next steps are in §8.
 | Scope | Reviews only for now | Activates only on `/subjects/review` |
 | Distribution | Possibly public. Don't block AMO | See §6 |
 | Numbers | Below 10 as words, above 10 as numerals | 0–10 → words, 11+ → numerals; 10 → "ten" (confirmed) |
-| Open microphone (2026-10-17) | Option; **default: kept open between answers** (0.3 s rolling pre-roll, so the first syllable isn't cut off); policy states exactly what happens to that sound | `keepMicOpen` (default on). Off: push-to-talk opens the mic per press and closes it after; PRIVACY.md → *The microphone* |
+| Open microphone (2026-10-17) | Option; **default: kept open between answers** (0.7 s rolling pre-roll since 0.4.6, 0.3 s before; so the first syllable isn't cut off); policy states exactly what happens to that sound | `keepMicOpen` (default on). Off: push-to-talk opens the mic per press and closes it after; PRIVACY.md → *The microphone* |
 
 All options are in the extension's settings page, which is also the toolbar
 button's popup.
@@ -104,7 +104,7 @@ wanikani.com tab                                 extension background
   a MediaStream to an AudioContext at a different rate, and an AudioWorklet
   would need a URL the page CSP allows. It then box-filter resamples to
   16 kHz. The mic opens on first use and stays open while enabled, with a
-  300 ms pre-roll so the first syllable isn't lost. It's released when
+  700 ms pre-roll so the first syllable isn't lost. It's released when
   paused, when the tab is hidden, or on leaving the page.
 - **Speech detection** is energy-based with an adaptive noise floor. It ends
   hands-free utterances after 800 ms of quiet. A clip with no detected speech
@@ -1335,6 +1335,23 @@ readings and 25 meanings.
    - **v0.4.5** (2026-10-26): 0.4.4 plus answers you typed or edited marked
      in the log (`edited`, with what voice had filled). Signed unlisted for
      testing, so the next store submission needs 0.4.6 or up.
+   - **v0.4.6** (2026-10-28): fixes for what three days of the activity
+     log showed (673 entries, 281 questions): most misheard answers had
+     lost their first sound (punishment -> anishment, ぼうそうぞく -> おうそ,
+     し heard as ち and た as は at the start). Both speech models need
+     silence before a word: on the 400 personal recordings, with the
+     silence before the word cut from the recorded ~0.9 s to 0.5 / 0.3 /
+     0.1 s, the personal reading model got 383 / 331 / 98 right first
+     (generic model 162 / 118 / 15), English (60 held-out clips) 49 / 49 /
+     42 of 60, 51 at 0.7 s. Fixes: the reading model hears every clip with
+     0.3 s of silence in front (personal 331 -> 384 at 0.3 s, 98 -> 325 at
+     0.1 s; no change at ~0.9 s or on the 27 real benchmark clips; English
+     not padded, it got worse at 0.1 s); the pre-roll grows from 0.3 to
+     0.7 s (privacy policy and settings text updated); `heard` entries log
+     `leadMs` (Silero: clip start to speech) so the analyzer reports
+     first-try accuracy by lead-in. `tools/eval-asr.mjs --recordings DIR`
+     evaluates on a processed copy of the clips. Signed unlisted for
+     testing, so the next store submission needs 0.4.7 or up.
 2. **Training inside the extension** (deferred 2026-10-04). Train only the
    kana head (0.69M weights), in plain JS/WASM, from a recorder in the
    settings page. Clips and weights stay in IndexedDB, and the CTC loss and

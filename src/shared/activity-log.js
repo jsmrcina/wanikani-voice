@@ -23,7 +23,7 @@
   const STORE = 'events';
 
   // Event types and their fields (beyond t, e, s, q, mode):
-  //   heard   model, ms (decoding time), audioMs (clip length), raw, candidates (as recognised), choices (as offered), repeated, rejected
+  //   heard   model, ms (decoding time), audioMs (clip length), leadMs (clip start to speech), raw, candidates (as recognised), choices (as offered), repeated, rejected
   //   noAnswer  reason (e.g. "Didn't hear anything")
   //   pick    index, text, from (what the box held)
   //   retry   how ('record' | 'clear'), text (the answer recorded over or cleared)
@@ -32,7 +32,7 @@
   //           filled (if edited: what voice had put in the box)
   //   ignore  answer
   const FIELDS = {
-    heard: ['model', 'ms', 'audioMs', 'raw', 'candidates', 'choices', 'repeated', 'rejected'],
+    heard: ['model', 'ms', 'audioMs', 'leadMs', 'raw', 'candidates', 'choices', 'repeated', 'rejected'],
     noAnswer: ['reason'],
     pick: ['index', 'text', 'from'],
     retry: ['how', 'text'],

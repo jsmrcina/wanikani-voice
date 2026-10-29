@@ -180,6 +180,7 @@
     let candidates;
     let ms;
     let audioMs;
+    let leadMs;
     if (settings.recognizer === 'fake') {
       // Test mode: "a|b|c" stands in for a recogniser offering alternatives.
       candidates = String(msg.fakeUtterance ?? '').split('|');
@@ -195,6 +196,7 @@
       if (res.noSpeech) return { ok: false, reason: "Didn't hear anything" };
       candidates = res.candidates;
       ms = res.ms;
+      leadMs = res.leadMs ?? undefined;
       lastDecodeMs = ms;
     }
     // Normalise every candidate; keep the valid, distinct ones, best first,
@@ -204,7 +206,7 @@
     const dictionary = settings.useDictionary ? (await dictionarySets())[msg.mode] : null;
     const result = { raw: candidates[0], ms, ...WKV.normalize.buildChoices(candidates, msg.mode, { exclude: rejected, max, dictionary }) };
     if (settings.activityLog && msg.log) {
-      appendLog({ ...msg.log, e: 'heard', mode: msg.mode, model: modelLabel(settings, msg.mode), ms, audioMs, raw: candidates[0],
+      appendLog({ ...msg.log, e: 'heard', mode: msg.mode, model: modelLabel(settings, msg.mode), ms, audioMs, leadMs, raw: candidates[0],
         candidates, choices: result.choices ?? (result.ok ? [result.text] : []), repeated: !!result.repeated, rejected });
     }
     return result;

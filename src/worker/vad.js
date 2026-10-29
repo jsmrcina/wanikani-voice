@@ -19,12 +19,14 @@ export async function createVad(ort, modelPathOrBytes) {
   const session = await ort.InferenceSession.create(modelPathOrBytes);
   const sr = new ort.Tensor('int64', BigInt64Array.from([16000n]), []);
 
-  // Longest run of speech in a 16 kHz clip, in ms.
-  async function longestSpeechMs(audio) {
+  // Speech in a 16 kHz clip: { longestMs: the longest run of it, leadMs: when
+  // it first starts (null if never) }.
+  async function analyze(audio) {
     let state = new ort.Tensor('float32', new Float32Array(2 * 128), [2, 1, 128]);
     let context = new Float32Array(CONTEXT);
     let run = 0;
     let longest = 0;
+    let first = null;
     for (let i = 0; i + WINDOW <= audio.length; i += WINDOW) {
       const x = new Float32Array(CONTEXT + WINDOW);
       x.set(context);
@@ -33,15 +35,19 @@ export async function createVad(ort, modelPathOrBytes) {
       state = out.stateN;
       context = audio.slice(i + WINDOW - CONTEXT, i + WINDOW);
       run = out.output.data[0] > THRESHOLD ? run + 1 : 0;
+      if (run && first === null) first = i;
       longest = Math.max(longest, run);
     }
-    return (longest * WINDOW * 1000) / 16000;
+    return { longestMs: (longest * WINDOW * 1000) / 16000, leadMs: first === null ? null : Math.round((first * 1000) / 16000) };
   }
 
   return {
-    longestSpeechMs,
+    analyze,
+    async longestSpeechMs(audio) {
+      return (await analyze(audio)).longestMs;
+    },
     async hasSpeech(audio) {
-      return (await longestSpeechMs(audio)) >= MIN_SPEECH_MS;
+      return (await analyze(audio)).longestMs >= MIN_SPEECH_MS;
     },
   };
 }

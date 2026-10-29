@@ -28,7 +28,7 @@ anywhere.
        alt="A WaniKani reading question with the extension's panel offering three hiragana readings to choose from">
 </p>
 
-Version 0.4.5. What changed in each release: [CHANGELOG](CHANGELOG). The design notes, measurements and roadmap are in [PLAN.md](PLAN.md).
+Version 0.4.6. What changed in each release: [CHANGELOG](CHANGELOG). The design notes, measurements and roadmap are in [PLAN.md](PLAN.md).
 
 ## Contents
 - [Screenshots](#screenshots)
@@ -209,7 +209,7 @@ Firefox is excluded (EasyEffects: input blocklist).
 | Guarantee | How it's enforced |
 |---|---|
 | Your voice never leaves the computer | Recognition runs in a WASM worker inside the extension. Models and runtime ship in the package. Remote model loading is disabled. The extension's CSP allows connections only to itself (`connect-src 'self'`) |
-| The open microphone is used only when you press | By default the microphone stays open between answers so the 0.3 s before a press can be put in front of the recording (the first syllable isn't cut off). That sound sits in a circular buffer in memory, constantly overwritten, never saved and never sent; it reaches the speech model only when you press. Settings → *Keep the microphone open between answers* turns this off (the mic then opens only while you hold the key or button; the first syllable may be clipped). Details: [PRIVACY.md](PRIVACY.md#the-microphone) |
+| The open microphone is used only when you press | By default the microphone stays open between answers so the 0.7 s before a press can be put in front of the recording (the first syllable isn't cut off). That sound sits in a circular buffer in memory, constantly overwritten, never saved and never sent; it reaches the speech model only when you press. Settings → *Keep the microphone open between answers* turns this off (the mic then opens only while you hold the key or button; the first syllable may be clipped). Details: [PRIVACY.md](PRIVACY.md#the-microphone) |
 | No network requests at all | `test/policy.py` fails on any network API or outside URL in `src/`. Every test run routes all traffic through a recording proxy and **fails if anything goes anywhere but the browser vendor's own hosts**: a full run sees only Firefox's traffic to Mozilla (or Chromium's to Google) |
 | The question is never used | Only `page-reader.js` reads the page, and only the question-type labels. The recogniser's input is the audio plus `en` / `ja-kana`. WaniKani's quiz events are timing signals; their payloads (which contain the item) are never read. All of this is checked by `test/policy.py` |
 | Minimal permissions | `storage`, plus access to `www.wanikani.com` only (Chrome adds `offscreen`, for the speech worker). Settings live in `storage.local` (never synced). `data_collection_permissions: none`. Privacy policy: [PRIVACY.md](PRIVACY.md) |
@@ -301,7 +301,7 @@ sequenceDiagram
 | Page reader | `src/content/page-reader.js` | Activates on `/subjects/review`, `/subject-lessons/<ids>/quiz` and `/subjects/lesson/quiz`. Reads the category (radical, kanji, vocabulary) and the meaning/reading label, and nothing else |
 | Answer I/O | `src/content/answer-io.js` | Sets the answer with the native value setter plus an `input` event (WaniKani's own input handling sees a normal edit), clicks the submit button, and reads only whether the answer was graded and whether it was correct |
 | State machine | `src/content/main.js` | ready → listening → processing → filled → waiting, re-derived from the DOM on every change, because WaniKani's events fire twice and their order isn't relied on. Handles push-to-talk (Shift chords and taps under 200 ms are ignored), hands-free, choices, auto-submit/advance, pausing and hidden tabs |
-| Audio | `src/content/audio.js` | Raw microphone (no browser noise suppression or auto-gain), captured at the device rate (Firefox can't mix sample rates) and box-filter resampled to 16 kHz. 300 ms pre-roll. An energy detector in 20 ms frames ends hands-free utterances. Anything audible is sent on |
+| Audio | `src/content/audio.js` | Raw microphone (no browser noise suppression or auto-gain), captured at the device rate (Firefox can't mix sample rates) and box-filter resampled to 16 kHz. 700 ms pre-roll (the models need silence before a word to hear its first sound). An energy detector in 20 ms frames ends hands-free utterances. Anything audible is sent on |
 | Panel | `src/content/indicator.js` | A closed shadow root, so WaniKani's CSS and scripts can't touch it. The icon is inlined at build time, so the page loads nothing from the extension |
 | Background | `src/background/background.js` | Owns the worker, picks models (built-in or custom, with fallback), normalises and ranks candidates. Review tabs send a 5 s heartbeat, because Firefox otherwise unloads an idle background page and the loaded models with it |
 | Worker | `src/worker/` | transformers.js + onnxruntime-web (plain WASM build, single thread), bundled by esbuild. Remote models are off and the WASM runtime comes from the package |
@@ -463,7 +463,9 @@ picked, what you recorded over or cleared, what you submitted (and whether
 you typed or edited it yourself) and whether WaniKani marked it correct,
 and answers you ignored. It's text only (no audio, never the question),
 kept in the extension's IndexedDB on this device, and keeps adding to
-itself across sessions until you clear it.
+itself across sessions until you clear it. Each heard answer also has the
+clip's length and how long it ran before you started speaking (the speech
+models need a moment of silence first, or they lose a word's first sound).
 *Export…* saves it as a `.jsonl` file; then:
 
 ```bash
@@ -475,16 +477,18 @@ python tools/finetune-hiragana.py --data personal/words.json:personal/recordings
 
 The analysis counts, per language, how often the first choice on the first
 try was right, how often you picked another one, recorded again or typed,
-and lists the most common confusions: for readings kana by kana (た→て), for
-English whole answers (and → hand). Only answers WaniKani marked correct
-count as the truth (a wrong answer may just be one you didn't know),
-including a correct answer after you ignored a wrong one. Two kinds of miss
-are listed apart: *cut short* (what was heard is the start of the answer,
-probably push-to-talk released early; the clip length is shown) and answers
-that hardly resemble what was heard first, which may be a changed mind
-rather than a mishearing (tail, then butt): check those. `--words-out` turns
-the readings it misheard into a recording list (each hint says what was
-heard; cut-short ones left out), a quarter of it held out as a test split.
+and how often the first try was right by how much silence came before you
+spoke. It lists the most common confusions: for readings kana by kana
+(た→て), for English whole answers (and → hand). Only answers WaniKani
+marked correct count as the truth (a wrong answer may just be one you didn't
+know), including a correct answer after you ignored a wrong one. Two kinds
+of miss are listed apart: *cut short* (what was heard is the start of the
+answer, probably push-to-talk released early; the clip length is shown) and
+answers that hardly resemble what was heard first, which may be a changed
+mind rather than a mishearing (tail, then butt): check those. `--words-out`
+turns the readings it misheard into a recording list (each hint says what
+was heard; cut-short ones left out), a quarter of it held out as a test
+split.
 
 The token file is used only by the tools (`wk-readings.py`,
 `wk-meanings.mjs`, `wk-dictionary.mjs`); the extension never reads it.
