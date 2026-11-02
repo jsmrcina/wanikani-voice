@@ -20,6 +20,9 @@ Status: **public** at https://chromewebstore.google.com/detail/voice-answers-for
 - v0.4.2 (impossible kana, ず/づ spellings, 1–5 choices, WaniKani dictionary,
   Ignore): submitted 2026-10-21 with the updated listing, privacy
   justifications, test instructions and settings screenshot; in review.
+- v0.4.7 (first sounds of words no longer lost; optional activity log):
+  zip built 2026-11-02 for upload, with the updated description,
+  `storage` justification and settings screenshot.
 
 **Microsoft Edge Add-ons: dropped (2026-10-07).** Its developer registration
 requires a contact address that is shown publicly on the developer profile,
@@ -73,6 +76,7 @@ FEATURES
 • Works in reviews and lesson quizzes.
 • Optional WaniKani dictionary: answers that are the meaning or reading of any WaniKani item are offered first. You make the dictionary file with a script from the source repository and your own WaniKani API token; the extension itself never goes online.
 • Optional: ignore a wrong answer you submitted by accident (Escape or Backspace, or click Ignore). The question comes back unanswered and WaniKani doesn't count the mistake, like the Double-Check script's re-type.
+• Optional activity log, for training your own models: what was heard, which choice you picked and whether WaniKani marked it correct, kept as text on your device (no audio, never the question) until you clear or export it.
 • Advanced: load your own fine-tuned model per language. Tools to fine-tune on your own voice are in the source repository.
 
 REQUIREMENTS
@@ -86,7 +90,7 @@ An unofficial tool: not affiliated with or endorsed by WaniKani or Tofugu. Open 
 | Field | Answer |
 |---|---|
 | Single purpose | Lets you answer WaniKani reviews and lesson quizzes by speaking: it recognises your spoken answer on your device and fills it into WaniKani's answer box. |
-| `storage` justification | Keeps your settings (push-to-talk key, panel position, English speed), any custom speech model you choose and the optional WaniKani dictionary file you import, locally on your device. |
+| `storage` justification | Keeps your settings (push-to-talk key, panel position, English speed), any custom speech model you choose, the optional WaniKani dictionary file you import and the optional activity log (text only, off by default), locally on your device. |
 | `offscreen` justification | The speech recognition worker (WebAssembly models) runs in an offscreen document, because a Manifest V3 service worker can't start workers and is stopped when idle; the offscreen document keeps the models loaded during a review session. |
 | Host permission (`https://www.wanikani.com/*`) justification | Shows the voice panel on WaniKani review and lesson quiz pages, reads only whether a meaning or a reading is asked for, and fills the recognised answer into the answer box. With the optional "ignore a wrong answer" setting, a small script in the page lets the user take back an answer WaniKani marked wrong. No other site is accessed. |
 | Remote code | No, I am not using remote code. All code and models are in the package; the CSP allows WebAssembly (`wasm-unsafe-eval`) only for the bundled speech models. |

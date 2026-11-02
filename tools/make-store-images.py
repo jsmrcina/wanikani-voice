@@ -79,7 +79,7 @@ def settings_screenshot():
     title = ImageFont.truetype(FONT.format("Bold"), 46)
     sub = ImageFont.truetype(FONT.format("Regular"), 28)
     draw.text((640, 64), "Push-to-talk or hands-free", font=title, fill=TITLE, anchor="mm")
-    draw.text((640, 121), "Auto-submit, auto-advance, ignore a slip, choices, WaniKani dictionary",
+    draw.text((640, 121), "Auto-submit, auto-advance, ignore a slip, choices, dictionary, activity log",
               font=sub, fill=SUBTITLE, anchor="mm")
     panel, cut = settings_panel()
     columns = [panel.crop((0, 0, panel.width, cut)), panel.crop((0, cut, panel.width, panel.height))]

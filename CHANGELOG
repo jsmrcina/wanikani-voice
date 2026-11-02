@@ -1,5 +1,5 @@
 Voice Answers for WaniKani: Unofficial Tool
-Patch notes: from 0.1.2 (the first listed version, 2026-10-05) to 0.4.2
+Patch notes: from 0.1.2 (the first listed version, 2026-10-05) to 0.4.7
 
 As always: speech recognition runs entirely on your device, the add-on
 makes no network requests, the question is never read, and a wrong answer
@@ -7,6 +7,37 @@ goes in exactly as you said it.
 
 Accuracy numbers below are from real recordings of WaniKani items:
 300 English meanings and 400 readings.
+
+
+0.4.7
+-----
+Recognition
+- Words no longer lose their first sound when you start speaking right
+  after pressing (punishment heard as "anishment", ぼうそうぞく as "おうそ",
+  し heard as ち at the start). The speech models need a moment of silence
+  before a word: the reading model now hears every answer with 0.3 s of
+  silence in front, and the 0.7 s before you press (was 0.3 s) is kept in
+  front of your recording.
+- With speech starting 0.3 s into the recording, right answer first:
+  readings 118 -> 170 of 400, meanings 234 -> 239 of 300. With a longer
+  pause before speaking it was already fine, and stays so (readings
+  166 -> 168).
+
+Activity log (optional, off by default)
+- Settings -> Activity log -> Keep a log of my spoken answers: for each
+  spoken answer, what was heard and offered, which choice you picked,
+  answers you recorded over or cleared, what you submitted (and whether you
+  typed or edited it), whether WaniKani marked it correct, and answers you
+  ignored. Text only: no audio, and never the question.
+- Kept on your device until you clear it; Export saves it as a file.
+  Nothing is sent anywhere.
+- For training your own models: tools/analyze-log.mjs in the source
+  repository reports what was misheard and makes a list to record and
+  train on.
+
+Privacy
+- The privacy policy now says 0.7 s (was 0.3 s) for the sound kept before
+  you press, and describes the activity log.
 
 
 0.4.2

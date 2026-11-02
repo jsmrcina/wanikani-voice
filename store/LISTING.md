@@ -39,6 +39,7 @@ Say your WaniKani answers instead of typing them. Hold Shift (or, on a phone, th
 • Firefox for Android: everything works by touch (hold the mic button to talk; Submit, Clear and Next buttons), and the panel stays above the on-screen keyboard.
 • Optional WaniKani dictionary: answers that are the meaning or reading of any WaniKani item are offered first. You make the dictionary file with a script from the source repository and your own WaniKani API token; the add-on itself never goes online.
 • Optional: ignore a wrong answer you submitted by accident (Escape or Backspace, or tap Ignore). The question comes back unanswered and WaniKani doesn't count the mistake, like the Double-Check script's re-type.
+• Optional activity log, for training your own models: what was heard, which choice you picked and whether WaniKani marked it correct, kept as text on your device (no audio, never the question) until you clear or export it.
 • Advanced: load your own fine-tuned model per language. Tools to fine-tune on your own voice are in the source repository.
 
 <b>Requirements</b>
@@ -53,9 +54,9 @@ Not required: the add-on collects and transmits no data
 
 > Voice Answers for WaniKani: Unofficial Tool does not collect, store or transmit any personal
 > data. Speech is processed on your own computer, inside Firefox, and is
-> discarded after recognition. Settings and any custom model you choose are
-> stored locally in the extension's own storage. The extension makes no
-> network requests.
+> discarded after recognition. Settings, any custom model you choose and
+> the optional activity log (text only, off by default) are stored locally
+> in the extension's own storage. The extension makes no network requests.
 
 ## Notes to reviewer
 Paste into "Notes to Reviewer" when submitting:
@@ -79,7 +80,10 @@ Paste into "Notes to Reviewer" when submitting:
 > quiz queue so a wrong answer the user chooses to ignore isn't recorded.
 > It talks to the content script only through a DOM event and a `data-`
 > attribute, and passes every answer straight through while the setting is
-> off. The microphone is
+> off. The optional activity log (off by default) is kept in the
+> extension's own IndexedDB; *Export…* on the settings page saves it as a
+> local file through a blob URL download, and nothing is sent. The
+> microphone is
 > requested from the WaniKani page only when the user presses the
 > push-to-talk key. `wasm-unsafe-eval` is needed for WebAssembly
 > inference.
@@ -105,7 +109,7 @@ the real settings page.
 | `2-recognising.png` | Recognised on your own computer; speech never leaves Firefox |
 | `3-filled-in.png` | The answer is filled in; check it and press Enter |
 | `4-reading-choices.png` | Readings in hiragana; press a number if it heard a different reading |
-| `5-settings.png` | Push-to-talk or hands-free, auto-submit, auto-advance, ignoring a wrong answer, number of choices, WaniKani dictionary, custom models |
+| `5-settings.png` | Push-to-talk or hands-free, auto-submit, auto-advance, ignoring a wrong answer, number of choices, WaniKani dictionary, custom models, activity log |
 | `6-android.png` | Firefox for Android: hold the mic button to answer, then tap a reading and Submit |
 
 `6-android.png` (1280×800, uploaded 2026-10-07) combines the two phone

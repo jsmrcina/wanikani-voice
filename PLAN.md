@@ -1352,6 +1352,14 @@ readings and 25 meanings.
      first-try accuracy by lead-in. `tools/eval-asr.mjs --recordings DIR`
      evaluates on a processed copy of the clips. Signed unlisted for
      testing, so the next store submission needs 0.4.7 or up.
+   - **v0.4.7** (2026-11-02): 0.4.6 for the stores, after several days of
+     use on the desktop and the phone. Store listings updated (activity log
+     bullet, release notes, reviewer notes, Chrome `storage`
+     justification, settings screenshot). For the CHANGELOG, generic
+     models with speech 0.3 s into the clip (0.4.2) vs 0.7 s plus the
+     reading padding (0.4.7): readings 118 -> 170 of 400, meanings
+     234 -> 239 of 300. Submitted to AMO's listed channel; Chrome zip built
+     for upload.
 2. **Training inside the extension** (deferred 2026-10-04). Train only the
    kana head (0.69M weights), in plain JS/WASM, from a recorder in the
    settings page. Clips and weights stay in IndexedDB, and the CTC loss and
