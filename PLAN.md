@@ -1358,7 +1358,8 @@ readings and 25 meanings.
      justification, settings screenshot). For the CHANGELOG, generic
      models with speech 0.3 s into the clip (0.4.2) vs 0.7 s plus the
      reading padding (0.4.7): readings 118 -> 170 of 400, meanings
-     234 -> 239 of 300. Submitted to AMO's listed channel; Chrome zip built
+     234 -> 239 of 300. Submitted to AMO's listed channel 2026-11-02
+     (version 6655713, in review); Chrome zip built
      for upload.
 2. **Training inside the extension** (deferred 2026-10-04). Train only the
    kana head (0.69M weights), in plain JS/WASM, from a recorder in the
