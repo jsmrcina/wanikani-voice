@@ -1359,8 +1359,8 @@ readings and 25 meanings.
      models with speech 0.3 s into the clip (0.4.2) vs 0.7 s plus the
      reading padding (0.4.7): readings 118 -> 170 of 400, meanings
      234 -> 239 of 300. Submitted to AMO's listed channel 2026-11-02
-     (version 6655713, in review); Chrome zip built
-     for upload.
+     (version 6655713), public on AMO the same day; GitHub release
+     v0.4.7. Chrome Web Store: 0.4.7 uploaded, in review.
 2. **Training inside the extension** (deferred 2026-10-04). Train only the
    kana head (0.69M weights), in plain JS/WASM, from a recorder in the
    settings page. Clips and weights stay in IndexedDB, and the CTC loss and
