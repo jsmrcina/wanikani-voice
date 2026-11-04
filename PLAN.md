@@ -1376,6 +1376,9 @@ readings and 25 meanings.
      got there, without times past Q3 + 3 IQR (stepped away; needs 8 or
      more). Signed on AMO's unlisted channel 2026-11-04 for testing on the
      phone, so the next listed Firefox release is 0.4.9.
+   - **v0.4.9** (2026-11-04): 0.4.8 for the stores, after trying it on the
+     phone. AMO release notes, the description's Android and activity-log
+     bullets (both listings) and the settings screenshot updated.
 2. **Training inside the extension** (deferred 2026-10-04). Train only the
    kana head (0.69M weights), in plain JS/WASM, from a recorder in the
    settings page. Clips and weights stay in IndexedDB, and the CTC loss and

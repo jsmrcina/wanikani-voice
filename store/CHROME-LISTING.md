@@ -25,10 +25,12 @@ Status: **public** at https://chromewebstore.google.com/detail/voice-answers-for
   `storage` justification and settings screenshot. Rejected 2026-11-04
   (violation "Blue Argon", remotely hosted code in Manifest V3): the jsDelivr
   default for onnxruntime's files in transformers.js, which 0.4.2 also had.
-- v0.4.8 (without that URL: tools/build.mjs rewrites it to the bundled
+- v0.4.9 (without that URL: tools/build.mjs rewrites it to the bundled
   vendor/ort/ and fails the build on any CDN URL; mic button on the left on
   touch screens; time per question and a 10,000-entry limit in the activity
-  log): zip built 2026-11-04 for upload. Listing as for 0.4.7.
+  log; 0.4.8 was a test build, never uploaded here): zip built 2026-11-04
+  for upload, with the activity-log bullet of the description updated and
+  a new settings screenshot.
 
 **Microsoft Edge Add-ons: dropped (2026-10-07).** Its developer registration
 requires a contact address that is shown publicly on the developer profile,
@@ -82,7 +84,7 @@ FEATURES
 • Works in reviews and lesson quizzes.
 • Optional WaniKani dictionary: answers that are the meaning or reading of any WaniKani item are offered first. You make the dictionary file with a script from the source repository and your own WaniKani API token; the extension itself never goes online.
 • Optional: ignore a wrong answer you submitted by accident (Escape or Backspace, or click Ignore). The question comes back unanswered and WaniKani doesn't count the mistake, like the Double-Check script's re-type.
-• Optional activity log, for training your own models: what was heard, which choice you picked and whether WaniKani marked it correct, kept as text on your device (no audio, never the question) until you clear or export it.
+• Optional activity log, for training your own models: what was heard, which choice you picked, whether WaniKani marked it correct and how long each question took, kept as text on your device (no audio, never the question; at most 10,000 entries) until you clear or export it.
 • Advanced: load your own fine-tuned model per language. Tools to fine-tune on your own voice are in the source repository.
 
 REQUIREMENTS

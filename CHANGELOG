@@ -1,5 +1,5 @@
 Voice Answers for WaniKani: Unofficial Tool
-Patch notes: from 0.1.2 (the first listed version, 2026-10-05) to 0.4.8
+Patch notes: from 0.1.2 (the first listed version, 2026-10-05) to 0.4.9
 
 As always: speech recognition runs entirely on your device, the add-on
 makes no network requests, the question is never read, and a wrong answer
@@ -9,8 +9,10 @@ Accuracy numbers below are from real recordings of WaniKani items:
 300 English meanings and 400 readings.
 
 
-0.4.8
+0.4.9
 -----
+(0.4.8 was a test build with the same changes.)
+
 Panel
 - Touch screens: the mic button is now at the left end of the panel, in
   reach of a left thumb, with the choices and Submit / Next lined up on

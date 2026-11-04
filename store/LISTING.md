@@ -36,10 +36,10 @@ Say your WaniKani answers instead of typing them. Hold Shift (or, on a phone, th
 • Push-to-talk (Shift, configurable) or hands-free.
 • Fill only, or fill and submit; optional auto-advance (or only after a correct answer).
 • Works in reviews and lesson quizzes.
-• Firefox for Android: everything works by touch (hold the mic button to talk; Submit, Clear and Next buttons), and the panel stays above the on-screen keyboard.
+• Firefox for Android: everything works by touch (hold the mic button to talk, at the left end of the panel or, if you prefer, the right; Submit, Clear and Next buttons), and the panel stays above the on-screen keyboard.
 • Optional WaniKani dictionary: answers that are the meaning or reading of any WaniKani item are offered first. You make the dictionary file with a script from the source repository and your own WaniKani API token; the add-on itself never goes online.
 • Optional: ignore a wrong answer you submitted by accident (Escape or Backspace, or tap Ignore). The question comes back unanswered and WaniKani doesn't count the mistake, like the Double-Check script's re-type.
-• Optional activity log, for training your own models: what was heard, which choice you picked and whether WaniKani marked it correct, kept as text on your device (no audio, never the question) until you clear or export it.
+• Optional activity log, for training your own models: what was heard, which choice you picked, whether WaniKani marked it correct and how long each question took, kept as text on your device (no audio, never the question; at most 10,000 entries) until you clear or export it.
 • Advanced: load your own fine-tuned model per language. Tools to fine-tune on your own voice are in the source repository.
 
 <b>Requirements</b>
