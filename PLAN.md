@@ -1374,7 +1374,8 @@ readings and 25 meanings.
      that deletes the oldest in the same transaction). analyze-log.mjs:
      time per question, median and mean, overall and by how the answer
      got there, without times past Q3 + 3 IQR (stepped away; needs 8 or
-     more).
+     more). Signed on AMO's unlisted channel 2026-11-04 for testing on the
+     phone, so the next listed Firefox release is 0.4.9.
 2. **Training inside the extension** (deferred 2026-10-04). Train only the
    kana head (0.69M weights), in plain JS/WASM, from a recorder in the
    settings page. Clips and weights stay in IndexedDB, and the CTC loss and
