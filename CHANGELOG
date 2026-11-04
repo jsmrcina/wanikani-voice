@@ -11,13 +11,26 @@ Accuracy numbers below are from real recordings of WaniKani items:
 
 0.4.8
 -----
-Chrome only; nothing changes for you.
+Panel
+- Touch screens: the mic button is now at the left end of the panel, in
+  reach of a left thumb, with the choices and Submit / Next lined up on
+  that side. Settings -> Panel -> Mic button on touch screens puts it back
+  on the right. Unchanged with a mouse or keyboard.
+
+Activity log
+- Each graded answer also notes how long the question took, from its
+  appearing to its grading. tools/analyze-log.mjs reports the time per
+  question (overall and by how the answer got there), leaving out times
+  far above the rest, when you'd most likely stepped away.
+- The log keeps at most 10,000 entries (about 3,000 questions): past that,
+  each new entry drops the oldest.
+
+Packaging
 - The Chrome Web Store turned 0.4.7 down because the speech library has a
   web address (jsDelivr) it would load its runtime from if none were set.
   The add-on always sets its own, bundled copy, so that address was never
   used; it is now gone from the package, and the build fails if a script
-  host's address ever appears in it again. Firefox stays on 0.4.7, which
-  works the same.
+  host's address ever appears in it again.
 
 
 0.4.7

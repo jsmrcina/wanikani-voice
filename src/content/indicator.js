@@ -89,6 +89,12 @@
     .actions button.primary { background: var(--ok); border-color: var(--ok); color: #fff; }
     .actions button[hidden] { display: none; }
     /* Touch screens: finger-sized targets. */
+    @media (hover: none) and (pointer: coarse) {
+      /* The mic on the left (setting micSide, the default), within reach of
+         a left thumb; choices and buttons line up on that side too. */
+      .wrap[data-mic="left"] .badge { order: -1; }
+      .wrap[data-mic="left"] .choices, .wrap[data-mic="left"] .actions { justify-content: flex-start; }
+    }
     @media (pointer: coarse) {
       .badge { width: 56px; height: 56px; }
       .badge svg { width: 28px; height: 28px; }
@@ -332,11 +338,16 @@
     function setPosition(pos) {
       wrap.dataset.pos = POSITIONS.includes(pos) ? pos : 'top-right';
     }
+    // Which end of the panel the mic button is at on touch screens.
+    function setMicSide(side) {
+      wrap.dataset.mic = side === 'right' ? 'right' : 'left';
+    }
 
     return {
       set,
       setChoices,
       setPosition,
+      setMicSide,
       setActions,
       setDevMode(on) { dev.classList.toggle('on', on); },
       fakeUtterance() { return devInput.value; },

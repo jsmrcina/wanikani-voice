@@ -24,6 +24,7 @@
     $('autoAdvanceOnlyCorrect').checked = s.autoAdvanceOnlyCorrect;
     $('autoAdvanceOnlyCorrect').disabled = !s.autoAdvance;
     $('indicatorPosition').value = s.indicatorPosition;
+    $('micSide').value = s.micSide;
     $('choicesEnglish').value = String(s.choicesEnglish);
     $('choicesReadings').value = String(s.choicesReadings);
     $('ignoreWrongAnswers').checked = s.ignoreWrongAnswers;
@@ -44,6 +45,7 @@
     $('autoAdvance').addEventListener('change', e => save({ autoAdvance: e.target.checked }));
     $('autoAdvanceOnlyCorrect').addEventListener('change', e => save({ autoAdvanceOnlyCorrect: e.target.checked }));
     $('indicatorPosition').addEventListener('change', e => save({ indicatorPosition: e.target.value }));
+    $('micSide').addEventListener('change', e => save({ micSide: e.target.value }));
     for (const id of ['choicesEnglish', 'choicesReadings']) {
       $(id).append(...[1, 2, 3, 4, 5].map(n => new Option(n === 3 ? '3 (default)' : String(n), String(n))));
       $(id).addEventListener('change', e => save({ [id]: Number(e.target.value) }));

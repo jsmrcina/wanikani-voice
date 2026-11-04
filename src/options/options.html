@@ -64,6 +64,11 @@
         <option value="bottom-right">Bottom right</option>
         <option value="bottom-left">Bottom left</option>
       </select>
+      <label for="micSide">Mic button on touch screens</label>
+      <select id="micSide">
+        <option value="left">On the left</option>
+        <option value="right">On the right</option>
+      </select>
     </fieldset>
 
     <fieldset>
@@ -119,8 +124,9 @@
       <legend>Activity log</legend>
       <label><input type="checkbox" id="activityLog" aria-describedby="log-help"> Keep a log of my spoken answers</label>
       <p class="help" id="log-help">For training custom models on your voice: what was heard and offered, which choice you
-        picked, answers you recorded over or cleared, and whether WaniKani marked the answer correct. Text only, no audio,
-        and never the question. It stays on this device, adding to itself until you clear it;
+        picked, answers you recorded over or cleared, whether WaniKani marked the answer correct, and how long each question took. Text only, no audio,
+        and never the question. It stays on this device, adding to itself until you clear it
+        (past 10,000 entries, the oldest are dropped);
         <code>tools/analyze-log.mjs</code> reads an exported file.</p>
       <div class="model-row log-row">
         <div><strong>Log</strong> <span class="log-status"></span></div>

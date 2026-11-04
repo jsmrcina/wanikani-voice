@@ -923,8 +923,11 @@ def test_activity_log(b):
     assert (right["answer"], right["correct"], right["index"], right["q"]) == ("fire", True, 0, wrong["q"] + 1), right
     assert len({e["s"] for e in log}) == 1 and all(isinstance(e["t"], (int, float)) for e in log)
     allowed = {"t", "e", "s", "q", "mode", "model", "ms", "audioMs", "leadMs", "raw", "candidates", "choices", "repeated", "rejected",
-               "index", "text", "from", "how", "answer", "correct", "edited", "filled"}
+               "index", "text", "from", "how", "answer", "correct", "edited", "filled", "questionMs"}
     assert all(set(e) <= allowed for e in log), log
+    # Time on each question; the clock restarts when the ignored question comes back.
+    assert all(isinstance(g["questionMs"], int) and g["questionMs"] > 0 for g in (wrong, right)), (wrong, right)
+    assert right["questionMs"] < right["t"] - wrong["t"], (wrong, right)
     assert not wrong["edited"] and not right["edited"] and "filled" not in right, (wrong, right)
     activity_log(b, clear=True)
 
@@ -979,6 +982,13 @@ def test_options_activity_log(b):
     lines = [json.loads(line) for line in jsonl.splitlines()]
     assert [e["e"] for e in lines] == ["heard", "graded"] and "subject" not in lines[0], lines
     assert (lines[0]["audioMs"], lines[0]["leadMs"]) == (850, 420), lines
+    # Past the limit, each new entry drops the oldest (10,000; 3 here).
+    assert b.d.execute_script("return WKV.activityLog.MAX_EVENTS") == 10000
+    b.d.execute_script("""return (async () => {
+        for (const q of [2, 3, 4]) await WKV.activityLog.append({ e: 'noAnswer', s: 'x', q, reason: 'r' }, 3);
+      })()""")
+    kept = [(e["e"], e["q"]) for e in b.d.execute_script("return WKV.activityLog.all()")]
+    assert kept == [("noAnswer", 2), ("noAnswer", 3), ("noAnswer", 4)], kept
     b.d.find_element(By.ID, "activityLog").click()
     b.wait(lambda: b.d.execute_script("return window.__store.activityLog") is True, 3, "setting saved")
     b.d.execute_script("window.confirm = () => true")
@@ -1059,11 +1069,14 @@ def test_hands_free_gives_up_after_misses(b):
 def test_panel_position(b):
     b.set_options(indicatorPosition="bottom-left")
     b.open_review()
-    rect = b.d.execute_script(
+    box = lambda sel: b.d.execute_script(
         "return arguments[0].getBoundingClientRect().toJSON()",
-        b.host().shadow_root.find_element(By.CSS_SELECTOR, ".wrap"))
+        b.host().shadow_root.find_element(By.CSS_SELECTOR, sel))
+    rect = box(".wrap")
     height = b.d.execute_script("return window.innerHeight")
     assert rect["left"] <= 20 and height - rect["bottom"] <= 20, (rect, height)
+    # micSide is for touch screens: with a mouse the mic stays on the right.
+    assert box(".badge")["left"] > box(".bubble")["right"], (box(".badge"), box(".bubble"))
 
 
 TEST_MODELS = ROOT / "dist/test-models"
@@ -1327,6 +1340,11 @@ def test_touch_layout(b):
     b.set_options(indicatorPosition="top-left")
     b.open_review()
     assert rect(".wrap")["top"] <= 10
+    # The mic is at the left end by default (setting micSide), or the right.
+    assert rect(".badge")["right"] < rect(".bubble")["left"], (rect(".badge"), rect(".bubble"))
+    b.set_options(micSide="right")
+    b.open_review()
+    assert rect(".badge")["left"] > rect(".bubble")["right"], (rect(".badge"), rect(".bubble"))
 
 
 def test_touch_options_hide_ptt_key(b):

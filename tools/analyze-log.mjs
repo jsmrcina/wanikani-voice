@@ -12,6 +12,11 @@
 // question counts too. Wrong answers alone say nothing about recognition
 // (you may not have known it), so they are only counted.
 //
+// Time per question (logs from 0.4.8 on): from the question appearing to
+// its grading, overall and by how the answer got there. Times far above the
+// rest (beyond the third quartile plus 3 interquartile ranges, Tukey's "far
+// out") are left out as time away from the review, and counted.
+//
 // Two kinds of miss are listed apart: cut short (what was heard is the start
 // of the answer, so push-to-talk was probably released early; not counted
 // as a confusion), and answers that hardly resemble what was heard first (a
@@ -133,7 +138,7 @@ const secs = (ms, lead) => (ms == null ? '' : ` (${(ms / 1000).toFixed(1)} s${le
 for (const q of list) {
   const mode = q.mode ?? 'unknown';
   const s = (stats[mode] ??= { questions: 0, correct: 0, wrong: 0, firstTry: 0, otherChoice: 0, again: 0, typed: 0,
-    retries: 0, noAnswer: 0, ignored: 0, fixed: 0, leads: [] });
+    retries: 0, noAnswer: 0, ignored: 0, fixed: 0, leads: [], times: [] });
   const graded = q.events.filter(e => e.e === 'graded').at(-1);
   const heard = [...(q.after?.events ?? []), ...q.events].filter(e => e.e === 'heard');
   if (!graded && !heard.length && !q.events.some(e => e.e === 'noAnswer')) continue;
@@ -142,16 +147,22 @@ for (const q of list) {
   s.noAnswer += q.events.filter(e => e.e === 'noAnswer').length;
   s.ignored += q.events.some(e => e.e === 'ignore') ? 1 : 0;
   if (!graded) continue;
-  if (!graded.correct) { s.wrong++; continue; }
+  // Time on the question, including the answer ignored before it, if any.
+  const before = q.after?.events.filter(e => e.e === 'graded').at(-1)?.questionMs ?? 0;
+  const time = graded.questionMs == null ? null : graded.questionMs + before;
+  if (!graded.correct) {
+    s.wrong++;
+    if (time != null) s.times.push({ ms: time, how: 'wrong' });
+    continue;
+  }
   s.correct++;
   // How the right answer got there: the first thing heard, another choice
   // of it, a later attempt (recorded again, or after an ignored answer), or
   // typing. edited: not anything offered on the question (logs from 0.4.5
   // on); older logs only say whether it was among the last choices.
-  if (graded.edited ?? graded.index < 0) s.typed++;
-  else if (heard.length > 1) s.again++;
-  else if (graded.index === 0) s.firstTry++;
-  else s.otherChoice++;
+  const how = (graded.edited ?? graded.index < 0) ? 'typed' : heard.length > 1 ? 'again' : graded.index === 0 ? 'firstTry' : 'otherChoice';
+  s[how]++;
+  if (time != null) s.times.push({ ms: time, how });
   // The recogniser's first impression on this question (before any retry).
   const first = heard[0]?.choices?.[0] ?? heard[0]?.raw;
   // Silence before speech on the first attempt (logs from 0.4.6 on), and
@@ -167,6 +178,29 @@ for (const q of list) {
   else count(confusions[mode], `${first} → ${graded.answer}`);
 }
 
+const median = xs => {
+  const s = [...xs].sort((a, b) => a - b);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+// Quartiles by linear interpolation.
+const quantile = (sorted, p) => {
+  const i = (sorted.length - 1) * p;
+  const lo = Math.floor(i);
+  return sorted[lo] + (sorted[Math.min(lo + 1, sorted.length - 1)] - sorted[lo]) * (i - lo);
+};
+// Drops times beyond Q3 + 3 IQR: the user most likely stepped away. Too few
+// to tell (under 8), none are dropped.
+function withoutOutliers(times) {
+  if (times.length < 8) return { kept: times, fence: Infinity, dropped: 0 };
+  const sorted = times.map(t => t.ms).sort((a, b) => a - b);
+  const q1 = quantile(sorted, 0.25);
+  const q3 = quantile(sorted, 0.75);
+  const fence = q3 + 3 * (q3 - q1);
+  const kept = times.filter(t => t.ms <= fence);
+  return { kept, fence, dropped: times.length - kept.length };
+}
+const sec = ms => `${(ms / 1000).toFixed(1)} s`;
 const pct = (n, d) => (d ? ` (${Math.round((100 * n) / d)}%)` : '');
 console.log(`${events.length} events, ${list.length} questions, ${files.length} file(s)`);
 for (const [mode, s] of Object.entries(stats)) {
@@ -182,6 +216,18 @@ for (const [mode, s] of Object.entries(stats)) {
     for (const [lo, hi] of [[0, 300], [300, 600], [600, Infinity]]) {
       const b = s.leads.filter(l => l.ms >= lo && l.ms < hi);
       if (b.length) console.log(`     ${hi === Infinity ? `${lo} ms or more` : `${lo}-${hi} ms`}: ${b.filter(l => l.right).length} of ${b.length}${pct(b.filter(l => l.right).length, b.length)}`);
+    }
+  }
+  if (s.times.length) {
+    const { kept, fence, dropped } = withoutOutliers(s.times);
+    const ms = kept.map(t => t.ms);
+    console.log(`   time per question (appearing to graded): median ${sec(median(ms))}, mean ${sec(ms.reduce((a, b) => a + b, 0) / ms.length)}, ${kept.length} questions`);
+    if (dropped) console.log(`     ${dropped} over ${sec(fence)} left out (away from the review?)`);
+    const labels = { firstTry: 'first choice on the first try', otherChoice: 'another choice', again: 'recorded again',
+      typed: 'typed or edited', wrong: 'graded wrong' };
+    for (const [how, label] of Object.entries(labels)) {
+      const t = kept.filter(x => x.how === how).map(x => x.ms);
+      if (t.length) console.log(`     ${label}: median ${sec(median(t))} (${t.length})`);
     }
   }
   const conf = [...(confusions[mode]?.entries() ?? [])].sort((a, b) => b[1] - a[1]).slice(0, top);

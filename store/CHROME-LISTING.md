@@ -25,9 +25,10 @@ Status: **public** at https://chromewebstore.google.com/detail/voice-answers-for
   `storage` justification and settings screenshot. Rejected 2026-11-04
   (violation "Blue Argon", remotely hosted code in Manifest V3): the jsDelivr
   default for onnxruntime's files in transformers.js, which 0.4.2 also had.
-- v0.4.8 (0.4.7 without that URL; tools/build.mjs rewrites it to the bundled
-  vendor/ort/ and fails the build on any CDN URL): zip built 2026-11-04 for
-  upload. Listing as for 0.4.7.
+- v0.4.8 (without that URL: tools/build.mjs rewrites it to the bundled
+  vendor/ort/ and fails the build on any CDN URL; mic button on the left on
+  touch screens; time per question and a 10,000-entry limit in the activity
+  log): zip built 2026-11-04 for upload. Listing as for 0.4.7.
 
 **Microsoft Edge Add-ons: dropped (2026-10-07).** Its developer registration
 requires a contact address that is shown publicly on the developer profile,

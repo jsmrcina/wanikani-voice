@@ -9,7 +9,8 @@
 //
 // Kept in the extension's own IndexedDB on this device, appended to across
 // sessions until cleared in the settings, where it can also be exported as a
-// JSON Lines file. Nothing is ever sent anywhere.
+// JSON Lines file. At most MAX_EVENTS events are kept: past that, each new
+// one drops the oldest. Nothing is ever sent anywhere.
 //
 // IndexedDB "wkv-activity-log", store "events" (auto-increment keys), one
 // record per event:
@@ -29,19 +30,22 @@
   //   retry   how ('record' | 'clear'), text (the answer recorded over or cleared)
   //   graded  answer, correct, index (in the last choices offered, else -1), choices,
   //           edited (not anything offered on this question: typed or edited),
-  //           filled (if edited: what voice had put in the box)
+  //           filled (if edited: what voice had put in the box),
+  //           questionMs (from the question appearing to its grading)
   //   ignore  answer
   const FIELDS = {
     heard: ['model', 'ms', 'audioMs', 'leadMs', 'raw', 'candidates', 'choices', 'repeated', 'rejected'],
     noAnswer: ['reason'],
     pick: ['index', 'text', 'from'],
     retry: ['how', 'text'],
-    graded: ['answer', 'correct', 'index', 'choices', 'edited', 'filled'],
+    graded: ['answer', 'correct', 'index', 'choices', 'edited', 'filled', 'questionMs'],
     ignore: ['answer'],
   };
   const COMMON = ['s', 'q', 'mode'];
   const MAX_TEXT = 200;
   const MAX_LIST = 10;
+  // About 3,000 questions; a few MB.
+  const MAX_EVENTS = 10000;
 
   // Keeps only known fields, of plain types and bounded size.
   function clean(value) {
@@ -83,11 +87,25 @@
     });
   }
 
-  // Appends one event; returns false if it isn't a known event type.
-  async function append(event) {
+  // Appends one event, dropping the oldest past `max` (in the same
+  // transaction); returns false if it isn't a known event type.
+  async function append(event, max = MAX_EVENTS) {
     const record = sanitize(event);
     if (!record) return false;
-    await run('readwrite', store => store.add(record));
+    const tx = (await db()).transaction(STORE, 'readwrite');
+    const store = tx.objectStore(STORE);
+    store.add(record);
+    const counted = store.count();
+    counted.onsuccess = () => {
+      const excess = counted.result - max;
+      if (excess <= 0) return;
+      const oldest = store.getAllKeys(null, excess);
+      oldest.onsuccess = () => store.delete(IDBKeyRange.upperBound(oldest.result.at(-1)));
+    };
+    await new Promise((resolve, reject) => {
+      tx.oncomplete = resolve;
+      tx.onerror = tx.onabort = () => reject(tx.error);
+    });
     return true;
   }
 
@@ -106,5 +124,5 @@
     return (await all()).map(e => JSON.stringify(e)).join('\n') + '\n';
   }
 
-  WKV.activityLog = { FIELDS, sanitize, append, all, clear, info, toJsonl };
+  WKV.activityLog = { FIELDS, MAX_EVENTS, sanitize, append, all, clear, info, toJsonl };
 })(globalThis.WKV = globalThis.WKV || {});

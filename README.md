@@ -194,6 +194,7 @@ Everything works by touch. The panel is a bar at the bottom of the screen
 | Answers offered | **3** · 1 to 5, separately for English and readings |
 | WaniKani dictionary | **off** · on, with a dictionary file imported: answers that are some WaniKani item's meaning or reading come first (see below) |
 | Panel position | top right (bottom right on Android) · top left · bottom right · bottom left |
+| Mic button on touch screens | **on the left** · on the right |
 | English speed | fast (Moonshine base) · accurate (Whisper base.en, slower) |
 | Custom models | your own fine-tuned model per language (see below) |
 | Activity log | **off** · on: keeps a text log of your spoken answers on this device, for finding what to train custom models on (see below) |
@@ -215,7 +216,7 @@ Firefox is excluded (EasyEffects: input blocklist).
 | Minimal permissions | `storage`, plus access to `www.wanikani.com` only (Chrome adds `offscreen`, for the speech worker). Settings live in `storage.local` (never synced). `data_collection_permissions: none`. Privacy policy: [PRIVACY.md](PRIVACY.md) |
 | Custom models stay local | A chosen model file is read from disk into the extension's IndexedDB |
 | The dictionary stays local | Made by `tools/wk-dictionary.mjs` from your own API token, outside the extension; the settings page reads the file you choose into `storage.local`. The extension never calls WaniKani's API |
-| The activity log stays local, and is off by default | With the setting on, the review tab tells the background page what happened to each spoken answer (heard, offered, picked, recorded over, graded, ignored); it writes text-only entries to the extension's IndexedDB on this device. No audio, no question: a question is only a number within its page visit. Exported only by you, as a local file from the settings page |
+| The activity log stays local, and is off by default | With the setting on, the review tab tells the background page what happened to each spoken answer (heard, offered, picked, recorded over, graded, ignored, time taken); it writes text-only entries to the extension's IndexedDB on this device, at most 10,000. No audio, no question: a question is only a number within its page visit. Exported only by you, as a local file from the settings page |
 | Ignore touches only WaniKani's own state | `src/page/ignore-answer.js` runs in the page's context (it has to reach WaniKani's quiz controllers), only while the setting is on. It puts back the count and queue position WaniKani changed for the wrong answer; nothing about the question or answer leaves it (its only output is a `data-wkv-ignore` status, checked by `test/policy.py`) |
 
 ## How it works
@@ -461,9 +462,10 @@ A custom English model can be a Moonshine or a Whisper one.
 spoken answer, what the recogniser heard and offered, which choice you
 picked, what you recorded over or cleared, what you submitted (and whether
 you typed or edited it yourself) and whether WaniKani marked it correct,
-and answers you ignored. It's text only (no audio, never the question),
-kept in the extension's IndexedDB on this device, and keeps adding to
-itself across sessions until you clear it. Each heard answer also has the
+and answers you ignored, and how long each question took. It's text only
+(no audio, never the question), kept in the extension's IndexedDB on this
+device, and keeps adding to itself across sessions until you clear it, up
+to 10,000 entries (about 3,000 questions; past that, the oldest go). Each heard answer also has the
 clip's length and how long it ran before you started speaking (the speech
 models need a moment of silence first, or they lose a word's first sound).
 *Export…* saves it as a `.jsonl` file; then:
@@ -478,7 +480,9 @@ python tools/finetune-hiragana.py --data personal/words.json:personal/recordings
 The analysis counts, per language, how often the first choice on the first
 try was right, how often you picked another one, recorded again or typed,
 and how often the first try was right by how much silence came before you
-spoke. It lists the most common confusions: for readings kana by kana
+spoke, and the time per question (median and mean, and by how the answer
+got there), leaving out times far above the rest (past the third quartile
+plus three interquartile ranges: you'd stepped away). It lists the most common confusions: for readings kana by kana
 (た→て), for English whole answers (and → hand). Only answers WaniKani
 marked correct count as the truth (a wrong answer may just be one you didn't
 know), including a correct answer after you ignored a wrong one. Two kinds

@@ -1365,8 +1365,16 @@ readings and 25 meanings.
      (never used, asr-worker.js sets vendor/ort/; 0.4.2 had the same string
      and passed). tools/build.mjs now rewrites that default to the bundled
      folder and fails on any CDN URL in a built script.
-   - **v0.4.8** (2026-11-04): Chrome only, for that rejection. Firefox stays
-     on 0.4.7 (same behaviour; not resubmitted to AMO).
+   - **v0.4.8** (2026-11-04): that fix, plus three requested changes. Touch
+     screens: mic button at the left end of the panel by default (setting
+     micSide; choices and Submit / Next aligned on that side too; mouse
+     and keyboard layouts unchanged). Activity log: `questionMs` on
+     `graded` (question appearing to grading; restarts when an ignored
+     question comes back), and at most 10,000 events (each append past
+     that deletes the oldest in the same transaction). analyze-log.mjs:
+     time per question, median and mean, overall and by how the answer
+     got there, without times past Q3 + 3 IQR (stepped away; needs 8 or
+     more).
 2. **Training inside the extension** (deferred 2026-10-04). Train only the
    kana head (0.69M weights), in plain JS/WASM, from a recorder in the
    settings page. Clips and weights stay in IndexedDB, and the CTC loss and

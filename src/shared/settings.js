@@ -44,6 +44,9 @@
     autoAdvanceOnlyCorrect: false,
     // Where the panel sits: 'top-right', 'top-left', 'bottom-right', 'bottom-left'.
     indicatorPosition: 'top-right',
+    // Touch screens: which end of the panel the mic button is at, 'left'
+    // (within reach of a left thumb; the default since 0.4.8) or 'right'.
+    micSide: 'left',
     // Custom models chosen in the settings, per language ('en', 'ja-kana'):
     // { id, name, kind, size, addedAt }; the files are in IndexedDB
     // (src/shared/model-store.js).

@@ -40,6 +40,7 @@
   let offeredAll = [];       // every answer offered on it, over all attempts
   let filled = null;         // what voice last put in the answer box
   let voiceUsed = false;     // whether this question was answered by voice
+  let questionAt = 0;        // when the current question appeared (performance.now())
 
   // What the background can recognise: mode -> model name (null = not yet),
   // and each model's loading state.
@@ -206,6 +207,7 @@
     offeredAll = [];
     filled = null;
     voiceUsed = false;
+    questionAt = performance.now();
     handsFreePaused = false;
     question = q;
     pttHeld = false;
@@ -225,7 +227,7 @@
       const same = a => a.toLowerCase().replace(/\s+/g, ' ') === answer.toLowerCase().replace(/\s+/g, ' ');
       const edited = !offeredAll.some(same);
       log('graded', { answer, correct: answerIO.isCorrect(), index: offered.indexOf(answer), choices: offered,
-        edited, ...(edited ? { filled } : {}) });
+        edited, ...(edited ? { filled } : {}), questionMs: Math.round(performance.now() - questionAt) });
     }
     pttHeld = false;
     cancelCapture();
@@ -695,6 +697,7 @@
     });
     indicator.setDevMode(isFake());
     indicator.setPosition(settings.indicatorPosition);
+    indicator.setMicSide(settings.micSide);
     mic = WKV.audio.createMic();
     answerIO.setIgnoreEnabled(settings.enabled && settings.ignoreWrongAnswers);
     state = 'off';
@@ -758,6 +761,7 @@
     if (!active) return;
     answerIO.setIgnoreEnabled(next.enabled && next.ignoreWrongAnswers);
     indicator.setPosition(next.indicatorPosition);
+    indicator.setMicSide(next.micSide);
     if (wasFake !== isFake()) {
       indicator.setDevMode(isFake());
       if (isFake()) {
