@@ -1360,7 +1360,13 @@ readings and 25 meanings.
      reading padding (0.4.7): readings 118 -> 170 of 400, meanings
      234 -> 239 of 300. Submitted to AMO's listed channel 2026-11-02
      (version 6655713), public on AMO the same day; GitHub release
-     v0.4.7. Chrome Web Store: 0.4.7 uploaded, in review.
+     v0.4.7. Chrome Web Store: 0.4.7 rejected 2026-11-04 as remotely
+     hosted code: transformers.js's default wasmPaths on cdn.jsdelivr.net
+     (never used, asr-worker.js sets vendor/ort/; 0.4.2 had the same string
+     and passed). tools/build.mjs now rewrites that default to the bundled
+     folder and fails on any CDN URL in a built script.
+   - **v0.4.8** (2026-11-04): Chrome only, for that rejection. Firefox stays
+     on 0.4.7 (same behaviour; not resubmitted to AMO).
 2. **Training inside the extension** (deferred 2026-10-04). Train only the
    kana head (0.69M weights), in plain JS/WASM, from a recorder in the
    settings page. Clips and weights stay in IndexedDB, and the CTC loss and

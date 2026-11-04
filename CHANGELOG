@@ -1,5 +1,5 @@
 Voice Answers for WaniKani: Unofficial Tool
-Patch notes: from 0.1.2 (the first listed version, 2026-10-05) to 0.4.7
+Patch notes: from 0.1.2 (the first listed version, 2026-10-05) to 0.4.8
 
 As always: speech recognition runs entirely on your device, the add-on
 makes no network requests, the question is never read, and a wrong answer
@@ -7,6 +7,17 @@ goes in exactly as you said it.
 
 Accuracy numbers below are from real recordings of WaniKani items:
 300 English meanings and 400 readings.
+
+
+0.4.8
+-----
+Chrome only; nothing changes for you.
+- The Chrome Web Store turned 0.4.7 down because the speech library has a
+  web address (jsDelivr) it would load its runtime from if none were set.
+  The add-on always sets its own, bundled copy, so that address was never
+  used; it is now gone from the package, and the build fails if a script
+  host's address ever appears in it again. Firefox stays on 0.4.7, which
+  works the same.
 
 
 0.4.7
