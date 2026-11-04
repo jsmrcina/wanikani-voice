@@ -1379,8 +1379,9 @@ readings and 25 meanings.
    - **v0.4.9** (2026-11-04): 0.4.8 for the stores, after trying it on the
      phone. AMO release notes, the description's Android and activity-log
      bullets (both listings) and the settings screenshot updated.
-     Submitted to AMO's listed channel 2026-11-04 (version 6665820, in
-     review); Chrome zip built for upload.
+     Submitted to AMO's listed channel 2026-11-04 (version 6665820),
+     public on AMO the same day; GitHub release v0.4.9 (v0.4.7's notes now
+     point Chrome users to it). Chrome Web Store: 0.4.9 uploaded, in review.
 2. **Training inside the extension** (deferred 2026-10-04). Train only the
    kana head (0.69M weights), in plain JS/WASM, from a recorder in the
    settings page. Clips and weights stay in IndexedDB, and the CTC loss and
