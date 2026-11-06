@@ -29,8 +29,8 @@ Status: **public** at https://chromewebstore.google.com/detail/voice-answers-for
   vendor/ort/ and fails the build on any CDN URL; mic button on the left on
   touch screens; time per question and a 10,000-entry limit in the activity
   log; 0.4.8 was a test build, never uploaded here): zip built 2026-11-04
-  for upload, with the activity-log bullet of the description updated and
-  a new settings screenshot.
+  and uploaded 2026-11-04, with the activity-log bullet of the description
+  updated and a new settings screenshot. Published 2026-11-06.
 
 **Microsoft Edge Add-ons: dropped (2026-10-07).** Its developer registration
 requires a contact address that is shown publicly on the developer profile,
