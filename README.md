@@ -352,13 +352,33 @@ otherwise "hear" something in silence.
   - kanji, romaji and readings starting with ん, っ or a small kana are
     rejected, never converted.
 
-**Accuracy** on the author's own recordings, from [PLAN.md](PLAN.md):
+**Accuracy** on the author's own recordings of WaniKani items, with the
+built-in models unless noted. Each cell is *right answer first / right
+answer among the 3 choices*. 0.2.7 is the version of 2026-10-13; 0.4.9 is
+measured 2026-11-06 with `tools/eval-asr.mjs` (`--personal all`,
+`--personal --ja`, `--set real-raw`), with and without the
+[WaniKani dictionary](#wanikani-dictionary). More in [PLAN.md](PLAN.md).
 
-| Answers | Right reading among the choices |
-|---|---|
-| English: 25 words | 25/25 (first choice 22/25) |
-| Readings: 31 words, generic model | 13/31 |
-| Readings: 31 words, fine-tuned on the author's voice | 24/31 |
+| Recordings | 0.2.7 | 0.4.9 | 0.4.9 + dictionary |
+|---|---|---|---|
+| English, 300 meanings: Moonshine (*fast*, default) | 227 / 259 | 242 / 271 | 259 / 272 |
+| English, 300 meanings: Whisper base.en (*accurate*) | 246 / 281 | 248 / 286 | 263 / 288 |
+| Readings, 400 | 163 / 253 | 168 / 265 | 251 / 287 |
+| Older benchmark, English, 25 words: Moonshine | 20 / 21 | 21 / 23 | 21 / 24 |
+| Older benchmark, English, 25 words: Whisper base.en | 22 / 25 | 22 / 25 | 22 / 25 |
+| Older benchmark, readings, 31 words | 13 / 13 | 12 / 13 | 13 / 14 |
+| Older benchmark, readings, 31 words, fine-tuned on the author's voice | 18 / 24 | 19 / 25 | n/a |
+
+The 300 and 400 recordings are what changes are measured on since
+2026-10-16 (the 0.2.7 readings figure is from that day, before the
+first round of improvements; 0.2.7's evaluation script couldn't score
+that set). The fine-tuned row uses the same model, trained 2026-10-04,
+in both columns. The older 25- and 31-word sets are small
+and recorded with a pause before each word, so they barely move. The
+0.4.7 fix for lost first sounds doesn't show here either: it matters when
+you start speaking right after pressing, and every recording here has a
+pause first. With speech 0.3 s into the clip, readings went from 118 to
+170 right first of 400 between 0.4.2 and 0.4.7.
 
 ### WaniKani dictionary
 
@@ -367,9 +387,9 @@ reading of some WaniKani item (any item at any level, plus your own
 synonyms; never just the current question) ahead of ones that aren't. It
 only reorders what the recogniser heard: an answer that isn't a WaniKani
 word is still offered, and a wrong answer still goes in as you said it.
-On 400 recorded readings it took the right reading first from 166 to 248
-(offered among 3 choices: 270 → 284), and on 300 recorded meanings from
-242 to 259.
+On 400 recorded readings it takes the right reading first from 168 to 251
+(offered among 3 choices: 265 → 287), and on 300 recorded meanings from
+242 to 259 (0.4.9, 2026-11-06).
 
 WaniKani's content may not be redistributed, so it isn't bundled: you make
 the file yourself from your own account (a read-only token: WaniKani →
